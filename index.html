@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GeezVTT</title>
+<title>VTT</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
 
@@ -244,13 +244,19 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
       </select>
     </div>
     <div class="f">
-      <label>Token Image URL</label>
-      <input id="tok-img-url" type="text" placeholder="https://yourusername.github.io/vtt/tokens/fighter.png">
-      <div class="note">Upload the image to your GitHub repo /tokens folder first</div>
+      <label>Token Image</label>
+      <select id="tok-img-select" onchange="onTokImgSelectChange(this.value)" style="margin-bottom:0.3rem;">
+        <option value="">-- Paste a new URL below --</option>
+      </select>
+      <input id="tok-img-url" type="text" placeholder="https://raw.githubusercontent.com/...">
+      <div class="note">Paste once — saves to dropdown for next time</div>
     </div>
     <div class="f" id="tok-sheet-wrap">
-      <label>Character Sheet Image URL</label>
-      <input id="tok-sheet-url" type="text" placeholder="https://yourusername.github.io/vtt/sheets/thorin.png">
+      <label>Character Sheet Image</label>
+      <select id="tok-sheet-select" onchange="onTokSheetSelectChange(this.value)" style="margin-bottom:0.3rem;">
+        <option value="">-- Paste a new URL below --</option>
+      </select>
+      <input id="tok-sheet-url" type="text" placeholder="https://raw.githubusercontent.com/...">
       <div class="note">Players see this when they click the token</div>
     </div>
     <div class="f" id="tok-lore-wrap" style="display:none">
@@ -268,10 +274,20 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
 <div class="overlay" id="map-modal">
   <div class="modal">
     <h3>Set Map</h3>
-    <p>Upload your map image to the /maps folder in your GitHub repo, then paste the URL below.</p>
     <div class="f">
-      <label>Map Image URL</label>
-      <input id="map-url-input" type="text" placeholder="https://yourusername.github.io/vtt/maps/dungeon.png">
+      <label>Saved Maps</label>
+      <select id="map-saved-select" onchange="onMapSelectChange(this.value)" style="margin-bottom:0.4rem;">
+        <option value="">-- Paste a new URL below --</option>
+      </select>
+    </div>
+    <div class="f" id="map-new-url-wrap">
+      <label>New Map URL</label>
+      <input id="map-url-input" type="text" placeholder="https://raw.githubusercontent.com/...">
+      <div class="note">Paste URL → it saves to your dropdown automatically</div>
+    </div>
+    <div class="f" id="map-new-name-wrap">
+      <label>Nickname (optional)</label>
+      <input id="map-url-name" type="text" placeholder="e.g. Bridge - Disney Session 3" maxlength="40">
     </div>
     <div class="modal-btns">
       <button class="btn-p" onclick="setMap()">Load Map</button>
@@ -375,7 +391,7 @@ let fogResize=null, fogResizeSW=0, fogResizeSH=0, fogResizeMX=0, fogResizeMY=0;
 let fogDrawing=false, fogDrawId=null, fogDrawSX=0, fogDrawSY=0;
 const shownPings=new Set();
 
-let tokRef, rollRef, mapRef, presRef, pingRef, fogRef;
+let tokRef, rollRef, mapRef, presRef, pingRef, fogRef, urlLibRef;
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 // Hardcoded Firebase config — players never need to enter anything
@@ -414,12 +430,16 @@ window.enter=async()=>{
   catch(e){toast('Firebase: '+e.message);return;}
   if(isGM)document.body.classList.add('is-gm');
 
-  tokRef  =ref(db,`s/${sid}/tokens`);
-  rollRef =ref(db,`s/${sid}/rolls`);
-  mapRef  =ref(db,`s/${sid}/map`);
-  presRef =ref(db,`s/${sid}/pres/${myId}`);
-  pingRef =ref(db,`s/${sid}/pings`);
-  fogRef  =ref(db,`s/${sid}/fogs`);
+  tokRef   =ref(db,`s/${sid}/tokens`);
+  rollRef  =ref(db,`s/${sid}/rolls`);
+  mapRef   =ref(db,`s/${sid}/map`);
+  presRef  =ref(db,`s/${sid}/pres/${myId}`);
+  pingRef  =ref(db,`s/${sid}/pings`);
+  fogRef   =ref(db,`s/${sid}/fogs`);
+  urlLibRef=ref(db,`urlibrary`);
+
+  // load url library once
+  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
 
   await set(presRef,{name:myName,ts:serverTimestamp()});
   onDisconnect(presRef).remove();
@@ -442,17 +462,83 @@ window.enter=async()=>{
   toast(`Welcome, ${myName}`);
 };
 
+// ── URL LIBRARY ──────────────────────────────────────────────────────────────
+let urlLibrary = {}; // { id: {url, name, type, ts} }
+
+async function saveUrl(url, name, type) {
+  if(!url) return;
+  // check if already exists
+  const existing = Object.values(urlLibrary).find(e => e.url === url);
+  if(existing) return;
+  const id = push(urlLibRef).key;
+  await set(ref(db,`urlibrary/${id}`), {url, name:name||url.split('/').pop(), type, ts:Date.now()});
+  // update local
+  urlLibrary[id] = {url, name:name||url.split('/').pop(), type, ts:Date.now()};
+}
+
+function getUrlsByType(type) {
+  return Object.entries(urlLibrary)
+    .filter(([,v]) => v.type === type)
+    .sort((a,b) => b[1].ts - a[1].ts)
+    .map(([id,v]) => ({id, url:v.url, name:v.name}));
+}
+
+function populateSelect(selectId, type, currentUrl='') {
+  const sel = document.getElementById(selectId);
+  const urls = getUrlsByType(type);
+  sel.innerHTML = '<option value="">-- Paste a new URL below --</option>';
+  urls.forEach(({url, name}) => {
+    const opt = document.createElement('option');
+    opt.value = url;
+    opt.textContent = name;
+    if(url === currentUrl) opt.selected = true;
+    sel.appendChild(opt);
+  });
+  // if current url is in list, hide the paste input
+  const hasMatch = urls.some(u => u.url === currentUrl);
+  return hasMatch;
+}
+
 // ── MAP ───────────────────────────────────────────────────────────────────────
 window.openMapModal=()=>{
-  const current=document.getElementById('map-img').src;
-  document.getElementById('map-url-input').value=current&&current!==window.location.href?current:'';
+  // reload url library fresh
+  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
+  setTimeout(()=>{
+    const current=document.getElementById('map-img').src;
+    const hasMatch = populateSelect('map-saved-select','map', current!==window.location.href?current:'');
+    document.getElementById('map-url-input').value='';
+    document.getElementById('map-url-name').value='';
+    const newWrap = document.getElementById('map-new-url-wrap');
+    const nameWrap = document.getElementById('map-new-name-wrap');
+    newWrap.style.display = hasMatch ? 'none' : 'block';
+    nameWrap.style.display = hasMatch ? 'none' : 'block';
+  }, 200);
   document.getElementById('map-modal').classList.add('open');
 };
+
+window.onMapSelectChange=(val)=>{
+  const newWrap = document.getElementById('map-new-url-wrap');
+  const nameWrap = document.getElementById('map-new-name-wrap');
+  if(val) {
+    newWrap.style.display='none';
+    nameWrap.style.display='none';
+    document.getElementById('map-url-input').value='';
+  } else {
+    newWrap.style.display='block';
+    nameWrap.style.display='block';
+  }
+};
+
 window.closeMapModal=()=>document.getElementById('map-modal').classList.remove('open');
 
 window.setMap=async()=>{
-  const url=document.getElementById('map-url-input').value.trim();
-  if(!url){toast('Paste a map URL first');return;}
+  const selected = document.getElementById('map-saved-select').value;
+  const pasted = document.getElementById('map-url-input').value.trim();
+  const nickname = document.getElementById('map-url-name').value.trim();
+  const url = selected || pasted;
+  if(!url){toast('Choose a map or paste a URL');return;}
+  // save new url to library
+  if(pasted) await saveUrl(pasted, nickname, 'map');
   await set(mapRef,{url,ts:Date.now()});
   closeMapModal();toast('Map loaded!');
 };
@@ -496,7 +582,24 @@ window.updateTokTypeUI=(type)=>{
   document.getElementById('tok-lore-wrap').style.display=type==='enemy'?'block':'none';
 };
 
+window.onTokImgSelectChange=(val)=>{
+  document.getElementById('tok-img-url').style.display = val ? 'none' : 'block';
+  if(val) document.getElementById('tok-img-url').value='';
+};
+
+window.onTokSheetSelectChange=(val)=>{
+  document.getElementById('tok-sheet-url').style.display = val ? 'none' : 'block';
+  if(val) document.getElementById('tok-sheet-url').value='';
+};
+
 window.openTokModal=()=>{
+  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
+  setTimeout(()=>{
+    populateSelect('tok-img-select','token');
+    populateSelect('tok-sheet-select','sheet');
+    document.getElementById('tok-img-url').style.display='block';
+    document.getElementById('tok-sheet-url').style.display='block';
+  }, 200);
   document.getElementById('tok-modal-title').textContent='Add Token';
   document.getElementById('tok-save-btn').textContent='Add Token';
   document.getElementById('tok-name').value='';
@@ -513,11 +616,16 @@ window.saveToken=async()=>{
   if(!isGM)return;
   const name=document.getElementById('tok-name').value.trim();
   const type=document.getElementById('tok-type').value;
-  const imgUrl=document.getElementById('tok-img-url').value.trim();
-  const sheetUrl=document.getElementById('tok-sheet-url').value.trim();
+  const imgUrl=document.getElementById('tok-img-select').value||document.getElementById('tok-img-url').value.trim();
+  const sheetUrl=document.getElementById('tok-sheet-select').value||document.getElementById('tok-sheet-url').value.trim();
   const lore=document.getElementById('tok-lore').value.trim();
   if(!name){toast('Enter a name');return;}
-  if(!imgUrl){toast('Paste a token image URL');return;}
+  if(!imgUrl){toast('Choose or paste a token image URL');return;}
+  // save new urls to library
+  const pastedImg = document.getElementById('tok-img-url').value.trim();
+  const pastedSheet = document.getElementById('tok-sheet-url').value.trim();
+  if(pastedImg) await saveUrl(pastedImg, name+' token', 'token');
+  if(pastedSheet) await saveUrl(pastedSheet, name+' sheet', 'sheet');
   const b=document.getElementById('board');
   const cx=(b.clientWidth/2-panX)/scale, cy=(b.clientHeight/2-panY)/scale;
   const id=push(tokRef).key;
