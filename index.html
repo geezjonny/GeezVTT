@@ -6,49 +6,36 @@
 <title>VTT</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
-
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-
 :root{
-  --bg:#0d0b09;
-  --surface:#141210;
-  --border:rgba(180,130,60,0.2);
-  --gold:#b8822a;
-  --gold-hi:#dba84a;
-  --text:#e8dcc8;
-  --dim:#7a6a52;
-  --red:#7a1a1a;
-  --ping:#4fc3f7;
-  --fog:rgba(8,6,4,0.9);
+  --bg:#0d0b09;--surface:#141210;--border:rgba(180,130,60,0.2);
+  --gold:#b8822a;--gold-hi:#dba84a;--text:#e8dcc8;--dim:#7a6a52;
+  --red:#7a1a1a;--ping:#4fc3f7;--fog:rgba(8,6,4,0.92);
 }
-
 body{background:var(--bg);color:var(--text);font-family:'IM Fell English',Georgia,serif;height:100vh;overflow:hidden;}
 
 /* ══ SETUP ══ */
 #setup{height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 35%,#1e1408 0%,#060402 100%);}
 #setup h1{font-family:'Cinzel',serif;font-size:2.4rem;font-weight:700;color:var(--gold-hi);letter-spacing:0.18em;text-shadow:0 0 40px rgba(184,130,42,0.4);margin-bottom:0.1rem;}
 #setup .sub{font-style:italic;color:var(--dim);font-size:0.95rem;margin-bottom:2rem;letter-spacing:0.06em;}
-
 .card{background:#100e0b;border:1px solid var(--gold);width:400px;padding:1.8rem 2.2rem;position:relative;}
 .card::after{content:'';position:absolute;inset:4px;border:1px solid rgba(180,130,60,0.09);pointer-events:none;}
 .card h2{font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.22em;color:var(--gold);text-align:center;margin-bottom:1.5rem;text-transform:uppercase;}
-
 .f{margin-bottom:0.9rem;}
 .f label{display:block;font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--dim);margin-bottom:0.28rem;}
 .f input,.f select,.f textarea{width:100%;background:rgba(0,0,0,0.5);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.95rem;padding:0.48rem 0.65rem;outline:none;transition:border-color 0.15s;border-radius:1px;resize:vertical;}
 .f input:focus,.f select:focus,.f textarea:focus{border-color:var(--gold);}
 .f select option{background:#100e0b;}
 .f .note{font-size:0.7rem;color:rgba(232,220,200,0.3);margin-top:0.22rem;font-style:italic;}
-
 .btn-p{width:100%;padding:0.68rem;font-family:'Cinzel',serif;font-size:0.76rem;letter-spacing:0.16em;text-transform:uppercase;cursor:pointer;border-radius:1px;background:linear-gradient(135deg,#7a1a1a,#561010);color:var(--text);border:1px solid #9a2a2a;transition:all 0.15s;margin-top:0.25rem;}
 .btn-p:hover{background:linear-gradient(135deg,#9a2020,#7a1a1a);transform:translateY(-1px);}
 .btn-g{width:100%;padding:0.56rem;font-family:'Cinzel',serif;font-size:0.7rem;letter-spacing:0.14em;text-transform:uppercase;cursor:pointer;border-radius:1px;background:transparent;color:var(--gold);border:1px solid var(--border);transition:all 0.15s;margin-top:0.45rem;}
 .btn-g:hover{border-color:var(--gold);background:rgba(180,130,60,0.06);}
 
-/* ══ MODAL ══ */
+/* ══ MODALS ══ */
 .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:800;align-items:center;justify-content:center;}
 .overlay.open{display:flex;}
-.modal{background:#100e0b;border:1px solid var(--gold);padding:1.6rem 1.8rem;width:480px;max-width:92vw;max-height:90vh;overflow-y:auto;border-radius:1px;box-shadow:0 20px 60px rgba(0,0,0,0.9);}
+.modal{background:#100e0b;border:1px solid var(--gold);padding:1.6rem 1.8rem;width:500px;max-width:94vw;max-height:92vh;overflow-y:auto;border-radius:1px;box-shadow:0 20px 60px rgba(0,0,0,0.9);}
 .modal h3{font-family:'Cinzel',serif;color:var(--gold);font-size:0.88rem;letter-spacing:0.12em;margin-bottom:0.75rem;}
 .modal p{font-size:0.82rem;color:var(--dim);line-height:1.65;margin-bottom:0.9rem;font-style:italic;}
 .modal-btns{display:flex;gap:0.6rem;margin-top:1.1rem;}
@@ -56,24 +43,31 @@ body{background:var(--bg);color:var(--text);font-family:'IM Fell English',Georgi
 
 /* ══ APP ══ */
 #app{display:none;height:100vh;flex-direction:column;}
-
-#bar{height:40px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 0.7rem;gap:0.45rem;z-index:30;}
+#bar{height:40px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 0.7rem;gap:0.45rem;z-index:30;overflow-x:auto;}
+#bar::-webkit-scrollbar{display:none;}
 .logo{font-family:'Cinzel',serif;font-size:0.76rem;color:var(--gold);letter-spacing:0.16em;white-space:nowrap;margin-right:0.2rem;}
 .vsep{width:1px;height:17px;background:var(--border);flex-shrink:0;}
-.tb{background:transparent;border:1px solid var(--border);color:var(--dim);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.09em;padding:0.2rem 0.5rem;border-radius:1px;cursor:pointer;white-space:nowrap;transition:all 0.12s;text-transform:uppercase;}
+.tb{background:transparent;border:1px solid var(--border);color:var(--dim);font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.09em;padding:0.2rem 0.5rem;border-radius:1px;cursor:pointer;white-space:nowrap;transition:all 0.12s;text-transform:uppercase;flex-shrink:0;}
 .tb:hover{border-color:var(--gold);color:var(--gold-hi);background:rgba(180,130,60,0.06);}
 .tb.active{border-color:var(--gold);color:var(--gold-hi);background:rgba(180,130,60,0.1);}
 .tb.danger{border-color:rgba(122,26,26,0.38);color:#a05050;}
 .tb.danger:hover{border-color:var(--red);color:#ff8888;background:rgba(122,26,26,0.12);}
 .tb.fog-mode{border-color:rgba(80,100,160,0.4);color:#9999cc;}
 .tb.fog-mode.active{border-color:#9999cc;color:#ccccee;background:rgba(80,100,160,0.15);}
-
+.tb.ruler-mode{border-color:rgba(80,160,100,0.4);color:#99cc99;}
+.tb.ruler-mode.active{border-color:#99cc99;color:#cceecc;background:rgba(80,160,100,0.15);}
+.tb.calib-mode{border-color:rgba(160,130,60,0.4);color:#ccaa66;}
+.tb.calib-mode.active{border-color:#ccaa66;color:#eedd99;background:rgba(160,130,60,0.15);}
 #sdot{width:6px;height:6px;border-radius:50%;background:#333;flex-shrink:0;transition:all 0.3s;}
 #sdot.ok{background:#5aad5a;box-shadow:0 0 5px rgba(90,173,90,0.5);}
-#bar-right{margin-left:auto;display:flex;align-items:center;gap:0.5rem;}
+#bar-right{margin-left:auto;display:flex;align-items:center;gap:0.5rem;flex-shrink:0;}
 .pip{width:6px;height:6px;border-radius:50%;background:#5aad5a;box-shadow:0 0 4px rgba(90,173,90,0.4);display:inline-block;}
 #sid-lbl{font-size:0.72rem;color:rgba(180,130,60,0.4);cursor:pointer;padding:0.14rem 0.32rem;border:1px solid transparent;border-radius:1px;transition:all 0.15s;font-family:'IM Fell English',serif;}
 #sid-lbl:hover{border-color:var(--border);color:var(--gold);}
+/* fog opacity slider in bar */
+.fog-slider-wrap{display:flex;align-items:center;gap:0.3rem;flex-shrink:0;}
+.fog-slider-wrap label{font-family:'Cinzel',serif;font-size:0.55rem;color:rgba(150,150,200,0.7);letter-spacing:0.06em;white-space:nowrap;}
+#fog-opacity-slider{width:60px;accent-color:#9999cc;cursor:pointer;}
 
 .gm{display:none!important;}
 body.is-gm .gm{display:flex!important;}
@@ -82,15 +76,14 @@ body.is-gm .gm-b{display:block!important;}
 
 /* ══ LAYOUT ══ */
 #main{display:flex;flex:1;overflow:hidden;}
-
 #board{flex:1;position:relative;overflow:hidden;background:#080604;cursor:default;}
 #board-wrap{position:absolute;transform-origin:0 0;}
 #map-img{display:block;position:relative;z-index:1;pointer-events:none;user-select:none;}
 #token-layer{position:absolute;top:0;left:0;z-index:50;}
 #fog-layer{position:absolute;top:0;left:0;z-index:40;pointer-events:none;}
 #ping-layer{position:absolute;top:0;left:0;z-index:60;pointer-events:none;}
+#ruler-layer{position:absolute;top:0;left:0;z-index:70;pointer-events:none;}
 body.is-gm #fog-layer{pointer-events:all;}
-
 #empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.8rem;pointer-events:none;}
 #empty-state.gone{display:none;}
 #empty-state p{font-family:'Cinzel',serif;font-size:0.82rem;color:rgba(180,130,60,0.22);letter-spacing:0.14em;}
@@ -98,15 +91,34 @@ body.is-gm #fog-layer{pointer-events:all;}
 /* ══ TOKENS ══ */
 .token{position:absolute;transform:translate(-50%,-50%);z-index:10;user-select:none;}
 .token img{width:100%;height:100%;object-fit:cover;border-radius:50%;border:2px solid rgba(255,255,255,0.5);box-shadow:0 2px 10px rgba(0,0,0,0.8);display:block;pointer-events:none;user-select:none;-webkit-user-drag:none;}
-.token-name{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.05em;white-space:nowrap;color:#fff;text-shadow:0 0 4px #000,0 1px 4px #000;pointer-events:none;}
+.token-name{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.05em;white-space:nowrap;color:#fff;text-shadow:0 0 4px #000,0 1px 4px #000;pointer-events:none;text-align:center;}
+.token-statuses{position:absolute;bottom:-28px;left:50%;transform:translateX(-50%);display:flex;gap:2px;pointer-events:none;flex-wrap:wrap;justify-content:center;max-width:120px;}
+.status-badge{font-size:0.48rem;padding:0.06rem 0.22rem;border-radius:2px;white-space:nowrap;font-family:'Cinzel',serif;letter-spacing:0.04em;}
 .token.type-pc img{border-color:rgba(100,180,255,0.7);}
 .token.type-enemy img{border-color:rgba(220,80,80,0.7);}
 body.is-gm .token{cursor:grab;}
 body.is-gm .token:hover img{box-shadow:0 0 0 2px var(--gold),0 2px 12px rgba(0,0,0,0.8);}
 body.is-gm .token.dragging{cursor:grabbing;opacity:0.75;z-index:100;}
 
+/* status colors */
+.s-poisoned{background:#2d6a2d;color:#aaffaa;}
+.s-stunned{background:#4a2d6a;color:#ddaaff;}
+.s-prone{background:#5a4a2a;color:#ffddaa;}
+.s-blinded{background:#3a3a3a;color:#aaaaaa;}
+.s-charmed{background:#6a2d4a;color:#ffaad4;}
+.s-frightened{background:#6a2d2d;color:#ffaaaa;}
+.s-incapacitated{background:#6a5a2a;color:#ffffaa;}
+.s-paralyzed{background:#2a2a6a;color:#aaaaff;}
+.s-petrified{background:#4a4a4a;color:#cccccc;}
+.s-restrained{background:#4a3a2a;color:#ffccaa;}
+.s-exhausted{background:#3a3a5a;color:#aaaacc;}
+.s-unconscious{background:#1a1a2a;color:#8888aa;}
+.s-concentrating{background:#2a4a6a;color:#aaccff;}
+.s-raging{background:#6a1a1a;color:#ff8888;}
+.s-dead{background:#0a0a0a;color:#666666;}
+
 /* ══ FOG ══ */
-.fog-rect{position:absolute;background:var(--fog);border:1px solid rgba(255,255,255,0.04);z-index:3;border-radius:2px;}
+.fog-rect{position:absolute;border:1px solid rgba(255,255,255,0.04);z-index:3;border-radius:2px;transition:opacity 0.2s;}
 body.is-gm .fog-rect{cursor:move;}
 body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px rgba(150,150,220,0.3);}
@@ -124,26 +136,111 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
 @keyframes pring{0%{width:14px;height:14px;top:-7px;left:-7px;opacity:0.9}100%{width:70px;height:70px;top:-35px;left:-35px;opacity:0}}
 .ping-lbl{position:absolute;top:18px;left:50%;transform:translateX(-50%);font-family:'Cinzel',serif;font-size:0.48rem;color:var(--ping);white-space:nowrap;text-shadow:0 0 4px #000;letter-spacing:0.06em;}
 
-/* ══ PANEL ══ */
-#panel{width:260px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-#info-pane{flex-shrink:0;border-bottom:1px solid var(--border);display:none;flex-direction:column;max-height:55%;overflow:hidden;}
-#info-pane.open{display:flex;}
-#info-header{display:flex;align-items:center;justify-content:space-between;padding:0.55rem 0.75rem 0.45rem;flex-shrink:0;}
-#info-name{font-family:'Cinzel',serif;font-size:0.78rem;color:var(--gold-hi);letter-spacing:0.08em;}
-#info-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;line-height:1;padding:0.1rem 0.3rem;transition:color 0.12s;}
-#info-close:hover{color:var(--text);}
-#info-sheet{flex:1;overflow:auto;padding:0 0.5rem 0.5rem;}
-#info-sheet img{width:100%;border-radius:2px;border:1px solid var(--border);}
-#info-enemy{padding:0 0.75rem 0.75rem;font-size:0.82rem;line-height:1.65;font-style:italic;color:rgba(232,220,200,0.7);}
-#info-enemy strong{display:block;font-family:'Cinzel',serif;font-size:0.72rem;letter-spacing:0.08em;color:var(--gold);margin-bottom:0.35rem;font-style:normal;}
+/* ══ RULER ══ */
+#ruler-canvas{position:absolute;top:0;left:0;pointer-events:none;}
 
+/* ══ PANEL ══ */
+#panel{width:300px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+
+/* CHARACTER SHEET PANE */
+#sheet-pane{flex-shrink:0;border-bottom:1px solid var(--border);display:none;flex-direction:column;overflow:hidden;max-height:70vh;}
+#sheet-pane.open{display:flex;}
+#sheet-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;flex-shrink:0;background:rgba(0,0,0,0.2);}
+#sheet-char-name{font-family:'Cinzel',serif;font-size:0.82rem;color:var(--gold-hi);letter-spacing:0.08em;}
+#sheet-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;line-height:1;padding:0.1rem 0.3rem;}
+#sheet-close:hover{color:var(--text);}
+#sheet-body{flex:1;overflow-y:auto;padding:0.6rem;}
+#sheet-body::-webkit-scrollbar{width:3px;}
+#sheet-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* sheet top stats */
+.sheet-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;margin-bottom:0.6rem;}
+.stat-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.3rem 0.4rem;text-align:center;}
+.stat-box .sv{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-hi);font-weight:700;line-height:1;}
+.stat-box .sl{font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:0.15rem;}
+
+/* HP bar */
+.hp-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:2px;padding:0.4rem 0.5rem;}
+.hp-label{font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;white-space:nowrap;}
+.hp-val{font-family:'Cinzel',serif;font-size:0.9rem;color:#ff6666;font-weight:700;min-width:28px;text-align:center;}
+.hp-sep{color:var(--dim);font-size:0.7rem;}
+.hp-max{font-family:'Cinzel',serif;font-size:0.75rem;color:var(--dim);}
+.hp-btn{background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);width:20px;height:20px;border-radius:2px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s;}
+.hp-btn:hover{border-color:var(--gold);color:var(--gold-hi);}
+.hp-input{width:36px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.78rem;padding:0.15rem 0.3rem;border-radius:1px;outline:none;text-align:center;}
+.hp-input:focus{border-color:var(--gold);}
+
+/* collapsible sections */
+.cs-section{border:1px solid var(--border);border-radius:2px;margin-bottom:0.4rem;overflow:hidden;}
+.cs-header{display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;cursor:pointer;background:rgba(0,0,0,0.2);transition:background 0.12s;user-select:none;}
+.cs-header:hover{background:rgba(0,0,0,0.35);}
+.cs-title{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);}
+.cs-arrow{font-size:0.6rem;color:var(--dim);transition:transform 0.2s;}
+.cs-section.open .cs-arrow{transform:rotate(180deg);}
+.cs-body{display:none;padding:0.5rem;}
+.cs-section.open .cs-body{display:block;}
+
+/* abilities grid */
+.ab-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.3rem;}
+.ab-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.25rem 0.15rem;text-align:center;}
+.ab-mod{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold-hi);font-weight:700;line-height:1;}
+.ab-score{font-size:0.62rem;color:var(--dim);}
+.ab-name{font-family:'Cinzel',serif;font-size:0.45rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);}
+
+/* saves row */
+.saves-row{display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.4rem;}
+.save-pill{font-family:'Cinzel',serif;font-size:0.52rem;padding:0.12rem 0.35rem;border-radius:2px;border:1px solid var(--border);color:var(--dim);}
+.save-pill.prof{border-color:var(--gold);color:var(--gold-hi);background:rgba(180,130,60,0.1);}
+
+/* skills list */
+.skill-row{display:flex;align-items:center;gap:0.3rem;padding:0.15rem 0;border-bottom:1px solid rgba(180,130,60,0.06);}
+.skill-prof{width:8px;height:8px;border-radius:50%;border:1px solid var(--dim);flex-shrink:0;}
+.skill-prof.p{background:var(--gold);border-color:var(--gold);}
+.skill-prof.e{background:var(--gold-hi);border-color:var(--gold-hi);}
+.skill-name{font-family:'Cinzel',serif;font-size:0.58rem;flex:1;color:var(--text);}
+.skill-mod{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold-hi);min-width:24px;text-align:right;}
+
+/* spell slots */
+.spell-level-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.3rem;}
+.spell-level-label{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--dim);width:40px;flex-shrink:0;}
+.spell-slots{display:flex;gap:3px;flex-wrap:wrap;}
+.spell-slot{width:14px;height:14px;border-radius:50%;border:1px solid var(--gold);cursor:pointer;transition:all 0.1s;}
+.spell-slot.used{background:rgba(0,0,0,0.5);border-color:var(--dim);}
+.spell-slot.avail{background:var(--gold);box-shadow:0 0 4px rgba(180,130,60,0.4);}
+
+/* inventory */
+.inv-row{display:flex;align-items:center;gap:0.3rem;padding:0.18rem 0;border-bottom:1px solid rgba(180,130,60,0.06);font-size:0.72rem;}
+.inv-qty{color:var(--gold);font-family:'Cinzel',serif;font-size:0.62rem;min-width:20px;text-align:center;}
+.inv-name{flex:1;color:var(--text);}
+.inv-notes{font-size:0.62rem;color:var(--dim);font-style:italic;}
+
+/* features */
+.feat-row{margin-bottom:0.5rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(180,130,60,0.08);}
+.feat-name{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold);margin-bottom:0.2rem;}
+.feat-desc{font-size:0.7rem;color:rgba(232,220,200,0.65);line-height:1.55;font-style:italic;}
+
+/* notes textarea */
+.notes-area{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.8rem;padding:0.4rem 0.5rem;border-radius:1px;outline:none;resize:vertical;min-height:80px;line-height:1.5;}
+.notes-area:focus{border-color:var(--gold);}
+
+/* status picker */
+.status-picker{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem;}
+.sp-btn{font-size:0.55rem;padding:0.12rem 0.3rem;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--dim);font-family:'Cinzel',serif;transition:all 0.1s;}
+.sp-btn.active{border-color:var(--gold-hi);color:var(--gold-hi);background:rgba(180,130,60,0.12);}
+
+/* enemy pane */
+#enemy-pane{flex-shrink:0;border-bottom:1px solid var(--border);display:none;flex-direction:column;}
+#enemy-pane.open{display:flex;}
+.enemy-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;background:rgba(0,0,0,0.2);}
+.enemy-name-lbl{font-family:'Cinzel',serif;font-size:0.82rem;color:#ff8888;letter-spacing:0.08em;}
+.enemy-body{padding:0.6rem 0.7rem;font-size:0.8rem;font-style:italic;color:rgba(232,220,200,0.65);line-height:1.65;}
+
+/* ══ PANEL SCROLL ══ */
 #panel-scroll{flex:1;overflow-y:auto;}
 #panel-scroll::-webkit-scrollbar{width:3px;}
 #panel-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .ps{padding:0.8rem;border-bottom:1px solid var(--border);}
 .ps h3{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.65rem;}
-
-/* Dice */
 .dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.26rem;margin-bottom:0.5rem;}
 .db{background:rgba(122,26,26,0.1);border:1px solid rgba(122,26,26,0.26);color:var(--dim);font-family:'Cinzel',serif;font-size:0.63rem;padding:0.35rem 0.1rem;border-radius:1px;cursor:pointer;text-align:center;transition:all 0.12s;}
 .db:hover{background:rgba(122,26,26,0.3);border-color:#7a1a1a;color:#ffaaaa;transform:translateY(-1px);}
@@ -162,8 +259,6 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
 .re .who{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);}
 .re .tot{font-size:0.94rem;font-weight:bold;color:var(--gold-hi);margin-left:0.12rem;}
 .re .brk{font-size:0.64rem;color:rgba(232,220,200,0.3);}
-
-/* Token list */
 #tok-list{display:flex;flex-direction:column;gap:0.25rem;margin-bottom:0.45rem;}
 .tli{display:flex;align-items:center;gap:0.4rem;padding:0.28rem 0.4rem;background:rgba(0,0,0,0.16);border:1px solid transparent;border-radius:1px;cursor:pointer;transition:all 0.12s;}
 .tli:hover{border-color:var(--border);}
@@ -173,10 +268,8 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
 .tli-type{font-size:0.55rem;color:var(--dim);font-family:'Cinzel',serif;flex-shrink:0;}
 .tli-del{background:none;border:none;color:#884444;cursor:pointer;font-size:0.75rem;padding:0.08rem 0.2rem;opacity:0;transition:opacity 0.12s;line-height:1;}
 .tli:hover .tli-del{opacity:1;}
-
 .action-btn{display:block;width:100%;padding:0.35rem;font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;text-align:center;color:var(--gold);border:1px solid var(--border);border-radius:1px;cursor:pointer;transition:all 0.12s;margin-bottom:0.28rem;background:transparent;}
 .action-btn:hover{border-color:var(--gold);background:rgba(180,130,60,0.07);}
-
 .ping-note{font-size:0.7rem;font-style:italic;color:var(--dim);line-height:1.6;opacity:0.8;}
 
 #toast{position:fixed;bottom:1.1rem;left:50%;transform:translateX(-50%) translateY(60px);background:rgba(10,8,6,0.97);border:1px solid var(--gold);color:var(--text);font-family:'Cinzel',serif;font-size:0.66rem;letter-spacing:0.1em;padding:0.45rem 1.1rem;border-radius:1px;box-shadow:0 4px 18px rgba(0,0,0,0.6);z-index:9999;transition:transform 0.22s;white-space:nowrap;}
@@ -191,77 +284,61 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
   <p class="sub">simple · persistent · browser-based</p>
   <div class="card">
     <h2>Join the Table</h2>
-    <div class="f">
-      <label>Your Name</label>
-      <input id="inp-name" type="text" placeholder="Thorin..." maxlength="24">
-    </div>
+    <div class="f"><label>Your Name</label><input id="inp-name" type="text" placeholder="Thorin..." maxlength="24"></div>
     <div class="f">
       <label>Role</label>
-      <select id="inp-role">
-        <option value="player">Player</option>
-        <option value="gm">Game Master</option>
-      </select>
+      <select id="inp-role"><option value="player">Player</option><option value="gm">Game Master</option></select>
     </div>
     <div class="f">
       <label>Session ID</label>
       <input id="inp-sid" type="text" placeholder="avernus-campaign" maxlength="40">
-      <div class="note">Everyone uses the same ID — opens to whatever the GM last loaded</div>
+      <div class="note">Everyone uses the same ID</div>
     </div>
     <button class="btn-p" onclick="enter()">Enter</button>
     <button class="btn-g" onclick="openCfg()">⚙ Firebase Config</button>
   </div>
 </div>
 
-<!-- FIREBASE CONFIG MODAL -->
+<!-- CONFIG MODAL -->
 <div class="overlay" id="cfg-modal">
   <div class="modal">
     <h3>⚙ Firebase Config</h3>
-    <p>Free project at console.firebase.google.com → enable Realtime Database (test mode) → Project Settings → Web App → copy values below. No Storage needed.</p>
-    <div class="f"><label>API Key</label><input id="c-key" type="text" placeholder="AIzaSy..."></div>
-    <div class="f"><label>Auth Domain</label><input id="c-auth" type="text" placeholder="project.firebaseapp.com"></div>
-    <div class="f"><label>Database URL</label><input id="c-db" type="text" placeholder="https://project-rtdb.firebaseio.com"><div class="note">Realtime Database → Data tab</div></div>
-    <div class="f"><label>Project ID</label><input id="c-pid" type="text" placeholder="project-12345"></div>
-    <div class="modal-btns">
-      <button class="btn-p" onclick="saveCfg()">Save</button>
-      <button class="btn-g" onclick="closeCfg()">Cancel</button>
-    </div>
+    <p>Free project at console.firebase.google.com → Realtime Database (test mode) → Project Settings → Web App.</p>
+    <div class="f"><label>API Key</label><input id="c-key" type="text"></div>
+    <div class="f"><label>Auth Domain</label><input id="c-auth" type="text"></div>
+    <div class="f"><label>Database URL</label><input id="c-db" type="text"><div class="note">Realtime Database → Data tab</div></div>
+    <div class="f"><label>Project ID</label><input id="c-pid" type="text"></div>
+    <div class="modal-btns"><button class="btn-p" onclick="saveCfg()">Save</button><button class="btn-g" onclick="closeCfg()">Cancel</button></div>
   </div>
 </div>
 
-<!-- ADD/EDIT TOKEN MODAL -->
+<!-- ADD TOKEN MODAL -->
 <div class="overlay" id="tok-modal">
   <div class="modal">
     <h3 id="tok-modal-title">Add Token</h3>
-    <div class="f">
-      <label>Name</label>
-      <input id="tok-name" type="text" placeholder="Merregon..." maxlength="30">
-    </div>
+    <div class="f"><label>Name</label><input id="tok-name" type="text" maxlength="30"></div>
     <div class="f">
       <label>Type</label>
       <select id="tok-type" onchange="updateTokTypeUI(this.value)">
-        <option value="pc">Player Character (PC)</option>
+        <option value="pc">Player Character</option>
         <option value="enemy">Enemy / NPC</option>
       </select>
     </div>
     <div class="f">
       <label>Token Image</label>
-      <select id="tok-img-select" onchange="onTokImgSelectChange(this.value)" style="margin-bottom:0.3rem;">
-        <option value="">-- Paste a new URL below --</option>
-      </select>
+      <select id="tok-img-select" onchange="onTokImgSelectChange(this.value)" style="margin-bottom:0.3rem;"><option value="">-- Paste new URL --</option></select>
       <input id="tok-img-url" type="text" placeholder="https://raw.githubusercontent.com/...">
-      <div class="note">Paste once — saves to dropdown for next time</div>
+      <div class="note">Saves to dropdown after first use</div>
     </div>
     <div class="f" id="tok-sheet-wrap">
-      <label>Character Sheet Image</label>
-      <select id="tok-sheet-select" onchange="onTokSheetSelectChange(this.value)" style="margin-bottom:0.3rem;">
-        <option value="">-- Paste a new URL below --</option>
-      </select>
-      <input id="tok-sheet-url" type="text" placeholder="https://raw.githubusercontent.com/...">
-      <div class="note">Players see this when they click the token</div>
+      <label>Character Sheet JSON</label>
+      <select id="tok-sheet-select" onchange="onTokSheetSelectChange(this.value)" style="margin-bottom:0.3rem;"><option value="">-- Paste new URL --</option></select>
+      <input id="tok-sheet-url" type="text" placeholder="https://raw.githubusercontent.com/.../sheet.json">
+      <div class="note">Link to character JSON file in your GitHub repo</div>
     </div>
     <div class="f" id="tok-lore-wrap" style="display:none">
       <label>Description</label>
-      <textarea id="tok-lore" rows="3" placeholder="A merregon, soldier of Avernus. Follows its master's will without question."></textarea>
+      <textarea id="tok-lore" rows="3" placeholder="A merregon, soldier of Avernus..."></textarea>
     </div>
     <div class="modal-btns">
       <button class="btn-p" id="tok-save-btn" onclick="saveToken()">Add Token</button>
@@ -276,23 +353,31 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
     <h3>Set Map</h3>
     <div class="f">
       <label>Saved Maps</label>
-      <select id="map-saved-select" onchange="onMapSelectChange(this.value)" style="margin-bottom:0.4rem;">
-        <option value="">-- Paste a new URL below --</option>
-      </select>
+      <select id="map-saved-select" onchange="onMapSelectChange(this.value)" style="margin-bottom:0.4rem;"><option value="">-- Paste new URL --</option></select>
     </div>
     <div class="f" id="map-new-url-wrap">
       <label>New Map URL</label>
       <input id="map-url-input" type="text" placeholder="https://raw.githubusercontent.com/...">
-      <div class="note">Paste URL → it saves to your dropdown automatically</div>
     </div>
     <div class="f" id="map-new-name-wrap">
-      <label>Nickname (optional)</label>
+      <label>Nickname</label>
       <input id="map-url-name" type="text" placeholder="e.g. Bridge - Disney Session 3" maxlength="40">
+      <div class="note">Required — used in the dropdown</div>
     </div>
     <div class="modal-btns">
       <button class="btn-p" onclick="setMap()">Load Map</button>
       <button class="btn-g" onclick="closeMapModal()">Cancel</button>
     </div>
+  </div>
+</div>
+
+<!-- STATUS MODAL -->
+<div class="overlay" id="status-modal">
+  <div class="modal">
+    <h3 id="status-modal-title">Set Conditions</h3>
+    <p>Toggle conditions for this token. Changes are visible to everyone.</p>
+    <div class="status-picker" id="status-picker-btns"></div>
+    <div class="modal-btns"><button class="btn-p" onclick="saveStatuses()">Done</button></div>
   </div>
 </div>
 
@@ -307,9 +392,16 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
     <div class="vsep gm" style="display:flex"></div>
     <button id="btn-fog" class="tb fog-mode gm" onclick="toggleFogMode()">+ Fog</button>
     <button class="tb danger gm" onclick="clearAllFog()">Clear Fog</button>
+    <div class="fog-slider-wrap gm">
+      <label>Fog</label>
+      <input type="range" id="fog-opacity-slider" min="10" max="100" value="92" oninput="updateFogOpacity(this.value)">
+    </div>
+    <div class="vsep gm" style="display:flex"></div>
+    <button id="btn-calib" class="tb calib-mode gm" onclick="toggleCalibMode()">⊞ Calibrate</button>
+    <button id="btn-ruler" class="tb ruler-mode" onclick="toggleRulerMode()">📏 Ruler</button>
     <div id="bar-right">
       <span id="pip-wrap"></span>
-      <span id="sid-lbl" onclick="copySid()" title="Click to copy session ID"></span>
+      <span id="sid-lbl" onclick="copySid()" title="Click to copy"></span>
     </div>
   </div>
 
@@ -324,20 +416,34 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
         <div id="fog-layer"></div>
         <div id="token-layer"></div>
         <div id="ping-layer"></div>
+        <div id="ruler-layer"><canvas id="ruler-canvas"></canvas></div>
       </div>
     </div>
 
     <div id="panel">
-      <div id="info-pane">
-        <div id="info-header">
-          <span id="info-name"></span>
-          <button id="info-close" onclick="closeInfo()">✕</button>
+      <!-- CHARACTER SHEET PANE -->
+      <div id="sheet-pane">
+        <div id="sheet-header">
+          <span id="sheet-char-name"></span>
+          <div style="display:flex;gap:0.4rem;align-items:center;">
+            <button class="tb gm" id="sheet-status-btn" onclick="openStatusModal()" style="font-size:0.55rem;padding:0.15rem 0.4rem;">Conditions</button>
+            <button id="sheet-close" onclick="closeSheet()">✕</button>
+          </div>
         </div>
-        <div id="info-sheet" style="display:none"><img id="info-sheet-img" src=""></div>
-        <div id="info-enemy" style="display:none"><strong id="info-enemy-name"></strong><span id="info-enemy-lore"></span></div>
+        <div id="sheet-body"></div>
+      </div>
+
+      <!-- ENEMY PANE -->
+      <div id="enemy-pane">
+        <div class="enemy-header">
+          <span class="enemy-name-lbl" id="enemy-name-lbl"></span>
+          <button style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;" onclick="closeEnemy()">✕</button>
+        </div>
+        <div class="enemy-body" id="enemy-body"></div>
       </div>
 
       <div id="panel-scroll">
+        <!-- DICE -->
         <div class="ps">
           <h3>🎲 Dice</h3>
           <div class="dgrid">
@@ -357,21 +463,22 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);box-shadow:0 0 0 1px
           <div id="rlog"></div>
         </div>
 
+        <!-- TOKENS -->
         <div class="ps gm-b">
           <h3>🪙 Tokens</h3>
           <div id="tok-list"></div>
           <button class="action-btn" onclick="openTokModal()">+ Add Token</button>
         </div>
 
+        <!-- PING -->
         <div class="ps">
           <h3>📍 Ping</h3>
-          <p class="ping-note">Double-click the map to ping a location. Everyone sees it.</p>
+          <p class="ping-note">Double-click the map to ping. Ruler: click-drag on map. Calibrate: GM draws a box then enters real-world size.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
-
 <div id="toast"></div>
 
 <script type="module">
@@ -379,31 +486,57 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getDatabase, ref, set, onValue, push, remove, update, onDisconnect, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-// ── STATE ─────────────────────────────────────────────────────────────────────
-let db;
-let sid='', myId=Math.random().toString(36).slice(2,10), myName='', isGM=false;
-let scale=1, panX=0, panY=0;
-let panning=false, pSX=0, pSY=0, pOX=0, pOY=0;
-let tokens={}, selTok=null, dragId=null, dOX=0, dOY=0, mapW=0, mapH=0;
-let fogs={}, selFog=null, fogMode=false;
-let fogDrag=null, fogDragOX=0, fogDragOY=0;
-let fogResize=null, fogResizeSW=0, fogResizeSH=0, fogResizeMX=0, fogResizeMY=0;
-let fogDrawing=false, fogDrawId=null, fogDrawSX=0, fogDrawSY=0;
-const shownPings=new Set();
-
-let tokRef, rollRef, mapRef, presRef, pingRef, fogRef, urlLibRef;
-
-// ── CONFIG ────────────────────────────────────────────────────────────────────
-// Hardcoded Firebase config — players never need to enter anything
+// ── HARDCODED CONFIG ──────────────────────────────────────────────────────────
 const HARDCODED_CFG={
   apiKey:"AIzaSyBxhgU7Ef039EywGNuIWwjuxz1Vsn_ekrE",
   authDomain:"disney-vtt.firebaseapp.com",
   databaseURL:"https://disney-vtt-default-rtdb.firebaseio.com",
   projectId:"disney-vtt"
 };
-const loadCfg=()=>{const saved=JSON.parse(localStorage.getItem('vtt5-cfg')||'null');return saved||HARDCODED_CFG;};
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+let db;
+let sid='',myId=Math.random().toString(36).slice(2,10),myName='',isGM=false;
+let scale=1,panX=0,panY=0;
+let panning=false,pSX=0,pSY=0,pOX=0,pOY=0;
+let tokens={},selTok=null,dragId=null,dOX=0,dOY=0,mapW=0,mapH=0;
+let fogs={},selFog=null,fogMode=false,fogOpacity=0.92;
+let fogDrag=null,fogDragOX=0,fogDragOY=0;
+let fogResize=null,fogResizeSW=0,fogResizeSH=0,fogResizeMX=0,fogResizeMY=0;
+let fogDrawing=false,fogDrawId=null,fogDrawSX=0,fogDrawSY=0;
+const shownPings=new Set();
+let urlLibrary={};
+let pxPerFoot=20; // default, set by calibration
+let calibMode=false,calibDrawing=false,calibSX=0,calibSY=0,calibEl=null;
+let rulerMode=false,rulerDrawing=false,rulerSX=0,rulerSY=0;
+let activeSheet=null; // token id currently shown
+let statusModalTokId=null;
+let liveSheetData={}; // tokId -> live overrides (hp, slots, notes, etc)
+
+const STATUS_LIST=[
+  {key:'poisoned',label:'Poisoned',cls:'s-poisoned'},
+  {key:'stunned',label:'Stunned',cls:'s-stunned'},
+  {key:'prone',label:'Prone',cls:'s-prone'},
+  {key:'blinded',label:'Blinded',cls:'s-blinded'},
+  {key:'charmed',label:'Charmed',cls:'s-charmed'},
+  {key:'frightened',label:'Frightened',cls:'s-frightened'},
+  {key:'incapacitated',label:'Incap.',cls:'s-incapacitated'},
+  {key:'paralyzed',label:'Paralyzed',cls:'s-paralyzed'},
+  {key:'petrified',label:'Petrified',cls:'s-petrified'},
+  {key:'restrained',label:'Restrained',cls:'s-restrained'},
+  {key:'exhausted',label:'Exhausted',cls:'s-exhausted'},
+  {key:'unconscious',label:'Unconscious',cls:'s-unconscious'},
+  {key:'concentrating',label:'Conc.',cls:'s-concentrating'},
+  {key:'raging',label:'Raging',cls:'s-raging'},
+  {key:'dead',label:'Dead',cls:'s-dead'},
+];
+
+let tokRef,rollRef,mapRef,presRef,pingRef,fogRef,urlLibRef,calibRef,liveRef;
+
+// ── CONFIG ────────────────────────────────────────────────────────────────────
+const loadCfg=()=>{try{return JSON.parse(localStorage.getItem('vtt6-cfg')||'null');}catch{return null;}};
 window.openCfg=()=>{
-  const c=loadCfg();
+  const c=loadCfg()||HARDCODED_CFG;
   document.getElementById('c-key').value=c.apiKey||'';
   document.getElementById('c-auth').value=c.authDomain||'';
   document.getElementById('c-db').value=c.databaseURL||'';
@@ -414,7 +547,7 @@ window.closeCfg=()=>document.getElementById('cfg-modal').classList.remove('open'
 window.saveCfg=()=>{
   const c={apiKey:document.getElementById('c-key').value.trim(),authDomain:document.getElementById('c-auth').value.trim(),databaseURL:document.getElementById('c-db').value.trim(),projectId:document.getElementById('c-pid').value.trim()};
   if(!c.databaseURL){toast('Database URL required');return;}
-  localStorage.setItem('vtt5-cfg',JSON.stringify(c));closeCfg();toast('Config saved');
+  localStorage.setItem('vtt6-cfg',JSON.stringify(c));closeCfg();toast('Config saved');
 };
 
 // ── ENTER ─────────────────────────────────────────────────────────────────────
@@ -423,23 +556,21 @@ window.enter=async()=>{
   const role=document.getElementById('inp-role').value;
   sid=document.getElementById('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-')||'default';
   if(!myName){toast('Enter your name');return;}
-  const cfg=loadCfg();
-  if(!cfg?.databaseURL){toast('Firebase config missing');return;}
+  const cfg=loadCfg()||HARDCODED_CFG;
   isGM=role==='gm';
   try{const app=initializeApp(cfg,'v'+myId);db=getDatabase(app);}
   catch(e){toast('Firebase: '+e.message);return;}
   if(isGM)document.body.classList.add('is-gm');
 
-  tokRef   =ref(db,`s/${sid}/tokens`);
-  rollRef  =ref(db,`s/${sid}/rolls`);
-  mapRef   =ref(db,`s/${sid}/map`);
-  presRef  =ref(db,`s/${sid}/pres/${myId}`);
-  pingRef  =ref(db,`s/${sid}/pings`);
-  fogRef   =ref(db,`s/${sid}/fogs`);
+  tokRef  =ref(db,`s/${sid}/tokens`);
+  rollRef =ref(db,`s/${sid}/rolls`);
+  mapRef  =ref(db,`s/${sid}/map`);
+  presRef =ref(db,`s/${sid}/pres/${myId}`);
+  pingRef =ref(db,`s/${sid}/pings`);
+  fogRef  =ref(db,`s/${sid}/fogs`);
+  calibRef=ref(db,`s/${sid}/calib`);
+  liveRef =ref(db,`s/${sid}/live`);
   urlLibRef=ref(db,`urlibrary`);
-
-  // load url library once
-  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
 
   await set(presRef,{name:myName,ts:serverTimestamp()});
   onDisconnect(presRef).remove();
@@ -449,10 +580,13 @@ window.enter=async()=>{
     document.getElementById('pip-wrap').innerHTML=Object.values(p).map(x=>`<span class="pip" title="${x.name}"></span>`).join('');
   });
   onValue(mapRef,snap=>{const d=snap.val();d?applyMap(d):clearMapLocal();});
-  onValue(tokRef,snap=>{tokens=snap.val()||{};renderTokens();renderTokList();});
+  onValue(tokRef,snap=>{tokens=snap.val()||{};renderTokens();renderTokList();if(activeSheet)renderSheet(activeSheet);});
   onValue(rollRef,snap=>{renderRolls(Object.values(snap.val()||{}).sort((a,b)=>a.ts-b.ts));});
   onValue(pingRef,snap=>{const p=snap.val()||{};Object.entries(p).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));});
   onValue(fogRef,snap=>{fogs=snap.val()||{};renderFogs();});
+  onValue(calibRef,snap=>{const d=snap.val();if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;});
+  onValue(liveRef,snap=>{liveSheetData=snap.val()||{};if(activeSheet)renderSheet(activeSheet);renderTokens();});
+  onValue(urlLibRef,snap=>{urlLibrary=snap.val()||{};});
 
   document.getElementById('setup').style.display='none';
   document.getElementById('app').style.display='flex';
@@ -462,83 +596,54 @@ window.enter=async()=>{
   toast(`Welcome, ${myName}`);
 };
 
-// ── URL LIBRARY ──────────────────────────────────────────────────────────────
-let urlLibrary = {}; // { id: {url, name, type, ts} }
-
-async function saveUrl(url, name, type) {
-  if(!url) return;
-  // check if already exists
-  const existing = Object.values(urlLibrary).find(e => e.url === url);
-  if(existing) return;
-  const id = push(urlLibRef).key;
-  await set(ref(db,`urlibrary/${id}`), {url, name:name||url.split('/').pop(), type, ts:Date.now()});
-  // update local
-  urlLibrary[id] = {url, name:name||url.split('/').pop(), type, ts:Date.now()};
+// ── URL LIBRARY ───────────────────────────────────────────────────────────────
+async function saveUrl(url,name,type){
+  if(!url||!name)return;
+  const existing=Object.values(urlLibrary).find(e=>e.url===url);
+  if(existing)return;
+  const id=push(urlLibRef).key;
+  await set(ref(db,`urlibrary/${id}`),{url,name,type,ts:Date.now()});
 }
-
-function getUrlsByType(type) {
-  return Object.entries(urlLibrary)
-    .filter(([,v]) => v.type === type)
-    .sort((a,b) => b[1].ts - a[1].ts)
-    .map(([id,v]) => ({id, url:v.url, name:v.name}));
+function getUrlsByType(type){
+  return Object.entries(urlLibrary).filter(([,v])=>v.type===type).sort((a,b)=>b[1].ts-a[1].ts).map(([,v])=>({url:v.url,name:v.name}));
 }
-
-function populateSelect(selectId, type, currentUrl='') {
-  const sel = document.getElementById(selectId);
-  const urls = getUrlsByType(type);
-  sel.innerHTML = '<option value="">-- Paste a new URL below --</option>';
-  urls.forEach(({url, name}) => {
-    const opt = document.createElement('option');
-    opt.value = url;
-    opt.textContent = name;
-    if(url === currentUrl) opt.selected = true;
+function populateSelect(selectId,type,currentUrl=''){
+  const sel=document.getElementById(selectId);
+  const urls=getUrlsByType(type);
+  sel.innerHTML='<option value="">-- Paste new URL --</option>';
+  urls.forEach(({url,name})=>{
+    const opt=document.createElement('option');
+    opt.value=url;opt.textContent=name;
+    if(url===currentUrl)opt.selected=true;
     sel.appendChild(opt);
   });
-  // if current url is in list, hide the paste input
-  const hasMatch = urls.some(u => u.url === currentUrl);
-  return hasMatch;
+  return urls.some(u=>u.url===currentUrl);
 }
 
 // ── MAP ───────────────────────────────────────────────────────────────────────
 window.openMapModal=()=>{
-  // reload url library fresh
-  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
-  setTimeout(()=>{
-    const current=document.getElementById('map-img').src;
-    const hasMatch = populateSelect('map-saved-select','map', current!==window.location.href?current:'');
-    document.getElementById('map-url-input').value='';
-    document.getElementById('map-url-name').value='';
-    const newWrap = document.getElementById('map-new-url-wrap');
-    const nameWrap = document.getElementById('map-new-name-wrap');
-    newWrap.style.display = hasMatch ? 'none' : 'block';
-    nameWrap.style.display = hasMatch ? 'none' : 'block';
-  }, 200);
+  const current=document.getElementById('map-img').src;
+  const hasMatch=populateSelect('map-saved-select','map',current!==window.location.href?current:'');
+  document.getElementById('map-url-input').value='';
+  document.getElementById('map-url-name').value='';
+  document.getElementById('map-new-url-wrap').style.display=hasMatch?'none':'block';
+  document.getElementById('map-new-name-wrap').style.display=hasMatch?'none':'block';
   document.getElementById('map-modal').classList.add('open');
 };
-
 window.onMapSelectChange=(val)=>{
-  const newWrap = document.getElementById('map-new-url-wrap');
-  const nameWrap = document.getElementById('map-new-name-wrap');
-  if(val) {
-    newWrap.style.display='none';
-    nameWrap.style.display='none';
-    document.getElementById('map-url-input').value='';
-  } else {
-    newWrap.style.display='block';
-    nameWrap.style.display='block';
-  }
+  document.getElementById('map-new-url-wrap').style.display=val?'none':'block';
+  document.getElementById('map-new-name-wrap').style.display=val?'none':'block';
+  if(val)document.getElementById('map-url-input').value='';
 };
-
 window.closeMapModal=()=>document.getElementById('map-modal').classList.remove('open');
-
 window.setMap=async()=>{
-  const selected = document.getElementById('map-saved-select').value;
-  const pasted = document.getElementById('map-url-input').value.trim();
-  const nickname = document.getElementById('map-url-name').value.trim();
-  const url = selected || pasted;
+  const selected=document.getElementById('map-saved-select').value;
+  const pasted=document.getElementById('map-url-input').value.trim();
+  const nickname=document.getElementById('map-url-name').value.trim();
+  const url=selected||pasted;
   if(!url){toast('Choose a map or paste a URL');return;}
-  // save new url to library
-  if(pasted) await saveUrl(pasted, nickname, 'map');
+  if(pasted&&!nickname){toast('Add a nickname for the dropdown');return;}
+  if(pasted)await saveUrl(pasted,nickname,'map');
   await set(mapRef,{url,ts:Date.now()});
   closeMapModal();toast('Map loaded!');
 };
@@ -549,26 +654,21 @@ function applyMap(d){
   document.getElementById('empty-state').classList.add('gone');
   img.onload=()=>{
     mapW=img.naturalWidth;mapH=img.naturalHeight;
-    ['board-wrap','token-layer','fog-layer','ping-layer'].forEach(id=>{
+    ['board-wrap','token-layer','fog-layer','ping-layer','ruler-layer'].forEach(id=>{
       document.getElementById(id).style.width=mapW+'px';
       document.getElementById(id).style.height=mapH+'px';
     });
+    const rc=document.getElementById('ruler-canvas');
+    rc.width=mapW;rc.height=mapH;
     fitToScreen();renderFogs();
   };
   img.onerror=()=>toast('Could not load map — check the URL');
 }
-
 function clearMapLocal(){
   const img=document.getElementById('map-img');img.src='';img.style.display='none';
   document.getElementById('empty-state').classList.remove('gone');
 }
-
-window.clearMap=async()=>{
-  if(!isGM)return;
-  await remove(mapRef);
-  toast('Map cleared');
-};
-
+window.clearMap=async()=>{if(!isGM)return;await remove(mapRef);toast('Map cleared');};
 function fitToScreen(){
   const b=document.getElementById('board');
   const s=Math.min(b.clientWidth/mapW,b.clientHeight/mapH,1)*0.92;
@@ -581,25 +681,14 @@ window.updateTokTypeUI=(type)=>{
   document.getElementById('tok-sheet-wrap').style.display=type==='pc'?'block':'none';
   document.getElementById('tok-lore-wrap').style.display=type==='enemy'?'block':'none';
 };
-
-window.onTokImgSelectChange=(val)=>{
-  document.getElementById('tok-img-url').style.display = val ? 'none' : 'block';
-  if(val) document.getElementById('tok-img-url').value='';
-};
-
-window.onTokSheetSelectChange=(val)=>{
-  document.getElementById('tok-sheet-url').style.display = val ? 'none' : 'block';
-  if(val) document.getElementById('tok-sheet-url').value='';
-};
+window.onTokImgSelectChange=(val)=>{document.getElementById('tok-img-url').style.display=val?'none':'block';if(val)document.getElementById('tok-img-url').value='';};
+window.onTokSheetSelectChange=(val)=>{document.getElementById('tok-sheet-url').style.display=val?'none':'block';if(val)document.getElementById('tok-sheet-url').value='';};
 
 window.openTokModal=()=>{
-  onValue(urlLibRef, snap=>{ urlLibrary=snap.val()||{}; }, {onlyOnce:true});
-  setTimeout(()=>{
-    populateSelect('tok-img-select','token');
-    populateSelect('tok-sheet-select','sheet');
-    document.getElementById('tok-img-url').style.display='block';
-    document.getElementById('tok-sheet-url').style.display='block';
-  }, 200);
+  populateSelect('tok-img-select','token');
+  populateSelect('tok-sheet-select','sheet');
+  document.getElementById('tok-img-url').style.display='block';
+  document.getElementById('tok-sheet-url').style.display='block';
   document.getElementById('tok-modal-title').textContent='Add Token';
   document.getElementById('tok-save-btn').textContent='Add Token';
   document.getElementById('tok-name').value='';
@@ -621,15 +710,14 @@ window.saveToken=async()=>{
   const lore=document.getElementById('tok-lore').value.trim();
   if(!name){toast('Enter a name');return;}
   if(!imgUrl){toast('Choose or paste a token image URL');return;}
-  // save new urls to library
-  const pastedImg = document.getElementById('tok-img-url').value.trim();
-  const pastedSheet = document.getElementById('tok-sheet-url').value.trim();
-  if(pastedImg) await saveUrl(pastedImg, name+' token', 'token');
-  if(pastedSheet) await saveUrl(pastedSheet, name+' sheet', 'sheet');
+  const pastedImg=document.getElementById('tok-img-url').value.trim();
+  const pastedSheet=document.getElementById('tok-sheet-url').value.trim();
+  if(pastedImg)await saveUrl(pastedImg,name+' token','token');
+  if(pastedSheet)await saveUrl(pastedSheet,name+' sheet','sheet');
   const b=document.getElementById('board');
-  const cx=(b.clientWidth/2-panX)/scale, cy=(b.clientHeight/2-panY)/scale;
+  const cx=(b.clientWidth/2-panX)/scale,cy=(b.clientHeight/2-panY)/scale;
   const id=push(tokRef).key;
-  await set(ref(db,`s/${sid}/tokens/${id}`),{name,type,url:imgUrl,sheetUrl,lore,x:cx,y:cy,size:70});
+  await set(ref(db,`s/${sid}/tokens/${id}`),{name,type,url:imgUrl,sheetUrl,lore,x:cx,y:cy,size:70,statuses:[]});
   closeTokModal();toast(`${name} added`);
 };
 
@@ -642,8 +730,8 @@ function renderTokens(){
       el=document.createElement('div');
       el.className=`token type-${t.type}`;
       el.id='tok-'+id;el.dataset.id=id;
-      el.innerHTML=`<img draggable="false"><div class="token-name"></div>`;
-      el.addEventListener('click',ev=>{if(dragId)return;showInfo(id);ev.stopPropagation();});
+      el.innerHTML=`<img draggable="false"><div class="token-name"></div><div class="token-statuses"></div>`;
+      el.addEventListener('click',ev=>{if(dragId)return;handleTokClick(id);ev.stopPropagation();});
       if(isGM){
         el.addEventListener('mousedown',ev=>{
           if(ev.button!==0)return;ev.stopPropagation();
@@ -658,9 +746,16 @@ function renderTokens(){
     const size=t.size||70;
     el.style.left=t.x+'px';el.style.top=t.y+'px';
     el.style.width=size+'px';el.style.height=size+'px';
-    el.className=`token type-${t.type}`+(selTok===id?' highlighted':'');
+    el.className=`token type-${t.type}`+(selTok===id?' highlighted':'')+(isGM?' can-drag':'');
     el.querySelector('img').src=t.url||'';
     el.querySelector('.token-name').textContent=t.name||'';
+    // statuses
+    const statuses=t.statuses||[];
+    const statusDiv=el.querySelector('.token-statuses');
+    statusDiv.innerHTML=statuses.map(k=>{
+      const s=STATUS_LIST.find(x=>x.key===k);
+      return s?`<span class="status-badge ${s.cls}">${s.label}</span>`:'';
+    }).join('');
   });
 }
 
@@ -670,41 +765,263 @@ function renderTokList(){
     const div=document.createElement('div');
     div.className='tli'+(selTok===id?' sel':'');
     div.innerHTML=`<img src="${t.url||''}"><span class="tli-name">${t.name}</span><span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span><button class="tli-del">✕</button>`;
-    div.addEventListener('click',()=>{selTok=id;renderTokens();renderTokList();showInfo(id);});
+    div.addEventListener('click',()=>{selTok=id;renderTokens();renderTokList();handleTokClick(id);});
     div.querySelector('.tli-del').addEventListener('click',async ev=>{
       ev.stopPropagation();
       await remove(ref(db,`s/${sid}/tokens/${id}`));
-      if(selTok===id){selTok=null;closeInfo();}
+      if(selTok===id){selTok=null;closeSheet();closeEnemy();}
     });
     list.appendChild(div);
   });
 }
 
-// ── INFO PANE ─────────────────────────────────────────────────────────────────
-function showInfo(id){
+// ── CHARACTER SHEETS ──────────────────────────────────────────────────────────
+function handleTokClick(id){
   const t=tokens[id];if(!t)return;
-  document.getElementById('info-pane').classList.add('open');
-  document.getElementById('info-name').textContent=t.name;
-  if(t.type==='pc'){
-    document.getElementById('info-sheet').style.display='block';
-    document.getElementById('info-enemy').style.display='none';
-    document.getElementById('info-sheet-img').src=t.sheetUrl||'';
+  if(t.type==='enemy'){
+    closeSheet();
+    document.getElementById('enemy-name-lbl').textContent=t.name;
+    document.getElementById('enemy-body').textContent=t.lore||'No description.';
+    document.getElementById('enemy-pane').classList.add('open');
   } else {
-    document.getElementById('info-sheet').style.display='none';
-    document.getElementById('info-enemy').style.display='block';
-    document.getElementById('info-enemy-name').textContent=t.name;
-    document.getElementById('info-enemy-lore').textContent=t.lore||'No description.';
+    closeEnemy();
+    activeSheet=id;
+    renderSheet(id);
+    document.getElementById('sheet-pane').classList.add('open');
   }
 }
-window.closeInfo=()=>document.getElementById('info-pane').classList.remove('open');
+
+window.closeSheet=()=>{document.getElementById('sheet-pane').classList.remove('open');activeSheet=null;};
+window.closeEnemy=()=>document.getElementById('enemy-pane').classList.remove('open');
+
+async function renderSheet(tokId){
+  const t=tokens[tokId];if(!t)return;
+  const live=liveSheetData[tokId]||{};
+  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
+
+  document.getElementById('sheet-char-name').textContent=t.name;
+
+  // load JSON if we have a URL and haven't cached it
+  let sheet=t._sheetCache||null;
+  if(!sheet&&t.sheetUrl){
+    try{
+      const r=await fetch(t.sheetUrl);
+      sheet=await r.json();
+      t._sheetCache=sheet;
+    }catch(e){
+      document.getElementById('sheet-body').innerHTML=`<div style="padding:0.5rem;font-size:0.75rem;color:var(--dim);font-style:italic;">Could not load character sheet JSON.<br>Check the URL is a raw GitHub link to a .json file.</div>`;
+      return;
+    }
+  }
+
+  if(!sheet){
+    document.getElementById('sheet-body').innerHTML=`<div style="padding:0.5rem;font-size:0.75rem;color:var(--dim);font-style:italic;">No character sheet linked.<br>Add a JSON sheet URL when editing this token.</div>`;
+    return;
+  }
+
+  const s=sheet;
+  const liveHp=live.hp??s.stats?.hp?.current??0;
+  const liveTempHp=live.tempHp??s.stats?.hp?.temp??0;
+  const maxHp=s.stats?.hp?.max??0;
+  const liveSlots=live.spellSlots||{};
+  const liveNotes=live.notes??s.notes??'';
+  const liveInventory=live.inventory||s.inventory||[];
+
+  function mod(score){const m=Math.floor((score-10)/2);return m>=0?'+'+m:''+m;}
+  function profMod(score,prof){const b=s.stats?.proficiencyBonus??2;return mod(score+(prof?b:0));}
+
+  let html='';
+
+  // top stats
+  html+=`<div class="sheet-top">
+    <div class="stat-box"><div class="sv">${s.stats?.ac??'—'}</div><div class="sl">AC</div></div>
+    <div class="stat-box"><div class="sv">${s.stats?.initiative??mod(s.abilities?.dex??10)}</div><div class="sl">Init</div></div>
+    <div class="stat-box"><div class="sv">${s.stats?.speed??'—'}</div><div class="sl">Speed</div></div>
+    <div class="stat-box"><div class="sv">+${s.stats?.proficiencyBonus??2}</div><div class="sl">Prof</div></div>
+    <div class="stat-box"><div class="sv">${s.level??'—'}</div><div class="sl">Level</div></div>
+    <div class="stat-box"><div class="sv">${s.stats?.hitDice?.type??'—'}</div><div class="sl">Hit Die</div></div>
+  </div>`;
+
+  // HP
+  html+=`<div class="hp-row">
+    <span class="hp-label">HP</span>
+    ${canEdit?`<button class="hp-btn" onclick="adjustHp('${tokId}',-1)">−</button>`:''}
+    <span class="hp-val" id="hp-val-${tokId}">${liveHp}</span>
+    <span class="hp-sep">/</span>
+    <span class="hp-max">${maxHp}</span>
+    ${canEdit?`<button class="hp-btn" onclick="adjustHp('${tokId}',1)">+</button>`:''}
+    <span class="hp-label" style="margin-left:0.4rem">TEMP</span>
+    ${canEdit?`<input class="hp-input" type="number" value="${liveTempHp}" onchange="setTempHp('${tokId}',this.value)" style="width:40px;">`:`<span class="hp-val" style="color:#88aaff">${liveTempHp}</span>`}
+  </div>`;
+
+  // Abilities
+  const abs=['str','dex','con','int','wis','cha'];
+  const abNames=['STR','DEX','CON','INT','WIS','CHA'];
+  html+=`<div class="cs-section open">
+    <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">⚔ Abilities</span><span class="cs-arrow">▾</span></div>
+    <div class="cs-body">
+      <div class="ab-grid">
+        ${abs.map((a,i)=>`<div class="ab-box"><div class="ab-mod">${mod(s.abilities?.[a]??10)}</div><div class="ab-score">${s.abilities?.[a]??10}</div><div class="ab-name">${abNames[i]}</div></div>`).join('')}
+      </div>
+      <div class="saves-row" style="margin-top:0.4rem;">
+        ${abs.map((a,i)=>`<span class="save-pill${s.savingThrows?.[a]?' prof':''}">${abNames[i]} ${profMod(s.abilities?.[a]??10,s.savingThrows?.[a])}</span>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  // Skills
+  const SKILLS=[
+    ['acrobatics','dex'],['animalHandling','wis'],['arcana','int'],['athletics','str'],
+    ['deception','cha'],['history','int'],['insight','wis'],['intimidation','cha'],
+    ['investigation','int'],['medicine','wis'],['nature','int'],['perception','wis'],
+    ['performance','cha'],['persuasion','cha'],['religion','int'],['sleightOfHand','dex'],
+    ['stealth','dex'],['survival','wis']
+  ];
+  const skillNames={'acrobatics':'Acrobatics','animalHandling':'Animal Handling','arcana':'Arcana','athletics':'Athletics','deception':'Deception','history':'History','insight':'Insight','intimidation':'Intimidation','investigation':'Investigation','medicine':'Medicine','nature':'Nature','perception':'Perception','performance':'Performance','persuasion':'Persuasion','religion':'Religion','sleightOfHand':'Sleight of Hand','stealth':'Stealth','survival':'Survival'};
+  if(s.skills){
+    html+=`<div class="cs-section">
+      <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">🎯 Skills</span><span class="cs-arrow">▾</span></div>
+      <div class="cs-body">
+        ${SKILLS.map(([sk,ab])=>{
+          const prof=s.skills[sk]||false;
+          const exp=s.skills[sk+'Expertise']||false;
+          const bonus=Math.floor((s.abilities?.[ab]??10-10)/2)+(exp?2:prof?1:0)*(s.stats?.proficiencyBonus??2);
+          const bStr=bonus>=0?'+'+bonus:''+bonus;
+          return `<div class="skill-row"><div class="skill-prof${exp?' e':prof?' p':''}"></div><span class="skill-name">${skillNames[sk]}</span><span class="skill-mod">${bStr}</span></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Spell Slots
+  if(s.spellSlots&&Object.keys(s.spellSlots).length){
+    const slotLevels=['1','2','3','4','5','6','7','8','9'];
+    html+=`<div class="cs-section">
+      <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">✨ Spell Slots</span><span class="cs-arrow">▾</span></div>
+      <div class="cs-body">
+        ${slotLevels.filter(l=>s.spellSlots[l]).map(l=>{
+          const total=s.spellSlots[l].total||0;
+          const usedKey=`slot_${l}`;
+          const used=liveSlots[usedKey]??s.spellSlots[l].used??0;
+          const slots=Array.from({length:total},(_,i)=>{
+            const isUsed=i<used;
+            const onclick=canEdit?`toggleSlot('${tokId}','${l}',${i},${total})`:'';
+            return `<div class="spell-slot ${isUsed?'used':'avail'}" ${canEdit?`onclick="${onclick}"`:''}></div>`;
+          }).join('');
+          return `<div class="spell-level-row"><span class="spell-level-label">Level ${l}</span><div class="spell-slots">${slots}</div></div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Inventory
+  html+=`<div class="cs-section">
+    <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">🎒 Inventory</span><span class="cs-arrow">▾</span></div>
+    <div class="cs-body">
+      ${liveInventory.map(item=>`<div class="inv-row"><span class="inv-qty">${item.qty||1}</span><span class="inv-name">${item.name}</span><span class="inv-notes">${item.notes||''}</span></div>`).join('')}
+      ${canEdit?`<button class="action-btn" style="margin-top:0.4rem;font-size:0.55rem;" onclick="editInventory('${tokId}')">Edit Inventory</button>`:''}
+    </div>
+  </div>`;
+
+  // Features
+  if(s.features&&s.features.length){
+    html+=`<div class="cs-section">
+      <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">📖 Features</span><span class="cs-arrow">▾</span></div>
+      <div class="cs-body">
+        ${s.features.map(f=>`<div class="feat-row"><div class="feat-name">${f.name}</div><div class="feat-desc">${f.description||''}</div></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  // Notes
+  html+=`<div class="cs-section open">
+    <div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">📝 Notes</span><span class="cs-arrow">▾</span></div>
+    <div class="cs-body">
+      ${canEdit
+        ?`<textarea class="notes-area" id="notes-${tokId}" onchange="saveNotes('${tokId}',this.value)">${liveNotes}</textarea>`
+        :`<div style="font-size:0.78rem;color:rgba(232,220,200,0.6);white-space:pre-wrap;line-height:1.55;">${liveNotes||'—'}</div>`}
+    </div>
+  </div>`;
+
+  document.getElementById('sheet-body').innerHTML=html;
+}
+
+window.toggleSection=(header)=>{
+  header.parentElement.classList.toggle('open');
+};
+
+window.adjustHp=async(tokId,delta)=>{
+  const t=tokens[tokId];if(!t)return;
+  const live=liveSheetData[tokId]||{};
+  const maxHp=t._sheetCache?.stats?.hp?.max??999;
+  const current=live.hp??t._sheetCache?.stats?.hp?.current??0;
+  const newHp=Math.max(0,Math.min(maxHp,current+delta));
+  await update(ref(db,`s/${sid}/live/${tokId}`),{hp:newHp});
+};
+
+window.setTempHp=async(tokId,val)=>{
+  await update(ref(db,`s/${sid}/live/${tokId}`),{tempHp:parseInt(val)||0});
+};
+
+window.toggleSlot=async(tokId,level,idx,total)=>{
+  const live=liveSheetData[tokId]||{};
+  const slots=live.spellSlots||{};
+  const key=`slot_${level}`;
+  const used=slots[key]??0;
+  const newUsed=idx<used?used-1:Math.min(total,used+1);
+  const newSlots={...slots,[key]:newUsed};
+  await update(ref(db,`s/${sid}/live/${tokId}`),{spellSlots:newSlots});
+};
+
+window.saveNotes=async(tokId,val)=>{
+  await update(ref(db,`s/${sid}/live/${tokId}`),{notes:val});
+};
+
+window.editInventory=async(tokId)=>{
+  const live=liveSheetData[tokId]||{};
+  const t=tokens[tokId];
+  const current=live.inventory||t._sheetCache?.inventory||[];
+  const json=prompt('Edit inventory (JSON array):\n[{"name":"Sword","qty":1,"notes":"+7 to hit"}]',JSON.stringify(current,null,2));
+  if(!json)return;
+  try{
+    const parsed=JSON.parse(json);
+    await update(ref(db,`s/${sid}/live/${tokId}`),{inventory:parsed});
+  }catch{toast('Invalid JSON');}
+};
+
+// ── STATUS CONDITIONS ─────────────────────────────────────────────────────────
+window.openStatusModal=(tokId)=>{
+  statusModalTokId=tokId||activeSheet;
+  if(!statusModalTokId)return;
+  const t=tokens[statusModalTokId];
+  document.getElementById('status-modal-title').textContent=`Conditions — ${t?.name||''}`;
+  const current=t?.statuses||[];
+  const btns=document.getElementById('status-picker-btns');
+  btns.innerHTML=STATUS_LIST.map(s=>`<button class="sp-btn${current.includes(s.key)?' active':''}" data-key="${s.key}" onclick="toggleStatusBtn(this)">${s.label}</button>`).join('');
+  document.getElementById('status-modal').classList.add('open');
+};
+
+window.toggleStatusBtn=(btn)=>btn.classList.toggle('active');
+
+window.saveStatuses=async()=>{
+  const btns=[...document.querySelectorAll('#status-picker-btns .sp-btn.active')];
+  const statuses=btns.map(b=>b.dataset.key);
+  await update(ref(db,`s/${sid}/tokens/${statusModalTokId}`),{statuses});
+  document.getElementById('status-modal').classList.remove('open');
+};
 
 // ── FOG ───────────────────────────────────────────────────────────────────────
 window.toggleFogMode=()=>{
   fogMode=!fogMode;
   document.getElementById('btn-fog').classList.toggle('active',fogMode);
-  toast(fogMode?'Click & drag to place fog':'Fog placement off');
+  if(calibMode){calibMode=false;document.getElementById('btn-calib').classList.remove('active');}
+  toast(fogMode?'Click & drag to place fog':'Fog off');
 };
-window.clearAllFog=async()=>{if(!isGM)return;await remove(fogRef);toast('All fog cleared');};
+window.clearAllFog=async()=>{if(!isGM)return;await remove(fogRef);toast('Fog cleared');};
+window.updateFogOpacity=(val)=>{
+  fogOpacity=val/100;
+  document.querySelectorAll('.fog-rect').forEach(el=>el.style.background=`rgba(8,6,4,${fogOpacity})`);
+};
 
 function renderFogs(){
   const layer=document.getElementById('fog-layer');
@@ -730,6 +1047,7 @@ function renderFogs(){
       layer.appendChild(el);
     }
     el.style.left=f.x+'px';el.style.top=f.y+'px';el.style.width=f.w+'px';el.style.height=f.h+'px';
+    el.style.background=`rgba(8,6,4,${fogOpacity})`;
     el.classList.toggle('sel',selFog===id);
   });
 }
@@ -754,6 +1072,75 @@ async function endFogDraw(){
   const f=fogs[fogDrawId];
   if(f&&f.w<8&&f.h<8)await remove(ref(db,`s/${sid}/fogs/${fogDrawId}`));
   fogDrawId=null;
+}
+
+// ── CALIBRATION ───────────────────────────────────────────────────────────────
+window.toggleCalibMode=()=>{
+  calibMode=!calibMode;
+  document.getElementById('btn-calib').classList.toggle('active',calibMode);
+  if(fogMode){fogMode=false;document.getElementById('btn-fog').classList.remove('active');}
+  if(rulerMode){rulerMode=false;document.getElementById('btn-ruler').classList.remove('active');}
+  toast(calibMode?'Draw a box over one grid square':'Calibration off');
+};
+
+function startCalib(cx,cy){
+  const pos=boardPos(cx,cy);calibSX=pos.x;calibSY=pos.y;
+  if(!calibEl){calibEl=document.createElement('div');calibEl.style.cssText='position:absolute;border:2px solid #eedd99;background:rgba(200,180,80,0.15);pointer-events:none;z-index:80;';document.getElementById('board-wrap').appendChild(calibEl);}
+  calibEl.style.left=pos.x+'px';calibEl.style.top=pos.y+'px';calibEl.style.width='4px';calibEl.style.height='4px';
+  calibDrawing=true;
+}
+function updateCalib(cx,cy){
+  if(!calibDrawing||!calibEl)return;
+  const pos=boardPos(cx,cy);
+  const x=Math.min(calibSX,pos.x),y=Math.min(calibSY,pos.y);
+  const w=Math.abs(pos.x-calibSX),h=Math.abs(pos.y-calibSY);
+  calibEl.style.left=x+'px';calibEl.style.top=y+'px';calibEl.style.width=w+'px';calibEl.style.height=h+'px';
+}
+async function endCalib(cx,cy){
+  if(!calibDrawing)return;calibDrawing=false;
+  const pos=boardPos(cx,cy);
+  const w=Math.abs(pos.x-calibSX),h=Math.abs(pos.y-calibSY);
+  const avgPx=Math.max(w,h);
+  if(avgPx<10){if(calibEl)calibEl.remove();calibEl=null;return;}
+  const ft=parseFloat(prompt(`This box is how many feet? (e.g. 5 for one D&D square)`,'5'))||5;
+  pxPerFoot=avgPx/ft;
+  await set(calibRef,{pxPerFoot,ts:Date.now()});
+  if(calibEl)calibEl.remove();calibEl=null;
+  calibMode=false;document.getElementById('btn-calib').classList.remove('active');
+  toast(`Calibrated: 1ft = ${pxPerFoot.toFixed(1)}px`);
+}
+
+// ── RULER ─────────────────────────────────────────────────────────────────────
+window.toggleRulerMode=()=>{
+  rulerMode=!rulerMode;
+  document.getElementById('btn-ruler').classList.toggle('active',rulerMode);
+  if(rulerMode){
+    if(fogMode){fogMode=false;document.getElementById('btn-fog').classList.remove('active');}
+    if(calibMode){calibMode=false;document.getElementById('btn-calib').classList.remove('active');}
+  }
+  toast(rulerMode?'Click & drag to measure':'Ruler off');
+};
+
+function drawRuler(x1,y1,x2,y2){
+  const canvas=document.getElementById('ruler-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(x1===null)return;
+  const dx=x2-x1,dy=y2-y1;
+  const dist=Math.sqrt(dx*dx+dy*dy);
+  const ft=(dist/pxPerFoot).toFixed(1);
+  ctx.strokeStyle='rgba(100,220,100,0.9)';ctx.lineWidth=2;ctx.setLineDash([6,4]);
+  ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
+  ctx.setLineDash([]);
+  // dot at start
+  ctx.fillStyle='rgba(100,220,100,0.9)';
+  ctx.beginPath();ctx.arc(x1,y1,4,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x2,y2,4,0,Math.PI*2);ctx.fill();
+  // label
+  const mx=(x1+x2)/2,my=(y1+y2)/2;
+  ctx.font=`bold ${Math.round(14/scale)}px Cinzel,serif`;
+  ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillText(`${ft} ft`,mx+2,my+2);
+  ctx.fillStyle='rgba(100,220,100,1)';ctx.fillText(`${ft} ft`,mx,my);
 }
 
 // ── PINGS ─────────────────────────────────────────────────────────────────────
@@ -787,18 +1174,27 @@ function initBoard(){
 
   board.addEventListener('mousedown',e=>{
     if(e.button===1||e.button===2){e.preventDefault();panning=true;pSX=e.clientX;pSY=e.clientY;pOX=panX;pOY=panY;return;}
-    if(e.button===0&&isGM&&fogMode&&!e.target.closest('.token')&&!e.target.closest('.fog-rect')){startFogDraw(e.clientX,e.clientY);return;}
-    if(e.button===0&&!e.target.closest('.token')&&!e.target.closest('.fog-rect')){selFog=null;renderFogs();}
+    if(e.button===0){
+      const onToken=e.target.closest('.token');
+      const onFog=e.target.closest('.fog-rect');
+      if(isGM&&calibMode&&!onToken){startCalib(e.clientX,e.clientY);return;}
+      if(rulerMode&&!onToken){rulerDrawing=true;const pos=boardPos(e.clientX,e.clientY);rulerSX=pos.x;rulerSY=pos.y;return;}
+      if(isGM&&fogMode&&!onToken&&!onFog){startFogDraw(e.clientX,e.clientY);return;}
+      if(!onToken&&!onFog){selFog=null;renderFogs();}
+    }
   });
 
   board.addEventListener('dblclick',e=>{
-    if(!e.target.closest('.token')&&!e.target.closest('.fog-rect')&&mapW>0)firePing(e.clientX,e.clientY);
+    if(!e.target.closest('.token')&&!e.target.closest('.fog-rect')&&mapW>0&&!rulerMode&&!fogMode&&!calibMode)
+      firePing(e.clientX,e.clientY);
   });
 
   board.addEventListener('contextmenu',e=>e.preventDefault());
 
   document.addEventListener('mousemove',e=>{
     if(panning){panX=pOX+(e.clientX-pSX);panY=pOY+(e.clientY-pSY);applyTransform();return;}
+    if(calibDrawing){updateCalib(e.clientX,e.clientY);return;}
+    if(rulerDrawing){const pos=boardPos(e.clientX,e.clientY);drawRuler(rulerSX,rulerSY,pos.x,pos.y);return;}
     if(fogDrawing){updateFogDraw(e.clientX,e.clientY);return;}
     if(fogResize){
       const dx=(e.clientX-fogResizeMX)/scale,dy=(e.clientY-fogResizeMY)/scale;
@@ -822,6 +1218,8 @@ function initBoard(){
 
   document.addEventListener('mouseup',async e=>{
     if(panning){panning=false;return;}
+    if(calibDrawing){endCalib(e.clientX,e.clientY);return;}
+    if(rulerDrawing){rulerDrawing=false;setTimeout(()=>drawRuler(null,null,null,null),2000);return;}
     if(fogDrawing){endFogDraw();return;}
     if(fogResize){
       const dx=(e.clientX-fogResizeMX)/scale,dy=(e.clientY-fogResizeMY)/scale;
