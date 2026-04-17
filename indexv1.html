@@ -303,8 +303,7 @@ body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);}
     <h3 id="asset-modal-title">Add Asset</h3>
     <div class="f"><label>Name / Nickname</label><input id="asset-name" type="text" maxlength="30" placeholder="e.g. Goblin Token"></div>
     <div class="f"><label>Image URL</label><input id="asset-url" type="text" placeholder="https://raw.githubusercontent.com/..."></div>
-    <!-- legacy compatibility field hidden in v1 -->
-    <div class="f" id="asset-sheet-wrap" style="display:none"><label>Character Sheet JSON URL (legacy / optional)</label><input id="asset-sheet" type="text" placeholder="https://raw.githubusercontent.com/.../sheet.json"></div>
+    <div class="f" id="asset-sheet-wrap" style="display:none"><label>Character Sheet JSON URL (optional)</label><input id="asset-sheet" type="text" placeholder="https://raw.githubusercontent.com/.../sheet.json"></div>
     <div class="f" id="asset-lore-wrap" style="display:none"><label>Description</label><textarea id="asset-lore" rows="2" placeholder="A merregon, soldier of Avernus..."></textarea></div>
     <div class="modal-btns"><button class="btn-p" onclick="saveAsset()">Save</button><button class="btn-g" onclick="closeAssetModal()">Cancel</button></div>
   </div>
@@ -456,14 +455,17 @@ let fogDrag=null,fogDragOX=0,fogDragOY=0;
 let fogResize=null,fogResizeSW=0,fogResizeSH=0,fogResizeMX=0,fogResizeMY=0;
 let fogDrawing=false,fogDrawId=null,fogDrawSX=0,fogDrawSY=0;
 const shownPings=new Set();
+const shownRulers=new Set();
 let assets={}; // global asset library
 let scenes={};
 let activeSheet=null,statusModalTokId=null;
-let liveSheetData={}; // legacy no-op compatibility
+let liveSheetData={};
 let pxPerFoot=20;
 let calibMode=false,calibDrawing=false,calibSX=0,calibSY=0,calibEl=null;
 let rulerMode=false,rulerDrawing=false,rulerSX=0,rulerSY=0;
 let activeHbTab='scenes';
+let addTokMode=false; // when adding from hotbar
+let pendingTokAsset=null;
 let currentAssetModalType='token';
 
 const STATUS_LIST=[
@@ -481,85 +483,13 @@ let tokRef,rollRef,mapRef,presRef,pingRef,fogRef,calibRef,liveRef,assetsRef,scen
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const loadCfg=()=>{try{return JSON.parse(localStorage.getItem('vtt7-cfg')||'null');}catch{return null;}};
-window.openCfg=()=>{
-  const c=loadCfg()||HARDCODED_CFG;
-  document.getElementById('c-key').value=c.apiKey||'';
-  document.getElementById('c-auth').value=c.authDomain||'';
-  document.getElementById('c-db').value=c.databaseURL||'';
-  document.getElementById('c-pid').value=c.projectId||'';
-  document.getElementById('cfg-modal').classList.add('open');
-};
+window.openCfg=()=>{const c=loadCfg()||HARDCODED_CFG;document.getElementById('c-key').value=c.apiKey||'';document.getElementById('c-auth').value=c.authDomain||'';document.getElementById('c-db').value=c.databaseURL||'';document.getElementById('c-pid').value=c.projectId||'';document.getElementById('cfg-modal').classList.add('open');};
 window.closeCfg=()=>document.getElementById('cfg-modal').classList.remove('open');
 window.saveCfg=()=>{
-  const c={
-    apiKey:document.getElementById('c-key').value.trim(),
-    authDomain:document.getElementById('c-auth').value.trim(),
-    databaseURL:document.getElementById('c-db').value.trim(),
-    projectId:document.getElementById('c-pid').value.trim()
-  };
+  const c={apiKey:document.getElementById('c-key').value.trim(),authDomain:document.getElementById('c-auth').value.trim(),databaseURL:document.getElementById('c-db').value.trim(),projectId:document.getElementById('c-pid').value.trim()};
   if(!c.databaseURL){toast('Database URL required');return;}
-  localStorage.setItem('vtt7-cfg',JSON.stringify(c));
-  closeCfg();
-  toast('Config saved');
+  localStorage.setItem('vtt7-cfg',JSON.stringify(c));closeCfg();toast('Config saved');
 };
-
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-function ensureTokenSheet(t){
-  if(!t.sheet){
-    t.sheet={
-      ac:10,
-      init:0,
-      spd:30,
-      prof:2,
-      lvl:1,
-      hpCurrent:1,
-      hpMax:1,
-      tempHp:0,
-      abilities:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
-      inventory:[],
-      notes:[]
-    };
-  }
-  if(!t.sheet.abilities){
-    t.sheet.abilities={str:10,dex:10,con:10,int:10,wis:10,cha:10};
-  }
-  if(!Array.isArray(t.sheet.inventory)) t.sheet.inventory=[];
-  if(!Array.isArray(t.sheet.notes)) t.sheet.notes=[];
-  return t.sheet;
-}
-
-function nInt(v,f=0){
-  const n=parseInt(v,10);
-  return Number.isFinite(n)?n:f;
-}
-
-function linesToArr(txt){
-  return String(txt||'')
-    .split(/\r?\n/)
-    .map(s=>s.trim())
-    .filter(Boolean);
-}
-
-function arrToLines(arr){
-  return Array.isArray(arr)?arr.join('\n'):'';
-}
-
-function abMod(score){
-  return Math.floor(((score??10)-10)/2);
-}
-
-function fmtMod(n){
-  return n>=0?`+${n}`:`${n}`;
-}
-
-function escHtml(str){
-  return String(str??'')
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
 
 // ── ENTER ─────────────────────────────────────────────────────────────────────
 window.enter=async()=>{
@@ -569,15 +499,8 @@ window.enter=async()=>{
   if(!myName){toast('Enter your name');return;}
   const cfg=loadCfg()||HARDCODED_CFG;
   isGM=role==='gm';
-
-  try{
-    const app=initializeApp(cfg,'v'+myId);
-    db=getDatabase(app);
-  }catch(e){
-    toast('Firebase: '+e.message);
-    return;
-  }
-
+  try{const app=initializeApp(cfg,'v'+myId);db=getDatabase(app);}
+  catch(e){toast('Firebase: '+e.message);return;}
   if(isGM)document.body.classList.add('is-gm');
 
   tokRef      =ref(db,`s/${sid}/tokens`);
@@ -587,7 +510,7 @@ window.enter=async()=>{
   pingRef     =ref(db,`s/${sid}/pings`);
   fogRef      =ref(db,`s/${sid}/fogs`);
   calibRef    =ref(db,`s/${sid}/calib`);
-  liveRef     =ref(db,`s/${sid}/live`); // legacy compatibility only
+  liveRef     =ref(db,`s/${sid}/live`);
   rulerFireRef=ref(db,`s/${sid}/rulers`);
   assetsRef   =ref(db,`assets`);
   scenesRef   =ref(db,`scenes`);
@@ -599,122 +522,62 @@ window.enter=async()=>{
     const p=snap.val()||{};
     document.getElementById('pip-wrap').innerHTML=Object.values(p).map(x=>`<span class="pip" title="${x.name}"></span>`).join('');
   });
-
-  onValue(mapRef,snap=>{
-    const d=snap.val();
-    d?applyMap(d):clearMapLocal();
-  });
-
-  onValue(tokRef,snap=>{
-    tokens=snap.val()||{};
-    renderTokens();
-    renderTokList();
-    if(activeSheet)renderSheet(activeSheet);
-  });
-
-  onValue(rollRef,snap=>{
-    renderRolls(Object.values(snap.val()||{}).sort((a,b)=>a.ts-b.ts));
-  });
-
-  onValue(pingRef,snap=>{
-    const p=snap.val()||{};
-    Object.entries(p).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));
-  });
-
-  onValue(fogRef,snap=>{
-    fogs=snap.val()||{};
-    renderFogs();
-  });
-
-  onValue(calibRef,snap=>{
-    const d=snap.val();
-    if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;
-  });
-
-  // legacy no-op compatibility
-  onValue(liveRef,snap=>{
-    liveSheetData=snap.val()||{};
-  });
-
-  onValue(assetsRef,snap=>{
-    assets=snap.val()||{};
-    renderHotbar();
-  });
-
-  onValue(scenesRef,snap=>{
-    scenes=snap.val()||{};
-    renderHotbar();
+  onValue(mapRef,snap=>{const d=snap.val();d?applyMap(d):clearMapLocal();});
+  onValue(tokRef,snap=>{tokens=snap.val()||{};renderTokens();renderTokList();if(activeSheet)renderSheet(activeSheet);});
+  onValue(rollRef,snap=>{renderRolls(Object.values(snap.val()||{}).sort((a,b)=>a.ts-b.ts));});
+  onValue(pingRef,snap=>{const p=snap.val()||{};Object.entries(p).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));});
+  onValue(fogRef,snap=>{fogs=snap.val()||{};renderFogs();});
+  onValue(calibRef,snap=>{const d=snap.val();if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;});
+  onValue(liveRef,snap=>{liveSheetData=snap.val()||{};if(activeSheet)renderSheet(activeSheet);renderTokens();});
+  onValue(assetsRef,snap=>{assets=snap.val()||{};renderHotbar();});
+  onValue(scenesRef,snap=>{scenes=snap.val()||{};renderHotbar();});
+  onValue(rulerFireRef,snap=>{
+    const rulers=snap.val()||{};
+    Object.entries(rulers).forEach(([id,r])=>showSharedRuler(id,r));
   });
 
   document.getElementById('setup').style.display='none';
   document.getElementById('app').style.display='flex';
   document.getElementById('sid-lbl').textContent=sid;
   document.getElementById('sdot').classList.add('ok');
-
   initBoard();
-  startRulerSync();
-
   toast(`Welcome, ${myName}`);
 };
 
 // ── MAP ───────────────────────────────────────────────────────────────────────
 function applyMap(d){
   const img=document.getElementById('map-img');
-  img.src=d.url;
-  img.style.display='block';
+  img.src=d.url;img.style.display='block';
   document.getElementById('empty-state').classList.add('gone');
-
   img.onload=()=>{
-    mapW=img.naturalWidth;
-    mapH=img.naturalHeight;
-
+    mapW=img.naturalWidth;mapH=img.naturalHeight;
     ['board-wrap','token-layer','fog-layer','ping-layer','ruler-layer'].forEach(id=>{
       document.getElementById(id).style.width=mapW+'px';
       document.getElementById(id).style.height=mapH+'px';
     });
-
-    const rc=document.getElementById('ruler-canvas');
-    rc.width=mapW;
-    rc.height=mapH;
-
-    fitToScreen();
-    renderFogs();
+    const rc=document.getElementById('ruler-canvas');rc.width=mapW;rc.height=mapH;
+    fitToScreen();renderFogs();
   };
-
   img.onerror=()=>toast('Could not load map');
 }
-
 function clearMapLocal(){
-  document.getElementById('map-img').src='';
-  document.getElementById('map-img').style.display='none';
+  document.getElementById('map-img').src='';document.getElementById('map-img').style.display='none';
   document.getElementById('empty-state').classList.remove('gone');
 }
-
-window.clearMap=async()=>{
-  if(!isGM)return;
-  await remove(mapRef);
-  toast('Map cleared');
-};
-
+window.clearMap=async()=>{if(!isGM)return;await remove(mapRef);toast('Map cleared');};
 function fitToScreen(){
   const b=document.getElementById('board');
-  if(!mapW||!mapH)return;
   const s=Math.min(b.clientWidth/mapW,b.clientHeight/mapH,1)*0.92;
-  scale=s;
-  panX=(b.clientWidth-mapW*s)/2;
-  panY=(b.clientHeight-mapH*s)/2;
+  scale=s;panX=(b.clientWidth-mapW*s)/2;panY=(b.clientHeight-mapH*s)/2;
   applyTransform();
 }
-
-async function loadMapUrl(url){
-  await set(mapRef,{url,ts:Date.now()});
-}
+async function loadMapUrl(url){await set(mapRef,{url,ts:Date.now()});}
 
 // ── TOKENS ────────────────────────────────────────────────────────────────────
 window.openAddTokModal=()=>{
   currentAssetModalType='token';
   document.getElementById('asset-modal-title').textContent='Add Token to Map';
-  document.getElementById('asset-sheet-wrap').style.display='none'; // hidden in v1
+  document.getElementById('asset-sheet-wrap').style.display='block';
   document.getElementById('asset-lore-wrap').style.display='none';
   document.getElementById('asset-name').value='';
   document.getElementById('asset-url').value='';
@@ -722,28 +585,23 @@ window.openAddTokModal=()=>{
   document.getElementById('asset-lore').value='';
   document.getElementById('asset-modal').classList.add('open');
 };
-
 window.closeAssetModal=()=>document.getElementById('asset-modal').classList.remove('open');
-
 window.saveAsset=async()=>{
   const name=document.getElementById('asset-name').value.trim();
   const url=document.getElementById('asset-url').value.trim();
   if(!name){toast('Enter a name');return;}
   if(!url){toast('Paste an image URL');return;}
-
   const type=currentAssetModalType;
-  const sheetUrl=document.getElementById('asset-sheet').value.trim(); // legacy compatibility only
+  const sheetUrl=document.getElementById('asset-sheet').value.trim();
   const lore=document.getElementById('asset-lore').value.trim();
-
+  // save to asset library
   const aid=push(assetsRef).key;
   await set(ref(db,`assets/${aid}`),{name,url,type,sheetUrl,lore,ts:Date.now()});
-
+  // if token/prop/mount, also drop it on the map
   if(['token','prop','mount'].includes(type)){
     await dropTokenOnMap({name,url,sheetUrl,lore,type:type==='token'?'pc':type});
   }
-
-  closeAssetModal();
-  toast(`${name} saved`);
+  closeAssetModal();toast(`${name} saved`);
 };
 
 async function dropTokenOnMap(asset, cx, cy){
@@ -751,81 +609,41 @@ async function dropTokenOnMap(asset, cx, cy){
   const x=cx??((b.clientWidth/2-panX)/scale);
   const y=cy??((b.clientHeight/2-panY)/scale);
   const id=push(tokRef).key;
-
   await set(ref(db,`s/${sid}/tokens/${id}`),{
-    name:asset.name,
-    type:asset.type||'pc',
-    url:asset.url,
-    sheetUrl:asset.sheetUrl||'', // legacy compatibility only
-    lore:asset.lore||'',
-    x,y,size:70,statuses:[],
-    sheet:{
-      ac:10,
-      init:0,
-      spd:30,
-      prof:2,
-      lvl:1,
-      hpCurrent:1,
-      hpMax:1,
-      tempHp:0,
-      abilities:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
-      inventory:[],
-      notes:[]
-    }
+    name:asset.name,type:asset.type||'pc',url:asset.url,
+    sheetUrl:asset.sheetUrl||'',lore:asset.lore||'',
+    x,y,size:70,statuses:[]
   });
 }
 
 function renderTokens(){
   const layer=document.getElementById('token-layer');
-
-  [...layer.querySelectorAll('.token')].forEach(el=>{
-    if(!tokens[el.dataset.id])el.remove();
-  });
-
+  [...layer.querySelectorAll('.token')].forEach(el=>{if(!tokens[el.dataset.id])el.remove();});
   Object.entries(tokens).forEach(([id,t])=>{
     let el=document.getElementById('tok-'+id);
-
     if(!el){
       el=document.createElement('div');
       el.className=`token type-${t.type}`;
-      el.id='tok-'+id;
-      el.dataset.id=id;
+      el.id='tok-'+id;el.dataset.id=id;
       el.innerHTML=`<img draggable="false"><div class="token-name"></div><div class="token-statuses"></div>`;
-
-      el.addEventListener('click',ev=>{
-        if(dragId)return;
-        handleTokClick(id);
-        ev.stopPropagation();
-      });
-
+      el.addEventListener('click',ev=>{if(dragId)return;handleTokClick(id);ev.stopPropagation();});
       if(isGM){
         el.addEventListener('mousedown',ev=>{
-          if(ev.button!==0)return;
-          ev.stopPropagation();
-          selTok=id;
-          renderTokens();
-          renderTokList();
+          if(ev.button!==0)return;ev.stopPropagation();
+          selTok=id;renderTokens();renderTokList();
           const pos=boardPos(ev.clientX,ev.clientY);
-          dOX=pos.x-tokens[id].x;
-          dOY=pos.y-tokens[id].y;
-          dragId=id;
-          el.classList.add('dragging');
+          dOX=pos.x-tokens[id].x;dOY=pos.y-tokens[id].y;
+          dragId=id;el.classList.add('dragging');
         });
       }
-
       layer.appendChild(el);
     }
-
     const size=t.size||70;
-    el.style.left=t.x+'px';
-    el.style.top=t.y+'px';
-    el.style.width=size+'px';
-    el.style.height=size+'px';
+    el.style.left=t.x+'px';el.style.top=t.y+'px';
+    el.style.width=size+'px';el.style.height=size+'px';
     el.className=`token type-${t.type}`+(selTok===id?' highlighted':'')+(isGM?' can-drag':'');
-
     el.querySelector('img').src=t.url||'';
     el.querySelector('.token-name').textContent=t.name||'';
-
     const statuses=t.statuses||[];
     el.querySelector('.token-statuses').innerHTML=statuses.map(k=>{
       const s=STATUS_LIST.find(x=>x.key===k);
@@ -835,31 +653,17 @@ function renderTokens(){
 }
 
 function renderTokList(){
-  const list=document.getElementById('tok-list');
-  list.innerHTML='';
-
+  const list=document.getElementById('tok-list');list.innerHTML='';
   Object.entries(tokens).forEach(([id,t])=>{
     const div=document.createElement('div');
     div.className='tli'+(selTok===id?' sel':'');
     div.innerHTML=`<img src="${t.url||''}"><span class="tli-name">${t.name}</span><span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span><button class="tli-del">✕</button>`;
-
-    div.addEventListener('click',()=>{
-      selTok=id;
-      renderTokens();
-      renderTokList();
-      handleTokClick(id);
-    });
-
+    div.addEventListener('click',()=>{selTok=id;renderTokens();renderTokList();handleTokClick(id);});
     div.querySelector('.tli-del').addEventListener('click',async ev=>{
       ev.stopPropagation();
       await remove(ref(db,`s/${sid}/tokens/${id}`));
-      if(selTok===id){
-        selTok=null;
-        closeSheet();
-        closeEnemy();
-      }
+      if(selTok===id){selTok=null;closeSheet();closeEnemy();}
     });
-
     list.appendChild(div);
   });
 }
@@ -882,59 +686,45 @@ function renderHotbar(){
   content.innerHTML='';
 
   if(activeHbTab==='scenes'){
+    // add scene button
     const addBtn=document.createElement('div');
-    addBtn.className='hb-add';
-    addBtn.title='Save current scene';
-    addBtn.textContent='💾';
+    addBtn.className='hb-add';addBtn.title='Save current scene';addBtn.textContent='💾';
     addBtn.onclick=()=>openSceneModal();
     content.appendChild(addBtn);
-
-    Object.entries(scenes).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0)).forEach(([id,sc])=>{
+    // scenes
+    Object.entries(scenes).sort((a,b)=>b[1].ts-a[1].ts).forEach(([id,sc])=>{
       const item=document.createElement('div');
       item.className='hb-item';
       item.innerHTML=`<div class="hb-scene-thumb">🗺</div><div class="hb-label">${sc.name}</div><div class="hb-del">✕</div>`;
-      item.querySelector('.hb-del').addEventListener('click',async e=>{
-        e.stopPropagation();
-        await remove(ref(db,`scenes/${id}`));
-      });
+      item.querySelector('.hb-del').addEventListener('click',async e=>{e.stopPropagation();await remove(ref(db,`scenes/${id}`));});
       item.addEventListener('click',()=>loadScene(sc));
       content.appendChild(item);
     });
   } else {
+    // add asset button
     const addBtn=document.createElement('div');
-    addBtn.className='hb-add';
-    addBtn.title=`Add ${activeHbTab.slice(0,-1)}`;
-    addBtn.textContent='+';
+    addBtn.className='hb-add';addBtn.title=`Add ${activeHbTab.slice(0,-1)}`;addBtn.textContent='+';
     addBtn.onclick=()=>openHbAddModal(activeHbTab.slice(0,-1));
     content.appendChild(addBtn);
-
+    // assets for this tab
     const typeMap={maps:'map',tokens:'token',props:'prop',mounts:'mount'};
     const type=typeMap[activeHbTab];
-
-    Object.entries(assets)
-      .filter(([,a])=>a.type===type)
-      .sort((a,b)=>(b[1].ts||0)-(a[1].ts||0))
-      .forEach(([id,a])=>{
-        const item=document.createElement('div');
-        item.className='hb-item';
-        const isCircle=type!=='map';
-        item.innerHTML=`<img class="hb-thumb${isCircle?' circle':''}" src="${a.url}" loading="lazy"><div class="hb-label">${a.name}</div><div class="hb-del">✕</div>`;
-
-        item.querySelector('.hb-del').addEventListener('click',async e=>{
-          e.stopPropagation();
-          await remove(ref(db,`assets/${id}`));
-        });
-
-        item.addEventListener('click',()=>hbItemClick(a,type));
-        content.appendChild(item);
-      });
+    Object.entries(assets).filter(([,a])=>a.type===type).sort((a,b)=>b[1].ts-a[1].ts).forEach(([id,a])=>{
+      const item=document.createElement('div');
+      item.className='hb-item';
+      const isCircle=type!=='map';
+      item.innerHTML=`<img class="hb-thumb${isCircle?' circle':''}" src="${a.url}" loading="lazy"><div class="hb-label">${a.name}</div><div class="hb-del">✕</div>`;
+      item.querySelector('.hb-del').addEventListener('click',async e=>{e.stopPropagation();await remove(ref(db,`assets/${id}`));});
+      item.addEventListener('click',()=>hbItemClick(a,type));
+      content.appendChild(item);
+    });
   }
 }
 
 function openHbAddModal(type){
   currentAssetModalType=type;
   document.getElementById('asset-modal-title').textContent=`Add ${type.charAt(0).toUpperCase()+type.slice(1)}`;
-  document.getElementById('asset-sheet-wrap').style.display='none'; // hidden in v1
+  document.getElementById('asset-sheet-wrap').style.display=type==='token'?'block':'none';
   document.getElementById('asset-lore-wrap').style.display=type==='token'?'block':'none';
   document.getElementById('asset-name').value='';
   document.getElementById('asset-url').value='';
@@ -948,7 +738,7 @@ async function hbItemClick(asset,type){
     await loadMapUrl(asset.url);
     toast(`Map: ${asset.name}`);
   } else {
-    // props/mounts are still dropped as "enemy" style visually (legacy behavior)
+    // drop token/prop/mount at center
     await dropTokenOnMap({...asset,type:type==='token'?'pc':'enemy'});
     toast(`${asset.name} placed`);
   }
@@ -961,10 +751,8 @@ window.closeSceneModal=()=>document.getElementById('scene-modal').classList.remo
 window.saveScene=async()=>{
   const name=document.getElementById('scene-name').value.trim();
   if(!name){toast('Enter a scene name');return;}
-
   const mapSnap=await new Promise(res=>onValue(mapRef,res,{onlyOnce:true}));
   const id=push(scenesRef).key;
-
   await set(ref(db,`scenes/${id}`),{
     name,
     map:mapSnap.val()||null,
@@ -972,7 +760,6 @@ window.saveScene=async()=>{
     fogs:JSON.parse(JSON.stringify(fogs)),
     ts:Date.now()
   });
-
   closeSceneModal();
   document.getElementById('scene-name').value='';
   toast(`Scene "${name}" saved`);
@@ -980,245 +767,104 @@ window.saveScene=async()=>{
 
 async function loadScene(sc){
   if(!confirm(`Load scene "${sc.name}"? This replaces the current map, tokens and fog.`))return;
-
-  if(sc.map) await set(mapRef,sc.map);
+  // set map
+  if(sc.map)await set(mapRef,sc.map);
   else await remove(mapRef);
-
+  // replace tokens
   await remove(tokRef);
   if(sc.tokens){
     for(const [id,t] of Object.entries(sc.tokens)){
       await set(ref(db,`s/${sid}/tokens/${id}`),t);
     }
   }
-
+  // replace fogs
   await remove(fogRef);
   if(sc.fogs){
     for(const [id,f] of Object.entries(sc.fogs)){
       await set(ref(db,`s/${sid}/fogs/${id}`),f);
     }
   }
-
   toast(`Scene "${sc.name}" loaded`);
 }
 
 // ── CHARACTER SHEET ───────────────────────────────────────────────────────────
 function handleTokClick(id){
-  const t=tokens[id];
-  if(!t)return;
-
+  const t=tokens[id];if(!t)return;
   if(t.type==='enemy'){
     closeSheet();
     document.getElementById('enemy-name-lbl').textContent=t.name;
     document.getElementById('enemy-body').textContent=t.lore||'No description.';
     document.getElementById('enemy-pane').classList.add('open');
   } else {
-    closeEnemy();
-    activeSheet=id;
+    closeEnemy();activeSheet=id;
     renderSheet(id);
     document.getElementById('sheet-pane').classList.add('open');
   }
 }
-
-window.closeSheet=()=>{
-  document.getElementById('sheet-pane').classList.remove('open');
-  activeSheet=null;
-};
-
+window.closeSheet=()=>{document.getElementById('sheet-pane').classList.remove('open');activeSheet=null;};
 window.closeEnemy=()=>document.getElementById('enemy-pane').classList.remove('open');
 
 async function renderSheet(tokId){
-  const t=tokens[tokId];
-  if(!t)return;
-
+  const t=tokens[tokId];if(!t)return;
+  const live=liveSheetData[tokId]||{};
   const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
-  const s=ensureTokenSheet(t);
-
-  document.getElementById('sheet-char-name').textContent=t.name||'Character';
-
-  const body=document.getElementById('sheet-body');
-
-  body.innerHTML=`
-    <div style="display:grid;gap:10px;font-size:12px;">
-
-      <div style="font-family:'Cinzel',serif;font-size:0.62rem;color:var(--dim);text-align:center;letter-spacing:0.06em;">
-        Embedded token sheet
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">AC</span>
-          <input id="sheet-ac" type="number" value="${s.ac??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Init</span>
-          <input id="sheet-init" type="number" value="${s.init??0}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Speed</span>
-          <input id="sheet-spd" type="number" value="${s.spd??30}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Prof</span>
-          <input id="sheet-prof" type="number" value="${s.prof??2}" ${!canEdit?'disabled':''}>
-        </label>
-
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Level</span>
-          <input id="sheet-lvl" type="number" value="${s.lvl??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">HP</span>
-          <input id="sheet-hpcur" type="number" value="${s.hpCurrent??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">HP Max</span>
-          <input id="sheet-hpmax" type="number" value="${s.hpMax??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Temp HP</span>
-          <input id="sheet-temphp" type="number" value="${s.tempHp??0}" ${!canEdit?'disabled':''}>
-        </label>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">STR</span>
-          <input id="sheet-str" type="number" value="${s.abilities.str??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">DEX</span>
-          <input id="sheet-dex" type="number" value="${s.abilities.dex??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">CON</span>
-          <input id="sheet-con" type="number" value="${s.abilities.con??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">INT</span>
-          <input id="sheet-int" type="number" value="${s.abilities.int??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">WIS</span>
-          <input id="sheet-wis" type="number" value="${s.abilities.wis??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">CHA</span>
-          <input id="sheet-cha" type="number" value="${s.abilities.cha??10}" ${!canEdit?'disabled':''}>
-        </label>
-      </div>
-
-      <div style="font-size:11px;color:var(--dim);">
-        Mods:
-        STR ${fmtMod(abMod(s.abilities.str))},
-        DEX ${fmtMod(abMod(s.abilities.dex))},
-        CON ${fmtMod(abMod(s.abilities.con))},
-        INT ${fmtMod(abMod(s.abilities.int))},
-        WIS ${fmtMod(abMod(s.abilities.wis))},
-        CHA ${fmtMod(abMod(s.abilities.cha))}
-      </div>
-
-      <div>
-        <div style="font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:4px;">Inventory (one per line)</div>
-        <textarea id="sheet-inventory" rows="5" class="notes-area" ${!canEdit?'disabled':''}>${escHtml(arrToLines(s.inventory))}</textarea>
-      </div>
-
-      <div>
-        <div style="font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:4px;">Notes (one per line)</div>
-        <textarea id="sheet-notes" rows="6" class="notes-area" ${!canEdit?'disabled':''}>${escHtml(arrToLines(s.notes))}</textarea>
-      </div>
-
-      <div style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${canEdit?`
-          <button class="action-btn" style="margin:0;flex:1;" onclick="saveTokenSheet('${tokId}')">Save Sheet</button>
-          <button class="action-btn" style="margin:0;flex:1;" onclick="adjustTokenHp('${tokId}',-1)">HP -1</button>
-          <button class="action-btn" style="margin:0;flex:1;" onclick="adjustTokenHp('${tokId}',1)">HP +1</button>
-        `:''}
-      </div>
-    </div>
-  `;
+  document.getElementById('sheet-char-name').textContent=t.name;
+  let sheet=t._sheetCache||null;
+  if(!sheet&&t.sheetUrl){
+    try{const r=await fetch(t.sheetUrl);sheet=await r.json();t._sheetCache=sheet;}
+    catch{document.getElementById('sheet-body').innerHTML=`<div style="padding:0.5rem;font-size:0.75rem;color:var(--dim);font-style:italic;">Could not load sheet JSON. Check the URL.</div>`;return;}
+  }
+  if(!sheet){document.getElementById('sheet-body').innerHTML=`<div style="padding:0.5rem;font-size:0.75rem;color:var(--dim);font-style:italic;">No sheet linked to this token.</div>`;return;}
+  const s=sheet;
+  const liveHp=live.hp??s.stats?.hp?.current??0;
+  const liveTempHp=live.tempHp??s.stats?.hp?.temp??0;
+  const maxHp=s.stats?.hp?.max??0;
+  const liveSlots=live.spellSlots||{};
+  const liveNotes=live.notes??s.notes??'';
+  const liveInventory=live.inventory||s.inventory||[];
+  function mod(score){const m=Math.floor((score-10)/2);return m>=0?'+'+m:''+m;}
+  let html='';
+  // class/race/level
+  html+=`<div style="font-family:'Cinzel',serif;font-size:0.62rem;color:var(--dim);text-align:center;margin-bottom:0.5rem;letter-spacing:0.06em;">${s.race||''} ${s.class||''} ${s.subclass?'('+s.subclass+')':''}</div>`;
+  // top stats
+  html+=`<div class="sheet-top"><div class="stat-box"><div class="sv">${s.stats?.ac??'—'}</div><div class="sl">AC</div></div><div class="stat-box"><div class="sv">${s.stats?.initiative??mod(s.abilities?.dex??10)}</div><div class="sl">Init</div></div><div class="stat-box"><div class="sv">${s.stats?.speed??'—'}</div><div class="sl">Spd</div></div><div class="stat-box"><div class="sv">+${s.stats?.proficiencyBonus??2}</div><div class="sl">Prof</div></div><div class="stat-box"><div class="sv">${s.level??'—'}</div><div class="sl">Lvl</div></div><div class="stat-box"><div class="sv">${s.stats?.hitDice?.type??'—'}</div><div class="sl">Die</div></div></div>`;
+  // HP
+  html+=`<div class="hp-row"><span class="hp-label">HP</span>${canEdit?`<button class="hp-btn" onclick="adjustHp('${tokId}',-1)">−</button>`:''}<span class="hp-val" id="hp-val-${tokId}">${liveHp}</span><span class="hp-sep">/</span><span class="hp-max">${maxHp}</span>${canEdit?`<button class="hp-btn" onclick="adjustHp('${tokId}',1)">+</button>`:''}<span class="hp-label" style="margin-left:0.3rem">TMP</span>${canEdit?`<input class="hp-input" type="number" value="${liveTempHp}" onchange="setTempHp('${tokId}',this.value)">`:`<span class="hp-val" style="color:#88aaff;font-size:0.8rem">${liveTempHp}</span>`}</div>`;
+  // Abilities
+  const abs=['str','dex','con','int','wis','cha'],abN=['STR','DEX','CON','INT','WIS','CHA'];
+  const pb=s.stats?.proficiencyBonus??2;
+  html+=`<div class="cs-section open"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">⚔ Abilities</span><span class="cs-arrow">▾</span></div><div class="cs-body"><div class="ab-grid">${abs.map((a,i)=>`<div class="ab-box"><div class="ab-mod">${mod(s.abilities?.[a]??10)}</div><div class="ab-score">${s.abilities?.[a]??10}</div><div class="ab-name">${abN[i]}</div></div>`).join('')}</div><div class="saves-row">${abs.map((a,i)=>{const prof=s.savingThrows?.[a];const bonus=Math.floor(((s.abilities?.[a]??10)-10)/2)+(prof?pb:0);const bs=bonus>=0?'+'+bonus:''+bonus;return`<span class="save-pill${prof?' prof':''}">${abN[i]} ${bs}</span>`}).join('')}</div></div></div>`;
+  // Skills
+  const SKILLS=[['acrobatics','dex'],['animalHandling','wis'],['arcana','int'],['athletics','str'],['deception','cha'],['history','int'],['insight','wis'],['intimidation','cha'],['investigation','int'],['medicine','wis'],['nature','int'],['perception','wis'],['performance','cha'],['persuasion','cha'],['religion','int'],['sleightOfHand','dex'],['stealth','dex'],['survival','wis']];
+  const SN={acrobatics:'Acrobatics',animalHandling:'Animal Handling',arcana:'Arcana',athletics:'Athletics',deception:'Deception',history:'History',insight:'Insight',intimidation:'Intimidation',investigation:'Investigation',medicine:'Medicine',nature:'Nature',perception:'Perception',performance:'Performance',persuasion:'Persuasion',religion:'Religion',sleightOfHand:'Sleight of Hand',stealth:'Stealth',survival:'Survival'};
+  if(s.skills){html+=`<div class="cs-section"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">🎯 Skills</span><span class="cs-arrow">▾</span></div><div class="cs-body">${SKILLS.map(([sk,ab])=>{const prof=s.skills[sk]||false;const exp=s.skills[sk+'Expertise']||false;const bonus=Math.floor(((s.abilities?.[ab]??10)-10)/2)+(exp?2:prof?1:0)*pb;const bs=bonus>=0?'+'+bonus:''+bonus;return`<div class="skill-row"><div class="skill-prof${exp?' e':prof?' p':''}"></div><span class="skill-name">${SN[sk]}</span><span class="skill-mod">${bs}</span></div>`;}).join('')}</div></div>`;}
+  // Spell slots
+  if(s.spellSlots&&Object.keys(s.spellSlots).length){html+=`<div class="cs-section"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">✨ Spell Slots</span><span class="cs-arrow">▾</span></div><div class="cs-body">${['1','2','3','4','5','6','7','8','9'].filter(l=>s.spellSlots[l]).map(l=>{const total=s.spellSlots[l].total||0;const used=liveSlots[`slot_${l}`]??s.spellSlots[l].used??0;const slots=Array.from({length:total},(_,i)=>`<div class="spell-slot ${i<used?'used':'avail'}" ${canEdit?`onclick="toggleSlot('${tokId}','${l}',${i},${total})"`:''}></div>`).join('');return`<div class="spell-level-row"><span class="spell-level-label">Lvl ${l}</span><div class="spell-slots">${slots}</div></div>`;}).join('')}</div></div>`;}
+  // Inventory
+  html+=`<div class="cs-section"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">🎒 Inventory</span><span class="cs-arrow">▾</span></div><div class="cs-body">${liveInventory.map(item=>`<div class="inv-row"><span class="inv-qty">${item.qty||1}</span><span class="inv-name">${item.name}</span><span class="inv-notes">${item.notes||''}</span></div>`).join('')}${canEdit?`<button class="action-btn" style="margin-top:0.4rem;font-size:0.55rem;" onclick="editInventory('${tokId}')">Edit</button>`:''}</div></div>`;
+  // Features
+  if(s.features?.length){html+=`<div class="cs-section"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">📖 Features</span><span class="cs-arrow">▾</span></div><div class="cs-body">${s.features.map(f=>`<div class="feat-row"><div class="feat-name">${f.name}</div><div class="feat-desc">${f.description||''}</div></div>`).join('')}</div></div>`;}
+  // Notes
+  html+=`<div class="cs-section open"><div class="cs-header" onclick="toggleSection(this)"><span class="cs-title">📝 Notes</span><span class="cs-arrow">▾</span></div><div class="cs-body">${canEdit?`<textarea class="notes-area" id="notes-${tokId}" onchange="saveNotes('${tokId}',this.value)">${liveNotes}</textarea>`:`<div style="font-size:0.78rem;color:rgba(232,220,200,0.6);white-space:pre-wrap;line-height:1.55;">${liveNotes||'—'}</div>`}</div></div>`;
+  document.getElementById('sheet-body').innerHTML=html;
 }
 
 window.toggleSection=(h)=>h.parentElement.classList.toggle('open');
-
-window.saveTokenSheet=async(tokId)=>{
-  const t=tokens[tokId];
-  if(!t)return;
-
-  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
-  if(!canEdit)return;
-
-  const current=ensureTokenSheet(t);
-
-  const nextSheet={
-    ...current,
-    ac:nInt(document.getElementById('sheet-ac')?.value, current.ac??10),
-    init:nInt(document.getElementById('sheet-init')?.value, current.init??0),
-    spd:nInt(document.getElementById('sheet-spd')?.value, current.spd??30),
-    prof:nInt(document.getElementById('sheet-prof')?.value, current.prof??2),
-    lvl:nInt(document.getElementById('sheet-lvl')?.value, current.lvl??1),
-    hpCurrent:nInt(document.getElementById('sheet-hpcur')?.value, current.hpCurrent??1),
-    hpMax:Math.max(1,nInt(document.getElementById('sheet-hpmax')?.value, current.hpMax??1)),
-    tempHp:Math.max(0,nInt(document.getElementById('sheet-temphp')?.value, current.tempHp??0)),
-    abilities:{
-      str:nInt(document.getElementById('sheet-str')?.value, current.abilities?.str??10),
-      dex:nInt(document.getElementById('sheet-dex')?.value, current.abilities?.dex??10),
-      con:nInt(document.getElementById('sheet-con')?.value, current.abilities?.con??10),
-      int:nInt(document.getElementById('sheet-int')?.value, current.abilities?.int??10),
-      wis:nInt(document.getElementById('sheet-wis')?.value, current.abilities?.wis??10),
-      cha:nInt(document.getElementById('sheet-cha')?.value, current.abilities?.cha??10)
-    },
-    inventory:linesToArr(document.getElementById('sheet-inventory')?.value),
-    notes:linesToArr(document.getElementById('sheet-notes')?.value)
-  };
-
-  nextSheet.hpCurrent=Math.max(0,Math.min(nextSheet.hpCurrent,nextSheet.hpMax));
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    sheet:nextSheet
-  });
-
-  toast('Sheet saved');
-};
-
-window.adjustTokenHp=async(tokId,delta)=>{
-  const t=tokens[tokId];
-  if(!t)return;
-
-  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
-  if(!canEdit)return;
-
-  const s=ensureTokenSheet(t);
-  const hpMax=Math.max(1,nInt(s.hpMax,1));
-  const hpCurrent=Math.max(0,Math.min(hpMax,nInt(s.hpCurrent,1)+delta));
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    sheet:{
-      ...s,
-      hpCurrent
-    }
-  });
-
-  if(activeSheet===tokId){
-    setTimeout(()=>renderSheet(tokId),30);
-  }
-};
+window.adjustHp=async(tokId,delta)=>{const t=tokens[tokId];if(!t)return;const live=liveSheetData[tokId]||{};const max=t._sheetCache?.stats?.hp?.max??999;const cur=live.hp??t._sheetCache?.stats?.hp?.current??0;await update(ref(db,`s/${sid}/live/${tokId}`),{hp:Math.max(0,Math.min(max,cur+delta))});};
+window.setTempHp=async(tokId,val)=>await update(ref(db,`s/${sid}/live/${tokId}`),{tempHp:parseInt(val)||0});
+window.toggleSlot=async(tokId,level,idx,total)=>{const live=liveSheetData[tokId]||{};const slots=live.spellSlots||{};const key=`slot_${level}`;const used=slots[key]??0;const newUsed=idx<used?used-1:Math.min(total,used+1);await update(ref(db,`s/${sid}/live/${tokId}`),{spellSlots:{...slots,[key]:newUsed}});};
+window.saveNotes=async(tokId,val)=>await update(ref(db,`s/${sid}/live/${tokId}`),{notes:val});
+window.editInventory=async(tokId)=>{const live=liveSheetData[tokId]||{};const t=tokens[tokId];const current=live.inventory||t._sheetCache?.inventory||[];const json=prompt('Edit inventory JSON:\n[{"name":"Sword","qty":1,"notes":"+7 to hit"}]',JSON.stringify(current,null,2));if(!json)return;try{const parsed=JSON.parse(json);await update(ref(db,`s/${sid}/live/${tokId}`),{inventory:parsed});}catch{toast('Invalid JSON');}};
 
 // ── STATUS CONDITIONS ─────────────────────────────────────────────────────────
 window.openStatusModal=(tokId)=>{
-  statusModalTokId=tokId||activeSheet;
-  if(!statusModalTokId)return;
-
+  statusModalTokId=tokId||activeSheet;if(!statusModalTokId)return;
   const t=tokens[statusModalTokId];
   document.getElementById('status-modal-title').textContent=`Conditions — ${t?.name||''}`;
-
   const current=t?.statuses||[];
-  document.getElementById('status-picker-btns').innerHTML=STATUS_LIST.map(s=>
-    `<button class="sp-btn${current.includes(s.key)?' active':''}" data-key="${s.key}" onclick="this.classList.toggle('active')">${s.label}</button>`
-  ).join('');
-
+  document.getElementById('status-picker-btns').innerHTML=STATUS_LIST.map(s=>`<button class="sp-btn${current.includes(s.key)?' active':''}" data-key="${s.key}" onclick="this.classList.toggle('active')">${s.label}</button>`).join('');
   document.getElementById('status-modal').classList.add('open');
 };
-
 window.saveStatuses=async()=>{
   const statuses=[...document.querySelectorAll('#status-picker-btns .sp-btn.active')].map(b=>b.dataset.key);
   await update(ref(db,`s/${sid}/tokens/${statusModalTokId}`),{statuses});
@@ -1226,334 +872,120 @@ window.saveStatuses=async()=>{
 };
 
 // ── FOG ───────────────────────────────────────────────────────────────────────
-window.toggleFogMode=()=>{
-  fogMode=!fogMode;
-  document.getElementById('btn-fog').classList.toggle('active',fogMode);
-  if(calibMode){
-    calibMode=false;
-    document.getElementById('btn-calib').classList.remove('active');
-  }
-  toast(fogMode?'Draw fog: click-drag on map':'Fog mode off');
-};
-
-window.clearAllFog=async()=>{
-  if(!isGM)return;
-  await remove(fogRef);
-  toast('Fog cleared');
-};
-
-window.updateFogOpacity=(val)=>{
-  fogOpacity=val/100;
-  document.querySelectorAll('.fog-rect').forEach(el=>{
-    el.style.background=`rgba(8,6,4,${fogOpacity})`;
-  });
-};
+window.toggleFogMode=()=>{fogMode=!fogMode;document.getElementById('btn-fog').classList.toggle('active',fogMode);if(calibMode){calibMode=false;document.getElementById('btn-calib').classList.remove('active');}toast(fogMode?'Draw fog: click-drag on map':'Fog mode off');};
+window.clearAllFog=async()=>{if(!isGM)return;await remove(fogRef);toast('Fog cleared');};
+window.updateFogOpacity=(val)=>{fogOpacity=val/100;document.querySelectorAll('.fog-rect').forEach(el=>el.style.background=`rgba(8,6,4,${fogOpacity})`);};
 
 function renderFogs(){
   const layer=document.getElementById('fog-layer');
-
-  [...layer.querySelectorAll('.fog-rect')].forEach(el=>{
-    if(!fogs[el.dataset.id])el.remove();
-  });
-
+  [...layer.querySelectorAll('.fog-rect')].forEach(el=>{if(!fogs[el.dataset.id])el.remove();});
   Object.entries(fogs).forEach(([id,f])=>{
     let el=document.getElementById('fog-'+id);
-
     if(!el){
-      el=document.createElement('div');
-      el.className='fog-rect';
-      el.id='fog-'+id;
-      el.dataset.id=id;
-
+      el=document.createElement('div');el.className='fog-rect';el.id='fog-'+id;el.dataset.id=id;
       if(isGM){
-        const del=document.createElement('div');
-        del.className='fog-del';
-        del.textContent='✕';
-        del.addEventListener('click',async ev=>{
-          ev.stopPropagation();
-          await remove(ref(db,`s/${sid}/fogs/${id}`));
-          if(selFog===id)selFog=null;
-        });
+        const del=document.createElement('div');del.className='fog-del';del.textContent='✕';
+        del.addEventListener('click',async ev=>{ev.stopPropagation();await remove(ref(db,`s/${sid}/fogs/${id}`));if(selFog===id)selFog=null;});
         el.appendChild(del);
-
-        const rh=document.createElement('div');
-        rh.className='fog-resize';
-        rh.addEventListener('mousedown',ev=>{
-          ev.stopPropagation();
-          ev.preventDefault();
-          fogResize=id;
-          fogResizeSW=fogs[id].w;
-          fogResizeSH=fogs[id].h;
-          fogResizeMX=ev.clientX;
-          fogResizeMY=ev.clientY;
-        });
+        const rh=document.createElement('div');rh.className='fog-resize';
+        rh.addEventListener('mousedown',ev=>{ev.stopPropagation();ev.preventDefault();fogResize=id;fogResizeSW=fogs[id].w;fogResizeSH=fogs[id].h;fogResizeMX=ev.clientX;fogResizeMY=ev.clientY;});
         el.appendChild(rh);
-
         el.addEventListener('mousedown',ev=>{
           if(ev.button!==0||ev.target.classList.contains('fog-del')||ev.target.classList.contains('fog-resize'))return;
-          ev.stopPropagation();
-          selFog=id;
-          renderFogs();
-          fogDrag=id;
-          const pos=boardPos(ev.clientX,ev.clientY);
-          fogDragOX=pos.x-fogs[id].x;
-          fogDragOY=pos.y-fogs[id].y;
+          ev.stopPropagation();selFog=id;renderFogs();
+          fogDrag=id;const pos=boardPos(ev.clientX,ev.clientY);fogDragOX=pos.x-fogs[id].x;fogDragOY=pos.y-fogs[id].y;
         });
       }
-
       layer.appendChild(el);
     }
-
-    el.style.left=f.x+'px';
-    el.style.top=f.y+'px';
-    el.style.width=f.w+'px';
-    el.style.height=f.h+'px';
+    el.style.left=f.x+'px';el.style.top=f.y+'px';el.style.width=f.w+'px';el.style.height=f.h+'px';
     el.style.background=`rgba(8,6,4,${fogOpacity})`;
     el.classList.toggle('sel',selFog===id);
   });
 }
 
-async function startFogDraw(cx,cy){
-  const pos=boardPos(cx,cy);
-  fogDrawSX=pos.x;
-  fogDrawSY=pos.y;
-  fogDrawId=push(fogRef).key;
-  await set(ref(db,`s/${sid}/fogs/${fogDrawId}`),{x:pos.x,y:pos.y,w:4,h:4});
-  fogDrawing=true;
-}
-
-async function updateFogDraw(cx,cy){
-  if(!fogDrawing||!fogDrawId)return;
-
-  const pos=boardPos(cx,cy);
-  const x=Math.min(fogDrawSX,pos.x);
-  const y=Math.min(fogDrawSY,pos.y);
-  const w=Math.abs(pos.x-fogDrawSX);
-  const h=Math.abs(pos.y-fogDrawSY);
-
-  const el=document.getElementById('fog-'+fogDrawId);
-  if(el){
-    el.style.left=x+'px';
-    el.style.top=y+'px';
-    el.style.width=w+'px';
-    el.style.height=h+'px';
-  }
-
-  await update(ref(db,`s/${sid}/fogs/${fogDrawId}`),{x,y,w:Math.max(w,4),h:Math.max(h,4)});
-}
-
-async function endFogDraw(){
-  if(!fogDrawing)return;
-  fogDrawing=false;
-  const f=fogs[fogDrawId];
-  if(f&&f.w<8&&f.h<8)await remove(ref(db,`s/${sid}/fogs/${fogDrawId}`));
-  fogDrawId=null;
-}
+async function startFogDraw(cx,cy){const pos=boardPos(cx,cy);fogDrawSX=pos.x;fogDrawSY=pos.y;fogDrawId=push(fogRef).key;await set(ref(db,`s/${sid}/fogs/${fogDrawId}`),{x:pos.x,y:pos.y,w:4,h:4});fogDrawing=true;}
+async function updateFogDraw(cx,cy){if(!fogDrawing||!fogDrawId)return;const pos=boardPos(cx,cy);const x=Math.min(fogDrawSX,pos.x),y=Math.min(fogDrawSY,pos.y);const w=Math.abs(pos.x-fogDrawSX),h=Math.abs(pos.y-fogDrawSY);const el=document.getElementById('fog-'+fogDrawId);if(el){el.style.left=x+'px';el.style.top=y+'px';el.style.width=w+'px';el.style.height=h+'px';}await update(ref(db,`s/${sid}/fogs/${fogDrawId}`),{x,y,w:Math.max(w,4),h:Math.max(h,4)});}
+async function endFogDraw(){if(!fogDrawing)return;fogDrawing=false;const f=fogs[fogDrawId];if(f&&f.w<8&&f.h<8)await remove(ref(db,`s/${sid}/fogs/${fogDrawId}`));fogDrawId=null;}
 
 // ── CALIBRATION ───────────────────────────────────────────────────────────────
-window.toggleCalibMode=()=>{
-  calibMode=!calibMode;
-  document.getElementById('btn-calib').classList.toggle('active',calibMode);
-
-  if(fogMode){
-    fogMode=false;
-    document.getElementById('btn-fog').classList.remove('active');
-  }
-  if(rulerMode){
-    rulerMode=false;
-    document.getElementById('btn-ruler').classList.remove('active');
-  }
-
-  toast(calibMode?'Draw box over 1 grid square':'Calibration off');
-};
-
-function startCalib(cx,cy){
-  const pos=boardPos(cx,cy);
-  calibSX=pos.x;
-  calibSY=pos.y;
-
-  if(!calibEl){
-    calibEl=document.createElement('div');
-    calibEl.style.cssText='position:absolute;border:2px solid #eedd99;background:rgba(200,180,80,0.15);pointer-events:none;z-index:80;';
-    document.getElementById('board-wrap').appendChild(calibEl);
-  }
-
-  calibEl.style.left=pos.x+'px';
-  calibEl.style.top=pos.y+'px';
-  calibEl.style.width='4px';
-  calibEl.style.height='4px';
-  calibDrawing=true;
-}
-
-function updateCalib(cx,cy){
-  if(!calibDrawing||!calibEl)return;
-
-  const pos=boardPos(cx,cy);
-  const x=Math.min(calibSX,pos.x);
-  const y=Math.min(calibSY,pos.y);
-  const w=Math.abs(pos.x-calibSX);
-  const h=Math.abs(pos.y-calibSY);
-
-  calibEl.style.left=x+'px';
-  calibEl.style.top=y+'px';
-  calibEl.style.width=w+'px';
-  calibEl.style.height=h+'px';
-}
-
-async function endCalib(cx,cy){
-  if(!calibDrawing)return;
-  calibDrawing=false;
-
-  const pos=boardPos(cx,cy);
-  const w=Math.abs(pos.x-calibSX);
-  const h=Math.abs(pos.y-calibSY);
-  const avgPx=Math.max(w,h);
-
-  if(avgPx<10){
-    if(calibEl)calibEl.remove();
-    calibEl=null;
-    return;
-  }
-
-  const ft=parseFloat(prompt('This box = how many feet? (e.g. 5 for one square)','5'))||5;
-  pxPerFoot=avgPx/ft;
-  await set(calibRef,{pxPerFoot,ts:Date.now()});
-
-  if(calibEl)calibEl.remove();
-  calibEl=null;
-
-  calibMode=false;
-  document.getElementById('btn-calib').classList.remove('active');
-  toast(`Calibrated: 1ft = ${pxPerFoot.toFixed(1)}px`);
-}
+window.toggleCalibMode=()=>{calibMode=!calibMode;document.getElementById('btn-calib').classList.toggle('active',calibMode);if(fogMode){fogMode=false;document.getElementById('btn-fog').classList.remove('active');}if(rulerMode){rulerMode=false;document.getElementById('btn-ruler').classList.remove('active');}toast(calibMode?'Draw box over 1 grid square':'Calibration off');};
+function startCalib(cx,cy){const pos=boardPos(cx,cy);calibSX=pos.x;calibSY=pos.y;if(!calibEl){calibEl=document.createElement('div');calibEl.style.cssText='position:absolute;border:2px solid #eedd99;background:rgba(200,180,80,0.15);pointer-events:none;z-index:80;';document.getElementById('board-wrap').appendChild(calibEl);}calibEl.style.left=pos.x+'px';calibEl.style.top=pos.y+'px';calibEl.style.width='4px';calibEl.style.height='4px';calibDrawing=true;}
+function updateCalib(cx,cy){if(!calibDrawing||!calibEl)return;const pos=boardPos(cx,cy);const x=Math.min(calibSX,pos.x),y=Math.min(calibSY,pos.y);const w=Math.abs(pos.x-calibSX),h=Math.abs(pos.y-calibSY);calibEl.style.left=x+'px';calibEl.style.top=y+'px';calibEl.style.width=w+'px';calibEl.style.height=h+'px';}
+async function endCalib(cx,cy){if(!calibDrawing)return;calibDrawing=false;const pos=boardPos(cx,cy);const w=Math.abs(pos.x-calibSX),h=Math.abs(pos.y-calibSY);const avgPx=Math.max(w,h);if(avgPx<10){if(calibEl)calibEl.remove();calibEl=null;return;}const ft=parseFloat(prompt('This box = how many feet? (e.g. 5 for one square)','5'))||5;pxPerFoot=avgPx/ft;await set(calibRef,{pxPerFoot,ts:Date.now()});if(calibEl)calibEl.remove();calibEl=null;calibMode=false;document.getElementById('btn-calib').classList.remove('active');toast(`Calibrated: 1ft = ${pxPerFoot.toFixed(1)}px`);}
 
 // ── RULER (SHARED) ────────────────────────────────────────────────────────────
-window.toggleRulerMode=()=>{
-  rulerMode=!rulerMode;
-  document.getElementById('btn-ruler').classList.toggle('active',rulerMode);
-
-  if(rulerMode){
-    if(fogMode){
-      fogMode=false;
-      document.getElementById('btn-fog').classList.remove('active');
-    }
-    if(calibMode){
-      calibMode=false;
-      document.getElementById('btn-calib').classList.remove('active');
-    }
-  }
-
-  toast(rulerMode?'Drag to measure (visible to all)':'Ruler off');
-};
+window.toggleRulerMode=()=>{rulerMode=!rulerMode;document.getElementById('btn-ruler').classList.toggle('active',rulerMode);if(rulerMode){if(fogMode){fogMode=false;document.getElementById('btn-fog').classList.remove('active');}if(calibMode){calibMode=false;document.getElementById('btn-calib').classList.remove('active');}}toast(rulerMode?'Drag to measure (visible to all)':'Ruler off');};
 
 let myRulerId=null;
+async function startRuler(cx,cy){const pos=boardPos(cx,cy);rulerSX=pos.x;rulerSY=pos.y;rulerDrawing=true;myRulerId=push(rulerFireRef).key;await set(ref(db,`s/${sid}/rulers/${myRulerId}`),{x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,name:myName,ts:Date.now()});}
+async function updateRuler(cx,cy){if(!rulerDrawing||!myRulerId)return;const pos=boardPos(cx,cy);await update(ref(db,`s/${sid}/rulers/${myRulerId}`),{x2:pos.x,y2:pos.y});}
+async function endRuler(){if(!rulerDrawing)return;rulerDrawing=false;const id=myRulerId;myRulerId=null;setTimeout(async()=>{try{await remove(ref(db,`s/${sid}/rulers/${id}`));}catch{}},2500);}
 
-async function startRuler(cx,cy){
-  const pos=boardPos(cx,cy);
-  rulerSX=pos.x;
-  rulerSY=pos.y;
-  rulerDrawing=true;
-  myRulerId=push(rulerFireRef).key;
-
-  await set(ref(db,`s/${sid}/rulers/${myRulerId}`),{
-    x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,name:myName,ts:Date.now()
-  });
+function showSharedRuler(id,r){
+  // draw on ruler canvas
+  const canvas=document.getElementById('ruler-canvas');
+  const ctx=canvas.getContext('2d');
+  // clear and redraw all current rulers
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // get all rulers from Firebase snapshot - just draw this one for now
+  // (full redraw on every update handles multiple rulers)
+  onValue(rulerFireRef,snap=>{
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const rulers=snap.val()||{};
+    Object.values(rulers).forEach(r=>{
+      if(!r.x1&&!r.x2)return;
+      const dx=r.x2-r.x1,dy=r.y2-r.y1;
+      const dist=Math.sqrt(dx*dx+dy*dy);
+      const ft=(dist/pxPerFoot).toFixed(1);
+      ctx.strokeStyle='rgba(100,220,100,0.9)';ctx.lineWidth=2/scale;ctx.setLineDash([6/scale,4/scale]);
+      ctx.beginPath();ctx.moveTo(r.x1,r.y1);ctx.lineTo(r.x2,r.y2);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='rgba(100,220,100,0.9)';ctx.beginPath();ctx.arc(r.x1,r.y1,4/scale,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(r.x2,r.y2,4/scale,0,Math.PI*2);ctx.fill();
+      ctx.font=`bold ${Math.round(13/scale)}px Cinzel,serif`;
+      const mx=(r.x1+r.x2)/2,my=(r.y1+r.y2)/2;
+      ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillText(`${ft}ft ${r.name||''}`,mx+1/scale,my+1/scale);
+      ctx.fillStyle='rgba(140,255,140,1)';ctx.fillText(`${ft}ft ${r.name||''}`,mx,my);
+    });
+  },{onlyOnce:true});
 }
 
-async function updateRuler(cx,cy){
-  if(!rulerDrawing||!myRulerId)return;
-  const pos=boardPos(cx,cy);
-  await update(ref(db,`s/${sid}/rulers/${myRulerId}`),{x2:pos.x,y2:pos.y});
-}
-
-async function endRuler(){
-  if(!rulerDrawing)return;
-  rulerDrawing=false;
-  const id=myRulerId;
-  myRulerId=null;
-  setTimeout(async()=>{
-    try{await remove(ref(db,`s/${sid}/rulers/${id}`));}catch{}
-  },2500);
-}
-
+// Keep ruler canvas updated continuously
 function startRulerSync(){
   onValue(rulerFireRef,snap=>{
     const canvas=document.getElementById('ruler-canvas');
     if(!canvas)return;
-
     const ctx=canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width,canvas.height);
-
     const rulers=snap.val()||{};
     Object.values(rulers).forEach(r=>{
       if(r.x1===undefined)return;
-
-      const dx=r.x2-r.x1;
-      const dy=r.y2-r.y1;
+      const dx=r.x2-r.x1,dy=r.y2-r.y1;
       const dist=Math.sqrt(dx*dx+dy*dy);
       const ft=(dist/pxPerFoot).toFixed(1);
-
-      ctx.strokeStyle='rgba(100,220,100,0.9)';
-      ctx.lineWidth=Math.max(1,2/scale);
-      ctx.setLineDash([Math.max(2,6/scale),Math.max(1,4/scale)]);
-      ctx.beginPath();
-      ctx.moveTo(r.x1,r.y1);
-      ctx.lineTo(r.x2,r.y2);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
+      ctx.strokeStyle='rgba(100,220,100,0.9)';ctx.lineWidth=Math.max(1,2/scale);ctx.setLineDash([Math.max(2,6/scale),Math.max(1,4/scale)]);
+      ctx.beginPath();ctx.moveTo(r.x1,r.y1);ctx.lineTo(r.x2,r.y2);ctx.stroke();ctx.setLineDash([]);
       ctx.fillStyle='rgba(100,220,100,0.9)';
-      ctx.beginPath();
-      ctx.arc(r.x1,r.y1,Math.max(2,4/scale),0,Math.PI*2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(r.x2,r.y2,Math.max(2,4/scale),0,Math.PI*2);
-      ctx.fill();
-
-      const mx=(r.x1+r.x2)/2;
-      const my=(r.y1+r.y2)/2;
+      ctx.beginPath();ctx.arc(r.x1,r.y1,Math.max(2,4/scale),0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(r.x2,r.y2,Math.max(2,4/scale),0,Math.PI*2);ctx.fill();
+      const mx=(r.x1+r.x2)/2,my=(r.y1+r.y2)/2;
       const fs=Math.max(8,Math.round(13/scale));
-
       ctx.font=`bold ${fs}px Cinzel,serif`;
-      ctx.fillStyle='rgba(0,0,0,0.7)';
-      ctx.fillText(`${ft}ft`,mx+1,my+1);
-      ctx.fillStyle='rgba(140,255,140,1)';
-      ctx.fillText(`${ft}ft`,mx,my);
-
-      if(r.name){
-        ctx.font=`${Math.max(7,Math.round(10/scale))}px Cinzel,serif`;
-        ctx.fillStyle='rgba(140,255,140,0.7)';
-        ctx.fillText(r.name,mx,my+fs*1.2);
-      }
+      ctx.fillStyle='rgba(0,0,0,0.7)';ctx.fillText(`${ft}ft`,mx+1,my+1);
+      ctx.fillStyle='rgba(140,255,140,1)';ctx.fillText(`${ft}ft`,mx,my);
+      if(r.name){ctx.font=`${Math.max(7,Math.round(10/scale))}px Cinzel,serif`;ctx.fillStyle='rgba(140,255,140,0.7)';ctx.fillText(r.name,mx,my+fs*1.2);}
     });
   });
 }
 
 // ── PINGS ─────────────────────────────────────────────────────────────────────
 function showPing(x,y,name,id){
-  if(shownPings.has(id))return;
-  shownPings.add(id);
-
+  if(shownPings.has(id))return;shownPings.add(id);
   const layer=document.getElementById('ping-layer');
-  const dot=document.createElement('div');
-  dot.className='ping-dot';
-  dot.style.left=x+'px';
-  dot.style.top=y+'px';
-
-  const lbl=document.createElement('div');
-  lbl.className='ping-lbl';
-  lbl.textContent=name;
-  dot.appendChild(lbl);
-
+  const dot=document.createElement('div');dot.className='ping-dot';dot.style.left=x+'px';dot.style.top=y+'px';
+  const lbl=document.createElement('div');lbl.className='ping-lbl';lbl.textContent=name;dot.appendChild(lbl);
   layer.appendChild(dot);
-
-  setTimeout(async()=>{
-    dot.remove();
-    shownPings.delete(id);
-    try{await remove(ref(db,`s/${sid}/pings/${id}`));}catch{}
-  },2300);
+  setTimeout(async()=>{dot.remove();shownPings.delete(id);try{await remove(ref(db,`s/${sid}/pings/${id}`));}catch{}},2300);
 }
-
 async function firePing(cx,cy){
   const pos=boardPos(cx,cy);
   if(pos.x<0||pos.y<0||pos.x>mapW||pos.y>mapH)return;
@@ -1563,248 +995,62 @@ async function firePing(cx,cy){
 
 // ── BOARD EVENTS ──────────────────────────────────────────────────────────────
 function initBoard(){
+  startRulerSync();
   const board=document.getElementById('board');
-
   board.addEventListener('wheel',e=>{
     e.preventDefault();
-    const d=e.deltaY<0?1.1:0.9;
-    const r=board.getBoundingClientRect();
-    const mx=e.clientX-r.left;
-    const my=e.clientY-r.top;
+    const d=e.deltaY<0?1.1:0.9;const r=board.getBoundingClientRect();
+    const mx=e.clientX-r.left,my=e.clientY-r.top;
     const ns=Math.max(0.1,Math.min(8,scale*d));
-    panX=mx-(mx-panX)*(ns/scale);
-    panY=my-(my-panY)*(ns/scale);
-    scale=ns;
+    panX=mx-(mx-panX)*(ns/scale);panY=my-(my-panY)*(ns/scale);scale=ns;
     applyTransform();
   },{passive:false});
-
   board.addEventListener('mousedown',e=>{
-    if(e.button===1||e.button===2){
-      e.preventDefault();
-      panning=true;
-      pSX=e.clientX;
-      pSY=e.clientY;
-      pOX=panX;
-      pOY=panY;
-      return;
-    }
-
+    if(e.button===1||e.button===2){e.preventDefault();panning=true;pSX=e.clientX;pSY=e.clientY;pOX=panX;pOY=panY;return;}
     if(e.button===0){
-      const onTok=e.target.closest('.token');
-      const onFog=e.target.closest('.fog-rect');
-
-      if(isGM&&calibMode&&!onTok){
-        startCalib(e.clientX,e.clientY);
-        return;
-      }
-
-      if(rulerMode&&!onTok){
-        startRuler(e.clientX,e.clientY);
-        return;
-      }
-
-      if(isGM&&fogMode&&!onTok&&!onFog){
-        startFogDraw(e.clientX,e.clientY);
-        return;
-      }
-
-      if(!onTok&&!onFog){
-        selFog=null;
-        renderFogs();
-      }
+      const onTok=e.target.closest('.token');const onFog=e.target.closest('.fog-rect');
+      if(isGM&&calibMode&&!onTok){startCalib(e.clientX,e.clientY);return;}
+      if(rulerMode&&!onTok){startRuler(e.clientX,e.clientY);return;}
+      if(isGM&&fogMode&&!onTok&&!onFog){startFogDraw(e.clientX,e.clientY);return;}
+      if(!onTok&&!onFog){selFog=null;renderFogs();}
     }
   });
-
   board.addEventListener('dblclick',e=>{
-    if(!e.target.closest('.token')&&!e.target.closest('.fog-rect')&&mapW>0&&!rulerMode&&!fogMode&&!calibMode){
+    if(!e.target.closest('.token')&&!e.target.closest('.fog-rect')&&mapW>0&&!rulerMode&&!fogMode&&!calibMode)
       firePing(e.clientX,e.clientY);
-    }
   });
-
   board.addEventListener('contextmenu',e=>e.preventDefault());
-
   document.addEventListener('mousemove',e=>{
-    if(panning){
-      panX=pOX+(e.clientX-pSX);
-      panY=pOY+(e.clientY-pSY);
-      applyTransform();
-      return;
-    }
-
-    if(calibDrawing){
-      updateCalib(e.clientX,e.clientY);
-      return;
-    }
-
-    if(rulerDrawing){
-      updateRuler(e.clientX,e.clientY);
-      return;
-    }
-
-    if(fogDrawing){
-      updateFogDraw(e.clientX,e.clientY);
-      return;
-    }
-
-    if(fogResize){
-      const dx=(e.clientX-fogResizeMX)/scale;
-      const dy=(e.clientY-fogResizeMY)/scale;
-      const w=Math.max(20,fogResizeSW+dx);
-      const h=Math.max(20,fogResizeSH+dy);
-      const el=document.getElementById('fog-'+fogResize);
-      if(el){
-        el.style.width=w+'px';
-        el.style.height=h+'px';
-      }
-      return;
-    }
-
-    if(fogDrag){
-      const pos=boardPos(e.clientX,e.clientY);
-      const el=document.getElementById('fog-'+fogDrag);
-      if(el){
-        el.style.left=(pos.x-fogDragOX)+'px';
-        el.style.top=(pos.y-fogDragOY)+'px';
-      }
-      return;
-    }
-
-    if(dragId){
-      const pos=boardPos(e.clientX,e.clientY);
-      const el=document.getElementById('tok-'+dragId);
-      if(el){
-        el.style.left=(pos.x-dOX)+'px';
-        el.style.top=(pos.y-dOY)+'px';
-      }
-    }
+    if(panning){panX=pOX+(e.clientX-pSX);panY=pOY+(e.clientY-pSY);applyTransform();return;}
+    if(calibDrawing){updateCalib(e.clientX,e.clientY);return;}
+    if(rulerDrawing){updateRuler(e.clientX,e.clientY);return;}
+    if(fogDrawing){updateFogDraw(e.clientX,e.clientY);return;}
+    if(fogResize){const dx=(e.clientX-fogResizeMX)/scale,dy=(e.clientY-fogResizeMY)/scale;const w=Math.max(20,fogResizeSW+dx),h=Math.max(20,fogResizeSH+dy);const el=document.getElementById('fog-'+fogResize);if(el){el.style.width=w+'px';el.style.height=h+'px';}return;}
+    if(fogDrag){const pos=boardPos(e.clientX,e.clientY);const el=document.getElementById('fog-'+fogDrag);if(el){el.style.left=(pos.x-fogDragOX)+'px';el.style.top=(pos.y-fogDragOY)+'px';}return;}
+    if(dragId){const pos=boardPos(e.clientX,e.clientY);const el=document.getElementById('tok-'+dragId);if(el){el.style.left=(pos.x-dOX)+'px';el.style.top=(pos.y-dOY)+'px';}}
   });
-
   document.addEventListener('mouseup',async e=>{
-    if(panning){
-      panning=false;
-      return;
-    }
-
-    if(calibDrawing){
-      endCalib(e.clientX,e.clientY);
-      return;
-    }
-
-    if(rulerDrawing){
-      endRuler();
-      return;
-    }
-
-    if(fogDrawing){
-      endFogDraw();
-      return;
-    }
-
-    if(fogResize){
-      const dx=(e.clientX-fogResizeMX)/scale;
-      const dy=(e.clientY-fogResizeMY)/scale;
-      await update(ref(db,`s/${sid}/fogs/${fogResize}`),{
-        w:Math.max(20,fogResizeSW+dx),
-        h:Math.max(20,fogResizeSH+dy)
-      });
-      fogResize=null;
-      return;
-    }
-
-    if(fogDrag){
-      const pos=boardPos(e.clientX,e.clientY);
-      await update(ref(db,`s/${sid}/fogs/${fogDrag}`),{
-        x:pos.x-fogDragOX,
-        y:pos.y-fogDragOY
-      });
-      fogDrag=null;
-      return;
-    }
-
-    if(dragId){
-      const pos=boardPos(e.clientX,e.clientY);
-      await update(ref(db,`s/${sid}/tokens/${dragId}`),{
-        x:pos.x-dOX,
-        y:pos.y-dOY
-      });
-      const el=document.getElementById('tok-'+dragId);
-      if(el)el.classList.remove('dragging');
-      dragId=null;
-    }
+    if(panning){panning=false;return;}
+    if(calibDrawing){endCalib(e.clientX,e.clientY);return;}
+    if(rulerDrawing){endRuler();return;}
+    if(fogDrawing){endFogDraw();return;}
+    if(fogResize){const dx=(e.clientX-fogResizeMX)/scale,dy=(e.clientY-fogResizeMY)/scale;await update(ref(db,`s/${sid}/fogs/${fogResize}`),{w:Math.max(20,fogResizeSW+dx),h:Math.max(20,fogResizeSH+dy)});fogResize=null;return;}
+    if(fogDrag){const pos=boardPos(e.clientX,e.clientY);await update(ref(db,`s/${sid}/fogs/${fogDrag}`),{x:pos.x-fogDragOX,y:pos.y-fogDragOY});fogDrag=null;return;}
+    if(dragId){const pos=boardPos(e.clientX,e.clientY);await update(ref(db,`s/${sid}/tokens/${dragId}`),{x:pos.x-dOX,y:pos.y-dOY});const el=document.getElementById('tok-'+dragId);if(el)el.classList.remove('dragging');dragId=null;}
   });
 }
-
-function applyTransform(){
-  document.getElementById('board-wrap').style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;
-}
-
-function boardPos(cx,cy){
-  const r=document.getElementById('board').getBoundingClientRect();
-  return {
-    x:(cx-r.left-panX)/scale,
-    y:(cy-r.top-panY)/scale
-  };
-}
+function applyTransform(){document.getElementById('board-wrap').style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;}
+function boardPos(cx,cy){const r=document.getElementById('board').getBoundingClientRect();return{x:(cx-r.left-panX)/scale,y:(cy-r.top-panY)/scale};}
 
 // ── DICE ──────────────────────────────────────────────────────────────────────
-window.roll=async(sides)=>{
-  const qty=Math.max(1,parseInt(document.getElementById('qty').value)||1);
-  const mod=parseInt(document.getElementById('mod').value)||0;
-  const rolls=Array.from({length:qty},()=>Math.floor(Math.random()*sides)+1);
-  const total=rolls.reduce((a,b)=>a+b,0)+mod;
-  const crit=sides===20&&qty===1&&rolls[0]===20;
-  const fumble=sides===20&&qty===1&&rolls[0]===1;
-
-  await push(rollRef,{
-    player:myName,
-    dice:`${qty}d${sides}`,
-    rolls,
-    mod,
-    total,
-    crit,
-    fumble,
-    ts:Date.now()
-  });
-};
-
-window.rollExpr=async()=>{
-  const expr=prompt('Dice expression (e.g. 2d6+3):');
-  if(!expr)return;
-  const m=expr.match(/(\d+)d(\d+)([+-]\d+)?/i);
-  if(!m){
-    toast('Invalid — try 2d6+3');
-    return;
-  }
-  document.getElementById('qty').value=m[1];
-  document.getElementById('mod').value=parseInt(m[3]||'0');
-  roll(parseInt(m[2]));
-};
-
-function renderRolls(rolls){
-  const log=document.getElementById('rlog');
-  log.innerHTML='';
-
-  [...rolls].reverse().slice(0,40).forEach(r=>{
-    const div=document.createElement('div');
-    div.className='re'+(r.crit?' crit':r.fumble?' fumble':'');
-    const ms=r.mod>0?`+${r.mod}`:r.mod<0?`${r.mod}`:'';
-    const flag=r.crit?' 🌟':r.fumble?' 💀':'';
-    div.innerHTML=`<span class="who">${r.player}</span> ${r.dice}${ms} → <span class="tot">${r.total}</span>${flag}<div class="brk">[${r.rolls.join(', ')}]${ms}</div>`;
-    log.appendChild(div);
-  });
-}
+window.roll=async(sides)=>{const qty=Math.max(1,parseInt(document.getElementById('qty').value)||1);const mod=parseInt(document.getElementById('mod').value)||0;const rolls=Array.from({length:qty},()=>Math.floor(Math.random()*sides)+1);const total=rolls.reduce((a,b)=>a+b,0)+mod;const crit=sides===20&&qty===1&&rolls[0]===20;const fumble=sides===20&&qty===1&&rolls[0]===1;await push(rollRef,{player:myName,dice:`${qty}d${sides}`,rolls,mod,total,crit,fumble,ts:Date.now()});};
+window.rollExpr=async()=>{const expr=prompt('Dice expression (e.g. 2d6+3):');if(!expr)return;const m=expr.match(/(\d+)d(\d+)([+-]\d+)?/i);if(!m){toast('Invalid — try 2d6+3');return;}document.getElementById('qty').value=m[1];document.getElementById('mod').value=parseInt(m[3]||'0');roll(parseInt(m[2]));};
+function renderRolls(rolls){const log=document.getElementById('rlog');log.innerHTML='';[...rolls].reverse().slice(0,40).forEach(r=>{const div=document.createElement('div');div.className='re'+(r.crit?' crit':r.fumble?' fumble':'');const ms=r.mod>0?`+${r.mod}`:r.mod<0?`${r.mod}`:'';const flag=r.crit?' 🌟':r.fumble?' 💀':'';div.innerHTML=`<span class="who">${r.player}</span> ${r.dice}${ms} → <span class="tot">${r.total}</span>${flag}<div class="brk">[${r.rolls.join(', ')}]${ms}</div>`;log.appendChild(div);});}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 window.copySid=()=>navigator.clipboard.writeText(sid).then(()=>toast('Session ID copied'));
-
 let toastT;
-window.toast=msg=>{
-  const el=document.getElementById('toast');
-  el.textContent=msg;
-  el.classList.add('show');
-  clearTimeout(toastT);
-  toastT=setTimeout(()=>el.classList.remove('show'),2600);
-};
+window.toast=msg=>{const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2600);};
 </script>
 </body>
 </html>
