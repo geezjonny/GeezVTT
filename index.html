@@ -1030,7 +1030,7 @@ async function renderSheet(tokId){
   const t=tokens[tokId];
   if(!t)return;
 
-  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
+  const canEdit=isGM;
   const s=ensureTokenSheet(t);
 
   document.getElementById('sheet-char-name').textContent=t.name||'Character';
@@ -1144,7 +1144,7 @@ window.saveTokenSheet=async(tokId)=>{
   const t=tokens[tokId];
   if(!t)return;
 
-  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
+  const canEdit=isGM;
   if(!canEdit)return;
 
   const current=ensureTokenSheet(t);
