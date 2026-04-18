@@ -78,6 +78,41 @@ body.is-gm .gm-b{display:block!important;}
 /* ══ MAIN LAYOUT ══ */
 #main{display:flex;flex:1;overflow:hidden;position:relative;}
 
+/* ══ LEFT PANEL ══ */
+#left-panel{
+  width:320px;
+  flex-shrink:0;
+  background:var(--surface);
+  border-right:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#left-scroll{flex:1;overflow-y:auto;}
+#left-scroll::-webkit-scrollbar{width:3px;}
+#left-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#left-empty{
+  padding:1rem;
+  font-size:0.78rem;
+  color:var(--dim);
+  font-style:italic;
+  line-height:1.7;
+}
+#left-sheet-pane{display:none;flex-direction:column;}
+#left-sheet-pane.open{display:flex;}
+#left-sheet-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;flex-shrink:0;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);}
+#left-sheet-char-name{font-family:'Cinzel',serif;font-size:0.82rem;color:var(--gold-hi);letter-spacing:0.08em;}
+#left-sheet-sub{font-size:0.62rem;color:var(--dim);font-style:italic;margin-top:0.12rem;}
+#left-sheet-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;line-height:1;padding:0.1rem 0.3rem;}
+#left-sheet-close:hover{color:var(--text);}
+#left-sheet-body{padding:0.7rem;}
+
+#left-enemy-pane{display:none;flex-direction:column;}
+#left-enemy-pane.open{display:flex;}
+.left-enemy-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);}
+.left-enemy-name-lbl{font-family:'Cinzel',serif;font-size:0.82rem;color:#ff8888;letter-spacing:0.08em;}
+.left-enemy-body{padding:0.8rem;font-size:0.8rem;font-style:italic;color:rgba(232,220,200,0.65);line-height:1.65;}
+
 /* ══ BOARD ══ */
 #board{flex:1;position:relative;overflow:hidden;background:#080604;cursor:default;}
 #board-wrap{position:absolute;transform-origin:0 0;}
@@ -99,6 +134,7 @@ body.is-gm #fog-layer{pointer-events:all;}
 .status-badge{font-size:0.48rem;padding:0.06rem 0.22rem;border-radius:2px;white-space:nowrap;font-family:'Cinzel',serif;letter-spacing:0.04em;}
 .token.type-pc img{border-color:rgba(100,180,255,0.7);}
 .token.type-enemy img{border-color:rgba(220,80,80,0.7);}
+.token.selected img{box-shadow:0 0 0 2px var(--gold),0 2px 12px rgba(0,0,0,0.8);}
 body.is-gm .token{cursor:grab;}
 body.is-gm .token:hover img{box-shadow:0 0 0 2px var(--gold),0 2px 12px rgba(0,0,0,0.8);}
 body.is-gm .token.dragging{cursor:grabbing;opacity:0.75;z-index:100;}
@@ -128,79 +164,59 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .ruler-line{position:absolute;pointer-events:none;z-index:50;}
 
 /* ══ RIGHT PANEL ══ */
-#panel{width:300px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
-#sheet-pane{flex-shrink:0;border-bottom:1px solid var(--border);display:none;flex-direction:column;overflow:hidden;max-height:68vh;}
-#sheet-pane.open{display:flex;}
-#sheet-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;flex-shrink:0;background:rgba(0,0,0,0.2);}
-#sheet-char-name{font-family:'Cinzel',serif;font-size:0.82rem;color:var(--gold-hi);letter-spacing:0.08em;}
-#sheet-close{background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;line-height:1;padding:0.1rem 0.3rem;}
-#sheet-close:hover{color:var(--text);}
-#sheet-body{flex:1;overflow-y:auto;padding:0.6rem;}
-#sheet-body::-webkit-scrollbar{width:3px;}
-#sheet-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-.sheet-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;margin-bottom:0.6rem;}
-.stat-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.3rem 0.4rem;text-align:center;}
-.stat-box .sv{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-hi);font-weight:700;line-height:1;}
-.stat-box .sl{font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:0.15rem;}
-.hp-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:2px;padding:0.4rem 0.5rem;flex-wrap:wrap;}
-.hp-label{font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;white-space:nowrap;}
-.hp-val{font-family:'Cinzel',serif;font-size:0.9rem;color:#ff6666;font-weight:700;min-width:28px;text-align:center;}
-.hp-sep{color:var(--dim);font-size:0.7rem;}
-.hp-max{font-family:'Cinzel',serif;font-size:0.75rem;color:var(--dim);}
-.hp-btn{background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);width:20px;height:20px;border-radius:2px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s;}
-.hp-btn:hover{border-color:var(--gold);color:var(--gold-hi);}
-.hp-input{width:36px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.78rem;padding:0.15rem 0.3rem;border-radius:1px;outline:none;text-align:center;}
-.hp-input:focus{border-color:var(--gold);}
-.cs-section{border:1px solid var(--border);border-radius:2px;margin-bottom:0.4rem;overflow:hidden;}
-.cs-header{display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;cursor:pointer;background:rgba(0,0,0,0.2);transition:background 0.12s;user-select:none;}
-.cs-header:hover{background:rgba(0,0,0,0.35);}
-.cs-title{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);}
-.cs-arrow{font-size:0.6rem;color:var(--dim);transition:transform 0.2s;}
-.cs-section.open .cs-arrow{transform:rotate(180deg);}
-.cs-body{display:none;padding:0.5rem;}
-.cs-section.open .cs-body{display:block;}
-.ab-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.3rem;}
-.ab-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.25rem 0.15rem;text-align:center;}
-.ab-mod{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold-hi);font-weight:700;line-height:1;}
-.ab-score{font-size:0.62rem;color:var(--dim);}
-.ab-name{font-family:'Cinzel',serif;font-size:0.45rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);}
-.saves-row{display:flex;gap:0.3rem;flex-wrap:wrap;margin-top:0.4rem;}
-.save-pill{font-family:'Cinzel',serif;font-size:0.52rem;padding:0.12rem 0.35rem;border-radius:2px;border:1px solid var(--border);color:var(--dim);}
-.save-pill.prof{border-color:var(--gold);color:var(--gold-hi);background:rgba(180,130,60,0.1);}
-.skill-row{display:flex;align-items:center;gap:0.3rem;padding:0.15rem 0;border-bottom:1px solid rgba(180,130,60,0.06);}
-.skill-prof{width:8px;height:8px;border-radius:50%;border:1px solid var(--dim);flex-shrink:0;}
-.skill-prof.p{background:var(--gold);border-color:var(--gold);}
-.skill-prof.e{background:var(--gold-hi);border-color:var(--gold-hi);}
-.skill-name{font-family:'Cinzel',serif;font-size:0.58rem;flex:1;color:var(--text);}
-.skill-mod{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold-hi);min-width:24px;text-align:right;}
-.spell-level-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.3rem;}
-.spell-level-label{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--dim);width:40px;flex-shrink:0;}
-.spell-slots{display:flex;gap:3px;flex-wrap:wrap;}
-.spell-slot{width:14px;height:14px;border-radius:50%;border:1px solid var(--gold);cursor:pointer;transition:all 0.1s;}
-.spell-slot.used{background:rgba(0,0,0,0.5);border-color:var(--dim);}
-.spell-slot.avail{background:var(--gold);box-shadow:0 0 4px rgba(180,130,60,0.4);}
-.inv-row{display:flex;align-items:center;gap:0.3rem;padding:0.18rem 0;border-bottom:1px solid rgba(180,130,60,0.06);font-size:0.72rem;}
-.inv-qty{color:var(--gold);font-family:'Cinzel',serif;font-size:0.62rem;min-width:20px;text-align:center;}
-.inv-name{flex:1;color:var(--text);}
-.inv-notes{font-size:0.62rem;color:var(--dim);font-style:italic;}
-.feat-row{margin-bottom:0.5rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(180,130,60,0.08);}
-.feat-name{font-family:'Cinzel',serif;font-size:0.62rem;color:var(--gold);margin-bottom:0.2rem;}
-.feat-desc{font-size:0.7rem;color:rgba(232,220,200,0.65);line-height:1.55;font-style:italic;}
-.notes-area{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.8rem;padding:0.4rem 0.5rem;border-radius:1px;outline:none;resize:vertical;min-height:80px;line-height:1.5;}
-.notes-area:focus{border-color:var(--gold);}
-.status-picker{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem;}
-.sp-btn{font-size:0.55rem;padding:0.12rem 0.3rem;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--dim);font-family:'Cinzel',serif;transition:all 0.1s;}
-.sp-btn.active{border-color:var(--gold-hi);color:var(--gold-hi);background:rgba(180,130,60,0.12);}
-#enemy-pane{flex-shrink:0;border-bottom:1px solid var(--border);display:none;flex-direction:column;}
-#enemy-pane.open{display:flex;}
-.enemy-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;background:rgba(0,0,0,0.2);}
-.enemy-name-lbl{font-family:'Cinzel',serif;font-size:0.82rem;color:#ff8888;letter-spacing:0.08em;}
-.enemy-body{padding:0.6rem 0.7rem;font-size:0.8rem;font-style:italic;color:rgba(232,220,200,0.65);line-height:1.65;}
-#panel-scroll{flex:1;overflow-y:auto;}
-#panel-scroll::-webkit-scrollbar{width:3px;}
-#panel-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#right-panel{
+  width:300px;
+  flex-shrink:0;
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#right-scroll{flex:1;overflow-y:auto;}
+#right-scroll::-webkit-scrollbar{width:3px;}
+#right-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* Shared panel sections */
 .ps{padding:0.8rem;border-bottom:1px solid var(--border);}
 .ps h3{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.65rem;}
+
+/* Party module */
+#party-list{display:flex;flex-direction:column;gap:0.25rem;}
+.party-row{
+  display:flex;align-items:center;gap:0.45rem;
+  padding:0.32rem 0.4rem;
+  background:rgba(0,0,0,0.16);
+  border:1px solid transparent;
+  border-radius:1px;
+  cursor:pointer;
+  transition:all 0.12s;
+}
+.party-row:hover{border-color:var(--border);}
+.party-row.sel{border-color:var(--gold);background:rgba(180,130,60,0.07);}
+.party-dot{
+  width:8px;height:8px;border-radius:50%;flex-shrink:0;
+  background:#6699cc;
+  box-shadow:0 0 4px rgba(102,153,204,0.4);
+}
+.party-name{
+  font-family:'Cinzel',serif;
+  font-size:0.58rem;
+  flex:1;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.party-stats{
+  font-family:'Cinzel',serif;
+  font-size:0.52rem;
+  color:var(--dim);
+  white-space:nowrap;
+  flex-shrink:0;
+}
+
+/* Dice */
 .dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.26rem;margin-bottom:0.5rem;}
 .db{background:rgba(122,26,26,0.1);border:1px solid rgba(122,26,26,0.26);color:var(--dim);font-family:'Cinzel',serif;font-size:0.63rem;padding:0.35rem 0.1rem;border-radius:1px;cursor:pointer;text-align:center;transition:all 0.12s;}
 .db:hover{background:rgba(122,26,26,0.3);border-color:#7a1a1a;color:#ffaaaa;transform:translateY(-1px);}
@@ -209,7 +225,9 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .mr label{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.08em;color:var(--dim);white-space:nowrap;}
 .mr input{width:44px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.86rem;padding:0.2rem 0.35rem;border-radius:1px;outline:none;}
 .mr input:focus{border-color:var(--gold);}
-#rlog{height:140px;overflow-y:auto;display:flex;flex-direction:column;gap:0.2rem;}
+
+/* Dice log */
+#rlog{height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:0.2rem;}
 #rlog::-webkit-scrollbar{width:3px;}
 #rlog::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .re{font-size:0.74rem;padding:0.2rem 0.38rem;background:rgba(0,0,0,0.18);border-left:2px solid transparent;line-height:1.45;animation:si 0.18s ease;}
@@ -218,6 +236,8 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .re .who{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);}
 .re .tot{font-size:0.94rem;font-weight:bold;color:var(--gold-hi);margin-left:0.12rem;}
 .re .brk{font-size:0.64rem;color:rgba(232,220,200,0.3);}
+
+/* GM token list */
 #tok-list{display:flex;flex-direction:column;gap:0.25rem;margin-bottom:0.45rem;}
 .tli{display:flex;align-items:center;gap:0.4rem;padding:0.28rem 0.4rem;background:rgba(0,0,0,0.16);border:1px solid transparent;border-radius:1px;cursor:pointer;transition:all 0.12s;}
 .tli:hover{border-color:var(--border);}
@@ -227,9 +247,56 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .tli-type{font-size:0.55rem;color:var(--dim);font-family:'Cinzel',serif;flex-shrink:0;}
 .tli-del{background:none;border:none;color:#884444;cursor:pointer;font-size:0.75rem;padding:0.08rem 0.2rem;opacity:0;transition:opacity 0.12s;line-height:1;}
 .tli:hover .tli-del{opacity:1;}
+
 .action-btn{display:block;width:100%;padding:0.35rem;font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;text-align:center;color:var(--gold);border:1px solid var(--border);border-radius:1px;cursor:pointer;transition:all 0.12s;margin-bottom:0.28rem;background:transparent;}
 .action-btn:hover{border-color:var(--gold);background:rgba(180,130,60,0.07);}
 .ping-note{font-size:0.7rem;font-style:italic;color:var(--dim);line-height:1.6;opacity:0.8;}
+
+/* ══ LEFT SHEET BLOCKS ══ */
+.sheet-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;margin-bottom:0.6rem;}
+.stat-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.3rem 0.4rem;text-align:center;}
+.stat-box .sv{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-hi);font-weight:700;line-height:1;}
+.stat-box .sl{font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:0.15rem;}
+
+.hp-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:2px;padding:0.4rem 0.5rem;flex-wrap:wrap;}
+.hp-label{font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;white-space:nowrap;}
+.hp-val{font-family:'Cinzel',serif;font-size:0.9rem;color:#ff6666;font-weight:700;min-width:28px;text-align:center;}
+.hp-sep{color:var(--dim);font-size:0.7rem;}
+.hp-max{font-family:'Cinzel',serif;font-size:0.75rem;color:var(--dim);}
+.hp-btn{background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);width:20px;height:20px;border-radius:2px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s;}
+.hp-btn:hover{border-color:var(--gold);color:var(--gold-hi);}
+.hp-input{width:36px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.78rem;padding:0.15rem 0.3rem;border-radius:1px;outline:none;text-align:center;}
+.hp-input:focus{border-color:var(--gold);}
+
+.cs-section{border:1px solid var(--border);border-radius:2px;margin-bottom:0.4rem;overflow:hidden;}
+.cs-header{display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;cursor:pointer;background:rgba(0,0,0,0.2);transition:background 0.12s;user-select:none;}
+.cs-header:hover{background:rgba(0,0,0,0.35);}
+.cs-title{font-family:'Cinzel',serif;font-size:0.62rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);}
+.cs-arrow{font-size:0.6rem;color:var(--dim);transition:transform 0.2s;}
+.cs-section.open .cs-arrow{transform:rotate(180deg);}
+.cs-body{display:none;padding:0.5rem;}
+.cs-section.open .cs-body{display:block;}
+
+.ab-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.3rem;}
+.ab-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.25rem 0.15rem;text-align:center;}
+.ab-mod{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold-hi);font-weight:700;line-height:1;}
+.ab-score{font-size:0.62rem;color:var(--dim);}
+.ab-name{font-family:'Cinzel',serif;font-size:0.45rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);}
+
+.line-list{display:flex;flex-direction:column;gap:0.3rem;}
+.line-item{padding:0.3rem 0.35rem;background:rgba(0,0,0,0.18);border:1px solid rgba(180,130,60,0.08);border-radius:2px;}
+.line-item-name{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--text);}
+.line-item-sub{font-size:0.68rem;color:var(--dim);font-style:italic;line-height:1.45;margin-top:0.15rem;}
+
+.notes-area{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.8rem;padding:0.4rem 0.5rem;border-radius:1px;outline:none;resize:vertical;min-height:80px;line-height:1.5;}
+.notes-area:focus{border-color:var(--gold);}
+.status-picker{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem;}
+.sp-btn{font-size:0.55rem;padding:0.12rem 0.3rem;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--dim);font-family:'Cinzel',serif;transition:all 0.1s;}
+.sp-btn.active{border-color:var(--gold-hi);color:var(--gold-hi);background:rgba(180,130,60,0.12);}
+
+.sheet-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.sheet-form-grid-abilities{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.sheet-mini-label{font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;}
 
 /* ══ HOTBAR ══ */
 #hotbar{
@@ -257,10 +324,8 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .hb-item:hover .hb-label{color:var(--gold-hi);}
 .hb-del{position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#7a1a1a;color:#fff;display:none;align-items:center;justify-content:center;font-size:0.5rem;cursor:pointer;z-index:5;}
 .hb-item:hover .hb-del{display:flex;}
-/* add button in hotbar */
 .hb-add{flex-shrink:0;width:72px;height:72px;border:1px dashed rgba(180,130,60,0.3);border-radius:4px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:rgba(180,130,60,0.4);font-size:1.4rem;transition:all 0.15s;}
 .hb-add:hover{border-color:var(--gold);color:var(--gold);}
-/* scene items have a different look */
 .hb-scene-thumb{width:72px;height:72px;border-radius:4px;border:1px solid var(--border);background:#0a0806;display:flex;align-items:center;justify-content:center;font-size:1.6rem;}
 .hb-item.active-scene .hb-scene-thumb{border-color:var(--gold);box-shadow:0 0 8px rgba(180,130,60,0.4);}
 
@@ -303,7 +368,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
     <h3 id="asset-modal-title">Add Asset</h3>
     <div class="f"><label>Name / Nickname</label><input id="asset-name" type="text" maxlength="30" placeholder="e.g. Goblin Token"></div>
     <div class="f"><label>Image URL</label><input id="asset-url" type="text" placeholder="https://raw.githubusercontent.com/..."></div>
-    <!-- legacy compatibility field hidden in v1 -->
     <div class="f" id="asset-sheet-wrap" style="display:none"><label>Character Sheet JSON URL (legacy / optional)</label><input id="asset-sheet" type="text" placeholder="https://raw.githubusercontent.com/.../sheet.json"></div>
     <div class="f" id="asset-lore-wrap" style="display:none"><label>Description</label><textarea id="asset-lore" rows="2" placeholder="A merregon, soldier of Avernus..."></textarea></div>
     <div class="modal-btns"><button class="btn-p" onclick="saveAsset()">Save</button><button class="btn-g" onclick="closeAssetModal()">Cancel</button></div>
@@ -370,6 +434,36 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
   </div>
 
   <div id="main">
+    <!-- LEFT PANE -->
+    <div id="left-panel">
+      <div id="left-scroll">
+        <div id="left-empty">No character selected. If you’ve claimed a PC, your character will appear here automatically.</div>
+
+        <div id="left-sheet-pane">
+          <div id="left-sheet-header">
+            <div>
+              <div id="left-sheet-char-name"></div>
+              <div id="left-sheet-sub"></div>
+            </div>
+            <div style="display:flex;gap:0.4rem;align-items:center;">
+              <button class="tb gm" id="sheet-status-btn" onclick="openStatusModal()" style="font-size:0.55rem;padding:0.15rem 0.4rem;">Conditions</button>
+              <button id="left-sheet-close" onclick="clearSelection()">✕</button>
+            </div>
+          </div>
+          <div id="left-sheet-body"></div>
+        </div>
+
+        <div id="left-enemy-pane">
+          <div class="left-enemy-header">
+            <span class="left-enemy-name-lbl" id="left-enemy-name-lbl"></span>
+            <button style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;" onclick="clearSelection()">✕</button>
+          </div>
+          <div class="left-enemy-body" id="left-enemy-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER MAP -->
     <div id="board">
       <div id="empty-state"><p>Awaiting the GM's map…</p></div>
       <div id="board-wrap">
@@ -381,25 +475,14 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
       </div>
     </div>
 
-    <div id="panel">
-      <div id="sheet-pane">
-        <div id="sheet-header">
-          <span id="sheet-char-name"></span>
-          <div style="display:flex;gap:0.4rem;align-items:center;">
-            <button class="tb gm" id="sheet-status-btn" onclick="openStatusModal()" style="font-size:0.55rem;padding:0.15rem 0.4rem;">Conditions</button>
-            <button id="sheet-close" onclick="closeSheet()">✕</button>
-          </div>
+    <!-- RIGHT PANE -->
+    <div id="right-panel">
+      <div id="right-scroll">
+        <div class="ps">
+          <h3>👥 Party</h3>
+          <div id="party-list"></div>
         </div>
-        <div id="sheet-body"></div>
-      </div>
-      <div id="enemy-pane">
-        <div class="enemy-header">
-          <span class="enemy-name-lbl" id="enemy-name-lbl"></span>
-          <button style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;" onclick="closeEnemy()">✕</button>
-        </div>
-        <div class="enemy-body" id="enemy-body"></div>
-      </div>
-      <div id="panel-scroll">
+
         <div class="ps">
           <h3>🎲 Dice</h3>
           <div class="dgrid">
@@ -416,16 +499,22 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
             <label>Qty</label><input id="qty" type="number" value="1" min="1" max="20">
             <label style="margin-left:0.28rem">Mod</label><input id="mod" type="number" value="0" min="-99" max="99">
           </div>
+        </div>
+
+        <div class="ps">
+          <h3>📜 Dice Log</h3>
           <div id="rlog"></div>
         </div>
+
+        <div class="ps">
+          <h3>ℹ Help</h3>
+          <p class="ping-note">Double-click map to ping. 📏 Ruler: drag to measure. ⊞ Calibrate: draw a box over 1 grid square. ⚡ Assets: quick-place maps/tokens. 💾 Save Scene: snapshot everything.</p>
+        </div>
+
         <div class="ps gm-b">
           <h3>🪙 Tokens</h3>
           <div id="tok-list"></div>
           <button class="action-btn" onclick="openAddTokModal()">+ Add Token to Map</button>
-        </div>
-        <div class="ps">
-          <h3>ℹ Help</h3>
-          <p class="ping-note">Double-click map to ping. 📏 Ruler: drag to measure. ⊞ Calibrate: draw a box over 1 grid square. ⚡ Assets: quick-place maps/tokens. 💾 Save Scene: snapshot everything.</p>
         </div>
       </div>
     </div>
@@ -470,10 +559,10 @@ let fogDrag=null,fogDragOX=0,fogDragOY=0;
 let fogResize=null,fogResizeSW=0,fogResizeSH=0,fogResizeMX=0,fogResizeMY=0;
 let fogDrawing=false,fogDrawId=null,fogDrawSX=0,fogDrawSY=0;
 const shownPings=new Set();
-let assets={}; // global asset library
+let assets={};
 let scenes={};
 let activeSheet=null,statusModalTokId=null;
-let liveSheetData={}; // legacy no-op compatibility
+let liveSheetData={};
 let pxPerFoot=20;
 let calibMode=false,calibDrawing=false,calibSX=0,calibSY=0,calibEl=null;
 let rulerMode=false,rulerDrawing=false,rulerSX=0,rulerSY=0;
@@ -651,6 +740,20 @@ function centerOnToken(t){
   applyTransform();
 }
 
+function getDisplayTokenId(){
+  if(selTok && tokens[selTok]) return selTok;
+  const mine=getMyClaimedTokenId();
+  if(mine && tokens[mine]) return mine;
+  return null;
+}
+
+function isPublicViewOnly(tokId){
+  const t=tokens[tokId];
+  if(!t || t.type!=='pc') return false;
+  if(isGM) return false;
+  return !canPlayerControlToken(t);
+}
+
 // ── CLAIM MODAL ───────────────────────────────────────────────────────────────
 window.openClaimModal=()=>{
   if(isGM)return;
@@ -737,6 +840,7 @@ window.claimCharacter=async(tokId)=>{
   setTimeout(()=>{
     const tt=tokens[tokId];
     if(tt)centerOnToken(tt);
+    refreshLeftPane();
   },150);
 };
 
@@ -780,7 +884,7 @@ window.enter=async()=>{
   pingRef     =ref(db,`s/${sid}/pings`);
   fogRef      =ref(db,`s/${sid}/fogs`);
   calibRef    =ref(db,`s/${sid}/calib`);
-  liveRef     =ref(db,`s/${sid}/live`); // legacy compatibility only
+  liveRef     =ref(db,`s/${sid}/live`);
   rulerFireRef=ref(db,`s/${sid}/rulers`);
   assetsRef   =ref(db,`assets`);
   scenesRef   =ref(db,`scenes`);
@@ -803,15 +907,12 @@ window.enter=async()=>{
     updateMyClaimBadge();
     renderTokens();
     renderTokList();
+    renderParty();
 
-    if(activeSheet && !tokens[activeSheet]){
-      closeSheet();
-      closeEnemy();
-      activeSheet=null;
-    }
+    if(selTok && !tokens[selTok]) selTok=null;
+    if(activeSheet && !tokens[activeSheet]) activeSheet=null;
 
-    if(activeSheet)renderSheet(activeSheet);
-
+    refreshLeftPane();
     maybePromptClaim();
   });
 
@@ -834,7 +935,6 @@ window.enter=async()=>{
     if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;
   });
 
-  // legacy no-op compatibility
   onValue(liveRef,snap=>{
     liveSheetData=snap.val()||{};
   });
@@ -917,7 +1017,7 @@ async function loadMapUrl(url){
 window.openAddTokModal=()=>{
   currentAssetModalType='token';
   document.getElementById('asset-modal-title').textContent='Add Token to Map';
-  document.getElementById('asset-sheet-wrap').style.display='none'; // hidden in v1
+  document.getElementById('asset-sheet-wrap').style.display='none';
   document.getElementById('asset-lore-wrap').style.display='none';
   document.getElementById('asset-name').value='';
   document.getElementById('asset-url').value='';
@@ -935,7 +1035,7 @@ window.saveAsset=async()=>{
   if(!url){toast('Paste an image URL');return;}
 
   const type=currentAssetModalType;
-  const sheetUrl=document.getElementById('asset-sheet').value.trim(); // legacy compatibility only
+  const sheetUrl=document.getElementById('asset-sheet').value.trim();
   const lore=document.getElementById('asset-lore').value.trim();
 
   const aid=push(assetsRef).key;
@@ -959,7 +1059,7 @@ async function dropTokenOnMap(asset, cx, cy){
     name:asset.name,
     type:asset.type||'pc',
     url:asset.url,
-    sheetUrl:asset.sheetUrl||'', // legacy compatibility only
+    sheetUrl:asset.sheetUrl||'',
     lore:asset.lore||'',
     x,y,size:70,statuses:[],
     ownerUserId:null,
@@ -1011,6 +1111,8 @@ function renderTokens(){
           selTok=id;
           renderTokens();
           renderTokList();
+          renderParty();
+          refreshLeftPane();
           const pos=boardPos(ev.clientX,ev.clientY);
           dOX=pos.x-tokens[id].x;
           dOY=pos.y-tokens[id].y;
@@ -1027,7 +1129,7 @@ function renderTokens(){
     el.style.top=t.y+'px';
     el.style.width=size+'px';
     el.style.height=size+'px';
-    el.className=`token type-${t.type}`+(selTok===id?' highlighted':'')+(isGM?' can-drag':'');
+    el.className=`token type-${t.type}`+(selTok===id?' selected':'')+(isGM?' can-drag':'');
 
     el.querySelector('img').src=t.url||'';
     el.querySelector('.token-name').textContent=t.name||'';
@@ -1064,6 +1166,7 @@ function renderTokList(){
       selTok=id;
       renderTokens();
       renderTokList();
+      renderParty();
       handleTokClick(id);
     });
 
@@ -1075,8 +1178,7 @@ function renderTokList(){
       await remove(ref(db,`s/${sid}/tokens/${id}`));
       if(selTok===id){
         selTok=null;
-        closeSheet();
-        closeEnemy();
+        refreshLeftPane();
       }
     });
 
@@ -1089,6 +1191,48 @@ function renderTokList(){
     }
 
     list.appendChild(div);
+  });
+}
+
+function renderParty(){
+  const list=document.getElementById('party-list');
+  if(!list)return;
+
+  const pcs=Object.entries(tokens)
+    .filter(([,t])=>t.type==='pc')
+    .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
+
+  list.innerHTML='';
+
+  if(!pcs.length){
+    list.innerHTML=`<div style="font-size:0.72rem;color:var(--dim);font-style:italic;">No PCs on map.</div>`;
+    return;
+  }
+
+  pcs.forEach(([id,t])=>{
+    const s=ensureTokenSheet(t);
+    const hpCur=nInt(s.hpCurrent,1);
+    const hpMax=Math.max(1,nInt(s.hpMax,1));
+    const ac=nInt(s.ac,10);
+
+    const row=document.createElement('div');
+    row.className='party-row'+(selTok===id?' sel':'');
+
+    row.innerHTML=`
+      <div class="party-dot"></div>
+      <div class="party-name">${escHtml(t.name||'Unnamed')}</div>
+      <div class="party-stats">${hpCur}/${hpMax} : ${ac}</div>
+    `;
+
+    row.addEventListener('click',()=>{
+      selTok=id;
+      renderTokens();
+      renderTokList();
+      renderParty();
+      refreshLeftPane();
+    });
+
+    list.appendChild(row);
   });
 }
 
@@ -1162,7 +1306,7 @@ function renderHotbar(){
 function openHbAddModal(type){
   currentAssetModalType=type;
   document.getElementById('asset-modal-title').textContent=`Add ${type.charAt(0).toUpperCase()+type.slice(1)}`;
-  document.getElementById('asset-sheet-wrap').style.display='none'; // hidden in v1
+  document.getElementById('asset-sheet-wrap').style.display='none';
   document.getElementById('asset-lore-wrap').style.display=type==='token'?'block':'none';
   document.getElementById('asset-name').value='';
   document.getElementById('asset-url').value='';
@@ -1176,7 +1320,6 @@ async function hbItemClick(asset,type){
     await loadMapUrl(asset.url);
     toast(`Map: ${asset.name}`);
   } else {
-    // props/mounts are still dropped as "enemy" style visually (legacy behavior)
     await dropTokenOnMap({...asset,type:type==='token'?'pc':'enemy'});
     toast(`${asset.name} placed`);
   }
@@ -1229,115 +1372,182 @@ async function loadScene(sc){
   toast(`Scene "${sc.name}" loaded`);
 }
 
-// ── CHARACTER SHEET ───────────────────────────────────────────────────────────
+// ── LEFT PANE RENDERING ───────────────────────────────────────────────────────
+function refreshLeftPane(){
+  const displayId=getDisplayTokenId();
+
+  const empty=document.getElementById('left-empty');
+  const sheetPane=document.getElementById('left-sheet-pane');
+  const enemyPane=document.getElementById('left-enemy-pane');
+
+  empty.style.display='none';
+  sheetPane.classList.remove('open');
+  enemyPane.classList.remove('open');
+
+  if(!displayId || !tokens[displayId]){
+    empty.style.display='block';
+    empty.textContent=isGM
+      ? 'Select a token to inspect or edit.'
+      : 'No character selected. If you’ve claimed a PC, your character will appear here automatically.';
+    activeSheet=null;
+    return;
+  }
+
+  const t=tokens[displayId];
+  if(t.type==='enemy'){
+    activeSheet=null;
+    document.getElementById('left-enemy-name-lbl').textContent=t.name||'Enemy';
+    document.getElementById('left-enemy-body').textContent=t.lore||'No description.';
+    enemyPane.classList.add('open');
+    return;
+  }
+
+  activeSheet=displayId;
+  renderLeftSheet(displayId);
+  sheetPane.classList.add('open');
+}
+
+window.clearSelection=()=>{
+  selTok=null;
+  renderTokens();
+  renderTokList();
+  renderParty();
+  refreshLeftPane();
+};
+
 function handleTokClick(id){
   const t=tokens[id];
   if(!t)return;
 
-  if(t.type==='enemy'){
-    closeSheet();
-    document.getElementById('enemy-name-lbl').textContent=t.name;
-    document.getElementById('enemy-body').textContent=t.lore||'No description.';
-    document.getElementById('enemy-pane').classList.add('open');
-    return;
-  }
-
-  if(!isGM && !canPlayerControlToken(t)){
-    toast('That character is not assigned to you');
-    return;
-  }
-
-  closeEnemy();
-  activeSheet=id;
-  renderSheet(id);
-  document.getElementById('sheet-pane').classList.add('open');
+  selTok=id;
+  renderTokens();
+  renderTokList();
+  renderParty();
+  refreshLeftPane();
 }
 
-window.closeSheet=()=>{
-  document.getElementById('sheet-pane').classList.remove('open');
-  activeSheet=null;
-};
+function buildPublicSheetHTML(tokId,t,s){
+  const hpCur=nInt(s.hpCurrent,1);
+  const hpMax=Math.max(1,nInt(s.hpMax,1));
+  const ac=nInt(s.ac,10);
+  const init=nInt(s.init,0);
+  const spd=nInt(s.spd,30);
+  const lvl=nInt(s.lvl,1);
+  const prof=nInt(s.prof,2);
 
-window.closeEnemy=()=>document.getElementById('enemy-pane').classList.remove('open');
+  const abilities=s.abilities||{str:10,dex:10,con:10,int:10,wis:10,cha:10};
 
-async function renderSheet(tokId){
-  const t=tokens[tokId];
-  if(!t)return;
+  return `
+    <div class="sheet-top">
+      <div class="stat-box"><div class="sv">${hpCur}/${hpMax}</div><div class="sl">HP</div></div>
+      <div class="stat-box"><div class="sv">${ac}</div><div class="sl">AC</div></div>
+      <div class="stat-box"><div class="sv">${fmtMod(init)}</div><div class="sl">INIT</div></div>
+    </div>
 
-  const canEdit=isGM;
-  const canAdjustHp=isGM || canPlayerControlToken(t);
-  const s=ensureTokenSheet(t);
+    <div class="sheet-top" style="grid-template-columns:1fr 1fr 1fr;">
+      <div class="stat-box"><div class="sv">${spd}</div><div class="sl">SPD</div></div>
+      <div class="stat-box"><div class="sv">${lvl}</div><div class="sl">LVL</div></div>
+      <div class="stat-box"><div class="sv">${fmtMod(prof)}</div><div class="sl">PROF</div></div>
+    </div>
 
-  document.getElementById('sheet-char-name').textContent=t.name||'Character';
+    <div class="cs-section open">
+      <div class="cs-header" onclick="toggleSection(this)">
+        <div class="cs-title">Abilities</div>
+        <div class="cs-arrow">▾</div>
+      </div>
+      <div class="cs-body">
+        <div class="ab-grid">
+          ${['str','dex','con','int','wis','cha'].map(k=>`
+            <div class="ab-box">
+              <div class="ab-mod">${fmtMod(abMod(abilities[k]??10))}</div>
+              <div class="ab-score">${abilities[k]??10}</div>
+              <div class="ab-name">${k.toUpperCase()}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    </div>
 
-  const body=document.getElementById('sheet-body');
+    <div class="cs-section open">
+      <div class="cs-header" onclick="toggleSection(this)">
+        <div class="cs-title">Public View</div>
+        <div class="cs-arrow">▾</div>
+      </div>
+      <div class="cs-body">
+        <div style="font-size:0.74rem;color:var(--dim);font-style:italic;line-height:1.6;">
+          Inventory and private notes are hidden. This is a read-only combat view.
+        </div>
+      </div>
+    </div>
+  `;
+}
 
-  body.innerHTML=`
+function buildEditableSheetHTML(tokId,t,s,canEdit,canAdjustHp){
+  return `
     <div style="display:grid;gap:10px;font-size:12px;">
-
       <div style="font-family:'Cinzel',serif;font-size:0.62rem;color:var(--dim);text-align:center;letter-spacing:0.06em;">
         Embedded token sheet
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+      <div class="sheet-form-grid">
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">AC</span>
+          <span class="sheet-mini-label">AC</span>
           <input id="sheet-ac" type="number" value="${s.ac??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Init</span>
+          <span class="sheet-mini-label">Init</span>
           <input id="sheet-init" type="number" value="${s.init??0}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Speed</span>
+          <span class="sheet-mini-label">Speed</span>
           <input id="sheet-spd" type="number" value="${s.spd??30}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Prof</span>
+          <span class="sheet-mini-label">Prof</span>
           <input id="sheet-prof" type="number" value="${s.prof??2}" ${!canEdit?'disabled':''}>
         </label>
 
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Level</span>
+          <span class="sheet-mini-label">Level</span>
           <input id="sheet-lvl" type="number" value="${s.lvl??1}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">HP</span>
+          <span class="sheet-mini-label">HP</span>
           <input id="sheet-hpcur" type="number" value="${s.hpCurrent??1}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">HP Max</span>
+          <span class="sheet-mini-label">HP Max</span>
           <input id="sheet-hpmax" type="number" value="${s.hpMax??1}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">Temp HP</span>
+          <span class="sheet-mini-label">Temp HP</span>
           <input id="sheet-temphp" type="number" value="${s.tempHp??0}" ${!canEdit?'disabled':''}>
         </label>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+      <div class="sheet-form-grid-abilities">
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">STR</span>
+          <span class="sheet-mini-label">STR</span>
           <input id="sheet-str" type="number" value="${s.abilities.str??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">DEX</span>
+          <span class="sheet-mini-label">DEX</span>
           <input id="sheet-dex" type="number" value="${s.abilities.dex??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">CON</span>
+          <span class="sheet-mini-label">CON</span>
           <input id="sheet-con" type="number" value="${s.abilities.con??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">INT</span>
+          <span class="sheet-mini-label">INT</span>
           <input id="sheet-int" type="number" value="${s.abilities.int??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">WIS</span>
+          <span class="sheet-mini-label">WIS</span>
           <input id="sheet-wis" type="number" value="${s.abilities.wis??10}" ${!canEdit?'disabled':''}>
         </label>
         <label class="f" style="margin:0;">
-          <span style="font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;">CHA</span>
+          <span class="sheet-mini-label">CHA</span>
           <input id="sheet-cha" type="number" value="${s.abilities.cha??10}" ${!canEdit?'disabled':''}>
         </label>
       </div>
@@ -1373,6 +1583,30 @@ async function renderSheet(tokId){
       </div>
     </div>
   `;
+}
+
+function renderLeftSheet(tokId){
+  const t=tokens[tokId];
+  if(!t)return;
+
+  const s=ensureTokenSheet(t);
+  const publicOnly=isPublicViewOnly(tokId);
+  const canEdit=isGM;
+  const canAdjustHp=isGM || canPlayerControlToken(t);
+
+  document.getElementById('left-sheet-char-name').textContent=t.name||'Character';
+
+  let sub='GM view';
+  if(!isGM){
+    if(canPlayerControlToken(t)) sub='Your character';
+    else sub='Read-only public view';
+  }
+  document.getElementById('left-sheet-sub').textContent=sub;
+
+  const body=document.getElementById('left-sheet-body');
+  body.innerHTML=publicOnly
+    ? buildPublicSheetHTML(tokId,t,s)
+    : buildEditableSheetHTML(tokId,t,s,canEdit,canAdjustHp);
 }
 
 window.toggleSection=(h)=>h.parentElement.classList.toggle('open');
@@ -1436,7 +1670,7 @@ window.adjustTokenHp=async(tokId,delta)=>{
   });
 
   if(activeSheet===tokId){
-    setTimeout(()=>renderSheet(tokId),30);
+    setTimeout(()=>refreshLeftPane(),30);
   }
 };
 
@@ -1855,6 +2089,18 @@ function initBoard(){
   board.addEventListener('dblclick',e=>{
     if(!e.target.closest('.token')&&!e.target.closest('.fog-rect')&&mapW>0&&!rulerMode&&!fogMode&&!calibMode){
       firePing(e.clientX,e.clientY);
+    }
+  });
+
+  board.addEventListener('click',e=>{
+    if(e.target===board || e.target.id==='board-wrap' || e.target.id==='map-img'){
+      // single-clicking empty map clears explicit selection
+      // left pane then falls back to My Character (player) or empty (GM)
+      selTok=null;
+      renderTokens();
+      renderTokList();
+      renderParty();
+      refreshLeftPane();
     }
   });
 
