@@ -771,11 +771,26 @@ function applyMap(d){
   img.src=d.url;img.style.display='block';
   document.getElementById('empty-state').classList.add('gone');
   img.onload=()=>{
-    mapW=img.naturalWidth;mapH=img.naturalHeight;
-    ['board-wrap','token-layer','fog-layer','ping-layer','ruler-layer'].forEach(id=>{
-      document.getElementById(id).style.width=mapW+'px';
-      document.getElementById(id).style.height=mapH+'px';
-    });
+  mapW = img.naturalWidth;
+  mapH = img.naturalHeight;
+
+  ['board-wrap','token-layer','fog-layer','ping-layer','ruler-layer'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.style.width = mapW + 'px';
+    el.style.height = mapH + 'px';
+  });
+
+  img.style.width = mapW + 'px';
+  img.style.height = mapH + 'px';
+
+  const rc = document.getElementById('ruler-canvas');
+  rc.width = mapW;
+  rc.height = mapH;
+
+  fitToScreen();
+  renderFogs();
+  redrawRulerCanvas();
+};
     const rc=document.getElementById('ruler-canvas');rc.width=mapW;rc.height=mapH;
     fitToScreen();renderFogs();
   };
