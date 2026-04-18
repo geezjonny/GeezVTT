@@ -108,7 +108,7 @@ body.is-gm .token.dragging{cursor:grabbing;opacity:0.75;z-index:100;}
 .fog-rect{position:absolute;background:rgba(8,6,4,1);border:1px solid rgba(255,255,255,0.03);z-index:3;border-radius:2px;}
 body.is-gm .fog-rect{cursor:move;}
 body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
-.fog-rect.sel{border-color:rgba(150,150,220,0.6);}
+body.is-gm .fog-rect.sel{border-color:rgba(150,150,220,0.6);}
 .fog-del{position:absolute;top:-8px;right:-8px;width:16px;height:16px;border-radius:50%;background:#7a1a1a;color:#fff;display:none;align-items:center;justify-content:center;font-size:0.6rem;cursor:pointer;z-index:10;}
 .fog-rect.sel .fog-del{display:flex;}
 .fog-resize{position:absolute;bottom:-5px;right:-5px;width:12px;height:12px;background:rgba(150,150,220,0.7);border-radius:2px;cursor:se-resize;display:none;z-index:10;}
@@ -329,18 +329,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
   </div>
 </div>
 
-<!-- CLAIM CHARACTER MODAL -->
-<div class="overlay" id="claim-modal">
-  <div class="modal">
-    <h3>Choose Your Character</h3>
-    <p>Select your pre-placed PC token for this session. You can only claim unclaimed PCs (or the one already assigned to you).</p>
-    <div id="claim-list" style="display:flex;flex-direction:column;gap:0.45rem;"></div>
-    <div class="modal-btns">
-      <button class="btn-g" onclick="closeClaimModal()">Close</button>
-    </div>
-  </div>
-</div>
-
 <!-- APP -->
 <div id="app">
   <div id="bar">
@@ -358,12 +346,10 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
     <div class="vsep gm" style="display:flex"></div>
     <button id="btn-calib" class="tb calib-mode gm" onclick="toggleCalibMode()">⊞ Calibrate</button>
     <button id="btn-ruler" class="tb ruler-mode" onclick="toggleRulerMode()">📏 Ruler</button>
-    <button class="tb" onclick="openClaimModal()">🧍 My Character</button>
     <div class="vsep gm" style="display:flex"></div>
     <button class="tb gm" onclick="openSceneModal()">💾 Save Scene</button>
     <button class="tb gm" onclick="toggleHotbar()" id="btn-hotbar">⚡ Assets</button>
     <div id="bar-right">
-      <span id="my-char-badge" class="tb" style="display:none;cursor:default;"></span>
       <span id="pip-wrap"></span>
       <span id="sid-lbl" onclick="copySid()" title="Click to copy"></span>
     </div>
@@ -461,7 +447,7 @@ const HARDCODED_CFG={
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let db;
-let sid='',myId='',myName='',isGM=false;
+let sid='',myId=Math.random().toString(36).slice(2,10),myName='',isGM=false;
 let scale=1,panX=0,panY=0;
 let panning=false,pSX=0,pSY=0,pOX=0,pOY=0;
 let tokens={},selTok=null,dragId=null,dOX=0,dOY=0,mapW=0,mapH=0;
@@ -479,9 +465,6 @@ let calibMode=false,calibDrawing=false,calibSX=0,calibSY=0,calibEl=null;
 let rulerMode=false,rulerDrawing=false,rulerSX=0,rulerSY=0;
 let activeHbTab='scenes';
 let currentAssetModalType='token';
-let myClaimedTokId=null;
-let myClaimedToken=null;
-let claimPromptShown=false;
 
 const STATUS_LIST=[
   {key:'poisoned',label:'Poisoned',cls:'s-poisoned'},{key:'stunned',label:'Stunned',cls:'s-stunned'},
@@ -578,185 +561,9 @@ function escHtml(str){
     .replace(/'/g,'&#39;');
 }
 
-function getOrCreateUserId(){
-  let id=localStorage.getItem('vtt-user-id');
-  if(!id){
-    id=Math.random().toString(36).slice(2,10);
-    localStorage.setItem('vtt-user-id',id);
-  }
-  return id;
-}
-
-function getMyClaimedTokenId(){
-  for(const [id,t] of Object.entries(tokens)){
-    if(t?.ownerUserId===myId)return id;
-  }
-  return null;
-}
-
-function getMyClaimedToken(){
-  const id=getMyClaimedTokenId();
-  return id?tokens[id]||null:null;
-}
-
-function canPlayerControlToken(t){
-  return !!(t && t.ownerUserId===myId);
-}
-
-function isClaimablePcToken(t){
-  if(!t)return false;
-  if(t.type!=='pc')return false;
-  if(t.claimable===false)return false;
-  return !t.ownerUserId || t.ownerUserId===myId;
-}
-
-function updateMyClaimBadge(){
-  myClaimedTokId=getMyClaimedTokenId();
-  myClaimedToken=getMyClaimedToken();
-
-  const badge=document.getElementById('my-char-badge');
-  if(!badge)return;
-
-  if(isGM){
-    badge.style.display='none';
-    return;
-  }
-
-  if(myClaimedToken){
-    badge.style.display='inline-block';
-    badge.textContent=`You are: ${myClaimedToken.name}`;
-  } else {
-    badge.style.display='inline-block';
-    badge.textContent='You are: Unclaimed';
-  }
-}
-
-function maybePromptClaim(){
-  if(isGM)return;
-  if(claimPromptShown)return;
-  if(getMyClaimedTokenId())return;
-
-  const claimable=Object.values(tokens).filter(t=>isClaimablePcToken(t));
-  if(!claimable.length)return;
-
-  claimPromptShown=true;
-  openClaimModal();
-}
-
-function centerOnToken(t){
-  if(!t||!mapW||!mapH)return;
-  const b=document.getElementById('board');
-  panX=(b.clientWidth/2) - (t.x*scale);
-  panY=(b.clientHeight/2) - (t.y*scale);
-  applyTransform();
-}
-
-// ── CLAIM MODAL ───────────────────────────────────────────────────────────────
-window.openClaimModal=()=>{
-  if(isGM)return;
-
-  const list=document.getElementById('claim-list');
-  if(!list)return;
-
-  const pcs=Object.entries(tokens)
-    .filter(([,t])=>t.type==='pc')
-    .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
-
-  list.innerHTML='';
-
-  if(!pcs.length){
-    list.innerHTML=`<div style="font-size:0.8rem;color:var(--dim);font-style:italic;">No PC tokens are currently placed in this session.</div>`;
-  } else {
-    pcs.forEach(([id,t])=>{
-      const ownedByMe=t.ownerUserId===myId;
-      const unclaimed=!t.ownerUserId;
-      const canClaim=isClaimablePcToken(t);
-
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.5rem;border:1px solid var(--border);background:rgba(0,0,0,0.18);';
-
-      row.innerHTML=`
-        <img src="${escHtml(t.url||'')}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:'Cinzel',serif;font-size:0.7rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.name||'Unnamed')}</div>
-          <div style="font-size:0.68rem;color:var(--dim);font-style:italic;">
-            ${ownedByMe?'Already yours':unclaimed?'Available':`Claimed by ${escHtml(t.ownerName||'Someone')}`}
-          </div>
-        </div>
-      `;
-
-      const btn=document.createElement('button');
-      btn.className=canClaim?'btn-p':'btn-g';
-      btn.style.width='auto';
-      btn.style.margin='0';
-      btn.style.padding='0.45rem 0.7rem';
-      btn.textContent=ownedByMe?'Mine':(unclaimed?'Claim':'Taken');
-      btn.disabled=!canClaim;
-      if(!canClaim){
-        btn.style.opacity='0.55';
-        btn.style.cursor='not-allowed';
-      }
-
-      btn.onclick=()=>claimCharacter(id);
-
-      row.appendChild(btn);
-      list.appendChild(row);
-    });
-  }
-
-  document.getElementById('claim-modal').classList.add('open');
-};
-
-window.closeClaimModal=()=>{
-  document.getElementById('claim-modal').classList.remove('open');
-};
-
-window.claimCharacter=async(tokId)=>{
-  if(isGM)return;
-
-  const t=tokens[tokId];
-  if(!t){
-    toast('Token not found');
-    return;
-  }
-
-  if(!isClaimablePcToken(t)){
-    toast('That character is already claimed');
-    return;
-  }
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    ownerUserId:myId,
-    ownerName:myName,
-    claimable:true
-  });
-
-  closeClaimModal();
-  toast(`You are now controlling ${t.name}`);
-
-  setTimeout(()=>{
-    const tt=tokens[tokId];
-    if(tt)centerOnToken(tt);
-  },150);
-};
-
-window.unclaimToken=async(tokId)=>{
-  if(!isGM)return;
-  const t=tokens[tokId];
-  if(!t)return;
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    ownerUserId:null,
-    ownerName:null
-  });
-
-  toast(`${t.name} unclaimed`);
-};
-
 // ── ENTER ─────────────────────────────────────────────────────────────────────
 window.enter=async()=>{
   myName=document.getElementById('inp-name').value.trim();
-  myId=getOrCreateUserId();
   const role=document.getElementById('inp-role').value;
   sid=document.getElementById('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-')||'default';
   if(!myName){toast('Enter your name');return;}
@@ -800,19 +607,9 @@ window.enter=async()=>{
 
   onValue(tokRef,snap=>{
     tokens=snap.val()||{};
-    updateMyClaimBadge();
     renderTokens();
     renderTokList();
-
-    if(activeSheet && !tokens[activeSheet]){
-      closeSheet();
-      closeEnemy();
-      activeSheet=null;
-    }
-
     if(activeSheet)renderSheet(activeSheet);
-
-    maybePromptClaim();
   });
 
   onValue(rollRef,snap=>{
@@ -962,9 +759,6 @@ async function dropTokenOnMap(asset, cx, cy){
     sheetUrl:asset.sheetUrl||'', // legacy compatibility only
     lore:asset.lore||'',
     x,y,size:70,statuses:[],
-    ownerUserId:null,
-    ownerName:null,
-    claimable:(asset.type||'pc')==='pc',
     sheet:{
       ac:10,
       init:0,
@@ -1045,20 +839,9 @@ function renderTokList(){
   list.innerHTML='';
 
   Object.entries(tokens).forEach(([id,t])=>{
-    const ownerText=t.type==='pc'
-      ? (t.ownerUserId ? ` • ${t.ownerName||'claimed'}` : ' • unclaimed')
-      : '';
-
     const div=document.createElement('div');
     div.className='tli'+(selTok===id?' sel':'');
-
-    div.innerHTML=`
-      <img src="${t.url||''}">
-      <span class="tli-name">${escHtml(t.name)}${ownerText}</span>
-      <span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span>
-      ${isGM && t.type==='pc' && t.ownerUserId ? `<button class="tli-del tli-unclaim" title="Unclaim">↺</button>` : ''}
-      <button class="tli-del">✕</button>
-    `;
+    div.innerHTML=`<img src="${t.url||''}"><span class="tli-name">${t.name}</span><span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span><button class="tli-del">✕</button>`;
 
     div.addEventListener('click',()=>{
       selTok=id;
@@ -1067,10 +850,7 @@ function renderTokList(){
       handleTokClick(id);
     });
 
-    const delBtns=div.querySelectorAll('.tli-del');
-    const mainDel=delBtns[delBtns.length-1];
-
-    mainDel.addEventListener('click',async ev=>{
+    div.querySelector('.tli-del').addEventListener('click',async ev=>{
       ev.stopPropagation();
       await remove(ref(db,`s/${sid}/tokens/${id}`));
       if(selTok===id){
@@ -1079,14 +859,6 @@ function renderTokList(){
         closeEnemy();
       }
     });
-
-    const unclaimBtn=div.querySelector('.tli-unclaim');
-    if(unclaimBtn){
-      unclaimBtn.addEventListener('click',async ev=>{
-        ev.stopPropagation();
-        await unclaimToken(id);
-      });
-    }
 
     list.appendChild(div);
   });
@@ -1239,18 +1011,12 @@ function handleTokClick(id){
     document.getElementById('enemy-name-lbl').textContent=t.name;
     document.getElementById('enemy-body').textContent=t.lore||'No description.';
     document.getElementById('enemy-pane').classList.add('open');
-    return;
+  } else {
+    closeEnemy();
+    activeSheet=id;
+    renderSheet(id);
+    document.getElementById('sheet-pane').classList.add('open');
   }
-
-  if(!isGM && !canPlayerControlToken(t)){
-    toast('That character is not assigned to you');
-    return;
-  }
-
-  closeEnemy();
-  activeSheet=id;
-  renderSheet(id);
-  document.getElementById('sheet-pane').classList.add('open');
 }
 
 window.closeSheet=()=>{
@@ -1265,7 +1031,6 @@ async function renderSheet(tokId){
   if(!t)return;
 
   const canEdit=isGM;
-  const canAdjustHp=isGM || canPlayerControlToken(t);
   const s=ensureTokenSheet(t);
 
   document.getElementById('sheet-char-name').textContent=t.name||'Character';
@@ -1365,8 +1130,6 @@ async function renderSheet(tokId){
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${canEdit?`
           <button class="action-btn" style="margin:0;flex:1;" onclick="saveTokenSheet('${tokId}')">Save Sheet</button>
-        `:''}
-        ${canAdjustHp?`
           <button class="action-btn" style="margin:0;flex:1;" onclick="adjustTokenHp('${tokId}',-1)">HP -1</button>
           <button class="action-btn" style="margin:0;flex:1;" onclick="adjustTokenHp('${tokId}',1)">HP +1</button>
         `:''}
@@ -1421,7 +1184,7 @@ window.adjustTokenHp=async(tokId,delta)=>{
   const t=tokens[tokId];
   if(!t)return;
 
-  const canEdit=isGM || canPlayerControlToken(t);
+  const canEdit=isGM||(myName&&t.name&&myName.toLowerCase()===t.name.toLowerCase());
   if(!canEdit)return;
 
   const s=ensureTokenSheet(t);
