@@ -75,7 +75,6 @@ body.is-gm .gm-b{display:block!important;}
 /* LAYOUT */
 #main{display:flex;flex:1;overflow:hidden;position:relative;}
 
-<<<<<<< HEAD
 /* DRAG RESIZE HANDLE */
 .drag-handle{
   width:5px;flex-shrink:0;
@@ -104,28 +103,6 @@ body.is-gm .gm-b{display:block!important;}
 .lp-content.active{display:block;}
 
 #left-empty{padding:1rem;font-size:0.78rem;color:var(--dim);font-style:italic;line-height:1.7;}
-=======
-/* ══ LEFT PANEL ══ */
-#left-panel{
-  width:320px;
-  flex-shrink:0;
-  background:var(--surface);
-  border-right:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-#left-scroll{flex:1;overflow-y:auto;}
-#left-scroll::-webkit-scrollbar{width:3px;}
-#left-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-#left-empty{
-  padding:1rem;
-  font-size:0.78rem;
-  color:var(--dim);
-  font-style:italic;
-  line-height:1.7;
-}
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #left-sheet-pane{display:none;flex-direction:column;}
 #left-sheet-pane.open{display:flex;}
 #left-sheet-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;flex-shrink:0;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);}
@@ -135,28 +112,20 @@ body.is-gm .gm-b{display:block!important;}
 #left-sheet-close:hover{color:var(--text);}
 #left-sheet-body{padding:0.7rem;}
 
-<<<<<<< HEAD
 /* Inventory/Notes tab */
 #inv-notes-pane{padding:0.7rem;}
 #inv-notes-empty{font-size:0.78rem;color:var(--dim);font-style:italic;line-height:1.7;padding:0.3rem;}
 .inv-section-title{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--gold);margin-bottom:0.4rem;margin-top:0.8rem;}
 .inv-section-title:first-child{margin-top:0;}
 
-=======
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #left-enemy-pane{display:none;flex-direction:column;}
 #left-enemy-pane.open{display:flex;}
 .left-enemy-header{display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0.7rem;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);}
 .left-enemy-name-lbl{font-family:'Cinzel',serif;font-size:0.82rem;color:#ff8888;letter-spacing:0.08em;}
 .left-enemy-body{padding:0.8rem;font-size:0.8rem;font-style:italic;color:rgba(232,220,200,0.65);line-height:1.65;}
 
-<<<<<<< HEAD
 /* BOARD */
 #board{flex:1;position:relative;overflow:hidden;background:#080604;cursor:default;min-width:200px;}
-=======
-/* ══ BOARD ══ */
-#board{flex:1;position:relative;overflow:hidden;background:#080604;cursor:default;}
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #board-wrap{position:absolute;transform-origin:0 0;}
 #map-img{display:block;position:relative;z-index:1;pointer-events:none;user-select:none;}
 #fog-layer{position:absolute;top:0;left:0;z-index:20;pointer-events:none;}
@@ -206,7 +175,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 /* RULER */
 #ruler-canvas{position:absolute;top:0;left:0;pointer-events:none;}
 
-<<<<<<< HEAD
 /* RIGHT PANEL */
 #right-panel{width:280px;min-width:160px;max-width:480px;flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 #right-scroll{flex:1;overflow-y:auto;}
@@ -223,60 +191,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .party-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#6699cc;box-shadow:0 0 4px rgba(102,153,204,0.4);}
 .party-name{font-family:'Cinzel',serif;font-size:0.58rem;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .party-stats{font-family:'Cinzel',serif;font-size:0.52rem;color:var(--dim);white-space:nowrap;flex-shrink:0;}
-=======
-/* ══ RIGHT PANEL ══ */
-#right-panel{
-  width:300px;
-  flex-shrink:0;
-  background:var(--surface);
-  border-left:1px solid var(--border);
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-#right-scroll{flex:1;overflow-y:auto;}
-#right-scroll::-webkit-scrollbar{width:3px;}
-#right-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
-
-/* Shared panel sections */
-.ps{padding:0.8rem;border-bottom:1px solid var(--border);}
-.ps h3{font-family:'Cinzel',serif;font-size:0.58rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--gold);margin-bottom:0.65rem;}
-
-/* Party module */
-#party-list{display:flex;flex-direction:column;gap:0.25rem;}
-.party-row{
-  display:flex;align-items:center;gap:0.45rem;
-  padding:0.32rem 0.4rem;
-  background:rgba(0,0,0,0.16);
-  border:1px solid transparent;
-  border-radius:1px;
-  cursor:pointer;
-  transition:all 0.12s;
-}
-.party-row:hover{border-color:var(--border);}
-.party-row.sel{border-color:var(--gold);background:rgba(180,130,60,0.07);}
-.party-dot{
-  width:8px;height:8px;border-radius:50%;flex-shrink:0;
-  background:#6699cc;
-  box-shadow:0 0 4px rgba(102,153,204,0.4);
-}
-.party-name{
-  font-family:'Cinzel',serif;
-  font-size:0.58rem;
-  flex:1;
-  min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-.party-stats{
-  font-family:'Cinzel',serif;
-  font-size:0.52rem;
-  color:var(--dim);
-  white-space:nowrap;
-  flex-shrink:0;
-}
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 
 /* Dice */
 .dgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.26rem;margin-bottom:0.5rem;}
@@ -287,13 +201,7 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .mr label{font-family:'Cinzel',serif;font-size:0.56rem;letter-spacing:0.08em;color:var(--dim);white-space:nowrap;}
 .mr input{width:44px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.86rem;padding:0.2rem 0.35rem;border-radius:1px;outline:none;}
 .mr input:focus{border-color:var(--gold);}
-<<<<<<< HEAD
 #rlog{height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:0.2rem;}
-=======
-
-/* Dice log */
-#rlog{height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:0.2rem;}
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #rlog::-webkit-scrollbar{width:3px;}
 #rlog::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
 .re{font-size:0.74rem;padding:0.2rem 0.38rem;background:rgba(0,0,0,0.18);border-left:2px solid transparent;line-height:1.45;animation:si 0.18s ease;}
@@ -303,11 +211,7 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .re .tot{font-size:0.94rem;font-weight:bold;color:var(--gold-hi);margin-left:0.12rem;}
 .re .brk{font-size:0.64rem;color:rgba(232,220,200,0.3);}
 
-<<<<<<< HEAD
 /* Token list (GM) */
-=======
-/* GM token list */
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #tok-list{display:flex;flex-direction:column;gap:0.25rem;margin-bottom:0.45rem;}
 .tli{display:flex;align-items:center;gap:0.4rem;padding:0.28rem 0.4rem;background:rgba(0,0,0,0.16);border:1px solid transparent;border-radius:1px;cursor:pointer;transition:all 0.12s;}
 .tli:hover{border-color:var(--border);}
@@ -317,34 +221,15 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .tli-type{font-size:0.55rem;color:var(--dim);font-family:'Cinzel',serif;flex-shrink:0;}
 .tli-del{background:none;border:none;color:#884444;cursor:pointer;font-size:0.75rem;padding:0.08rem 0.2rem;opacity:0;transition:opacity 0.12s;line-height:1;}
 .tli:hover .tli-del{opacity:1;}
-
 .action-btn{display:block;width:100%;padding:0.35rem;font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;text-align:center;color:var(--gold);border:1px solid var(--border);border-radius:1px;cursor:pointer;transition:all 0.12s;margin-bottom:0.28rem;background:transparent;}
 .action-btn:hover{border-color:var(--gold);background:rgba(180,130,60,0.07);}
 .ping-note{font-size:0.7rem;font-style:italic;color:var(--dim);line-height:1.6;opacity:0.8;}
 
-<<<<<<< HEAD
 /* Sheet styles */
-=======
-/* ══ LEFT SHEET BLOCKS ══ */
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 .sheet-top{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0.4rem;margin-bottom:0.6rem;}
 .stat-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.3rem 0.4rem;text-align:center;}
 .stat-box .sv{font-family:'Cinzel',serif;font-size:1rem;color:var(--gold-hi);font-weight:700;line-height:1;}
 .stat-box .sl{font-family:'Cinzel',serif;font-size:0.5rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;margin-top:0.15rem;}
-<<<<<<< HEAD
-=======
-
-.hp-row{display:flex;align-items:center;gap:0.4rem;margin-bottom:0.6rem;background:rgba(0,0,0,0.2);border:1px solid var(--border);border-radius:2px;padding:0.4rem 0.5rem;flex-wrap:wrap;}
-.hp-label{font-family:'Cinzel',serif;font-size:0.55rem;letter-spacing:0.1em;color:var(--dim);text-transform:uppercase;white-space:nowrap;}
-.hp-val{font-family:'Cinzel',serif;font-size:0.9rem;color:#ff6666;font-weight:700;min-width:28px;text-align:center;}
-.hp-sep{color:var(--dim);font-size:0.7rem;}
-.hp-max{font-family:'Cinzel',serif;font-size:0.75rem;color:var(--dim);}
-.hp-btn{background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);width:20px;height:20px;border-radius:2px;cursor:pointer;font-size:0.8rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all 0.1s;}
-.hp-btn:hover{border-color:var(--gold);color:var(--gold-hi);}
-.hp-input{width:36px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.78rem;padding:0.15rem 0.3rem;border-radius:1px;outline:none;text-align:center;}
-.hp-input:focus{border-color:var(--gold);}
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 .cs-section{border:1px solid var(--border);border-radius:2px;margin-bottom:0.4rem;overflow:hidden;}
 .cs-header{display:flex;align-items:center;justify-content:space-between;padding:0.35rem 0.5rem;cursor:pointer;background:rgba(0,0,0,0.2);transition:background 0.12s;user-select:none;}
 .cs-header:hover{background:rgba(0,0,0,0.35);}
@@ -353,53 +238,22 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
 .cs-section.open .cs-arrow{transform:rotate(180deg);}
 .cs-body{display:none;padding:0.5rem;}
 .cs-section.open .cs-body{display:block;}
-<<<<<<< HEAD
-=======
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 .ab-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:0.3rem;}
 .ab-box{background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:2px;padding:0.25rem 0.15rem;text-align:center;}
 .ab-mod{font-family:'Cinzel',serif;font-size:0.85rem;color:var(--gold-hi);font-weight:700;line-height:1;}
 .ab-score{font-size:0.62rem;color:var(--dim);}
 .ab-name{font-family:'Cinzel',serif;font-size:0.45rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim);}
-<<<<<<< HEAD
-=======
-
-.line-list{display:flex;flex-direction:column;gap:0.3rem;}
-.line-item{padding:0.3rem 0.35rem;background:rgba(0,0,0,0.18);border:1px solid rgba(180,130,60,0.08);border-radius:2px;}
-.line-item-name{font-family:'Cinzel',serif;font-size:0.58rem;color:var(--text);}
-.line-item-sub{font-size:0.68rem;color:var(--dim);font-style:italic;line-height:1.45;margin-top:0.15rem;}
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 .notes-area{width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border);color:var(--text);font-family:'IM Fell English',serif;font-size:0.8rem;padding:0.4rem 0.5rem;border-radius:1px;outline:none;resize:vertical;min-height:80px;line-height:1.5;}
 .notes-area:focus{border-color:var(--gold);}
 .status-picker{display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.3rem;}
 .sp-btn{font-size:0.55rem;padding:0.12rem 0.3rem;border-radius:2px;cursor:pointer;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--dim);font-family:'Cinzel',serif;transition:all 0.1s;}
 .sp-btn.active{border-color:var(--gold-hi);color:var(--gold-hi);background:rgba(180,130,60,0.12);}
-<<<<<<< HEAD
 .sheet-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
 .sheet-form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
 .sheet-mini-label{font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;}
 
 /* HOTBAR */
 #hotbar{height:0;overflow:hidden;background:linear-gradient(180deg,#0a0806,#100e0b);border-top:1px solid var(--border);flex-shrink:0;transition:height 0.22s;display:flex;flex-direction:column;z-index:20;}
-=======
-
-.sheet-form-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
-.sheet-form-grid-abilities{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
-.sheet-mini-label{font-size:0.55rem;color:var(--dim);display:block;margin-bottom:2px;}
-
-/* ══ HOTBAR ══ */
-#hotbar{
-  height:0;overflow:hidden;
-  background:linear-gradient(180deg,#0a0806,#100e0b);
-  border-top:1px solid var(--border);
-  flex-shrink:0;
-  transition:height 0.22s;
-  display:flex;flex-direction:column;
-  z-index:20;
-}
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 #hotbar.open{height:160px;}
 #hotbar-tabs{display:flex;gap:0;border-bottom:1px solid var(--border);flex-shrink:0;}
 .hb-tab{font-family:'Cinzel',serif;font-size:0.6rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);padding:0.35rem 0.8rem;cursor:pointer;border-right:1px solid var(--border);border-bottom:2px solid transparent;transition:all 0.12s;white-space:nowrap;}
@@ -460,12 +314,7 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
     <h3 id="asset-modal-title">Add Asset</h3>
     <div class="f"><label>Name</label><input id="asset-name" type="text" maxlength="30" placeholder="e.g. Goblin Token"></div>
     <div class="f"><label>Image URL</label><input id="asset-url" type="text" placeholder="https://raw.githubusercontent.com/..."></div>
-<<<<<<< HEAD
     <div class="f" id="asset-lore-wrap" style="display:none"><label>Description (enemies)</label><textarea id="asset-lore" rows="2" placeholder="A merregon, soldier of Avernus..."></textarea></div>
-=======
-    <div class="f" id="asset-sheet-wrap" style="display:none"><label>Character Sheet JSON URL (legacy / optional)</label><input id="asset-sheet" type="text" placeholder="https://raw.githubusercontent.com/.../sheet.json"></div>
-    <div class="f" id="asset-lore-wrap" style="display:none"><label>Description</label><textarea id="asset-lore" rows="2" placeholder="A merregon, soldier of Avernus..."></textarea></div>
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     <div class="modal-btns"><button class="btn-p" onclick="saveAsset()">Save</button><button class="btn-g" onclick="closeAssetModal()">Cancel</button></div>
   </div>
 </div>
@@ -528,7 +377,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
   </div>
 
   <div id="main">
-<<<<<<< HEAD
     <!-- LEFT PANEL -->
     <div id="left-panel">
       <div id="left-tabs">
@@ -594,38 +442,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
     <div class="drag-handle" id="drag-left"></div>
 
     <!-- BOARD -->
-=======
-    <!-- LEFT PANE -->
-    <div id="left-panel">
-      <div id="left-scroll">
-        <div id="left-empty">No character selected. If you’ve claimed a PC, your character will appear here automatically.</div>
-
-        <div id="left-sheet-pane">
-          <div id="left-sheet-header">
-            <div>
-              <div id="left-sheet-char-name"></div>
-              <div id="left-sheet-sub"></div>
-            </div>
-            <div style="display:flex;gap:0.4rem;align-items:center;">
-              <button class="tb gm" id="sheet-status-btn" onclick="openStatusModal()" style="font-size:0.55rem;padding:0.15rem 0.4rem;">Conditions</button>
-              <button id="left-sheet-close" onclick="clearSelection()">✕</button>
-            </div>
-          </div>
-          <div id="left-sheet-body"></div>
-        </div>
-
-        <div id="left-enemy-pane">
-          <div class="left-enemy-header">
-            <span class="left-enemy-name-lbl" id="left-enemy-name-lbl"></span>
-            <button style="background:none;border:none;color:var(--dim);cursor:pointer;font-size:0.9rem;" onclick="clearSelection()">✕</button>
-          </div>
-          <div class="left-enemy-body" id="left-enemy-body"></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CENTER MAP -->
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     <div id="board">
       <div id="empty-state"><p>Awaiting the GM's map…</p></div>
       <div id="board-wrap">
@@ -637,24 +453,16 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
       </div>
     </div>
 
-<<<<<<< HEAD
     <!-- RESIZE HANDLE RIGHT -->
     <div class="drag-handle" id="drag-right"></div>
 
     <!-- RIGHT PANEL -->
-=======
-    <!-- RIGHT PANE -->
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     <div id="right-panel">
       <div id="right-scroll">
         <div class="ps">
           <h3>👥 Party</h3>
           <div id="party-list"></div>
         </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
         <div class="ps">
           <h3>🎲 Dice</h3>
           <div class="dgrid">
@@ -672,15 +480,10 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
             <label style="margin-left:0.28rem">Mod</label><input id="mod" type="number" value="0" min="-99" max="99">
           </div>
         </div>
-<<<<<<< HEAD
-=======
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
         <div class="ps">
           <h3>📜 Dice Log</h3>
           <div id="rlog"></div>
         </div>
-<<<<<<< HEAD
         <div class="ps">
           <h3>ℹ Help</h3>
           <p class="ping-note">Double-click map: ping. 📏 Ruler: drag. ⊞ Calibrate: draw box over 1 square. ⚡ Assets: hotbar. 💾 Scene: save state.</p>
@@ -689,18 +492,6 @@ body.is-gm .fog-rect:hover{border-color:rgba(150,150,200,0.3);}
           <h3>🪙 Tokens</h3>
           <div id="tok-list"></div>
           <button class="action-btn" onclick="openAddTokModal()">+ Add Token</button>
-=======
-
-        <div class="ps">
-          <h3>ℹ Help</h3>
-          <p class="ping-note">Double-click map to ping. 📏 Ruler: drag to measure. ⊞ Calibrate: draw a box over 1 grid square. ⚡ Assets: quick-place maps/tokens. 💾 Save Scene: snapshot everything.</p>
-        </div>
-
-        <div class="ps gm-b">
-          <h3>🪙 Tokens</h3>
-          <div id="tok-list"></div>
-          <button class="action-btn" onclick="openAddTokModal()">+ Add Token to Map</button>
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
         </div>
       </div>
     </div>
@@ -744,15 +535,8 @@ let fogDrag=null,fogDragOX=0,fogDragOY=0;
 let fogResize=null,fogResizeSW=0,fogResizeSH=0,fogResizeMX=0,fogResizeMY=0;
 let fogDrawing=false,fogDrawId=null,fogDrawSX=0,fogDrawSY=0;
 const shownPings=new Set();
-<<<<<<< HEAD
 let assets={},scenes={};
 let activeSheet=null,statusModalTokId=null;
-=======
-let assets={};
-let scenes={};
-let activeSheet=null,statusModalTokId=null;
-let liveSheetData={};
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 let pxPerFoot=20;
 let calibMode=false,calibDrawing=false,calibSX=0,calibSY=0,calibEl=null;
 let rulerMode=false,rulerDrawing=false,rulerSX=0,rulerSY=0;
@@ -819,7 +603,6 @@ function centerOnToken(t){
   applyTransform();
 }
 
-<<<<<<< HEAD
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 const loadCfg=()=>{try{return JSON.parse(localStorage.getItem('vtt7-cfg')||'null');}catch{return null;}};
 window.openCfg=()=>{const c=loadCfg()||HARDCODED_CFG;['key','auth','db','pid'].forEach((k,i)=>document.getElementById('c-'+k).value=[c.apiKey,c.authDomain,c.databaseURL,c.projectId][i]||'');document.getElementById('cfg-modal').classList.add('open');};
@@ -828,123 +611,6 @@ window.saveCfg=()=>{
   const c={apiKey:document.getElementById('c-key').value.trim(),authDomain:document.getElementById('c-auth').value.trim(),databaseURL:document.getElementById('c-db').value.trim(),projectId:document.getElementById('c-pid').value.trim()};
   if(!c.databaseURL){toast('Database URL required');return;}
   localStorage.setItem('vtt7-cfg',JSON.stringify(c));closeCfg();toast('Config saved');
-=======
-function getDisplayTokenId(){
-  if(selTok && tokens[selTok]) return selTok;
-  const mine=getMyClaimedTokenId();
-  if(mine && tokens[mine]) return mine;
-  return null;
-}
-
-function isPublicViewOnly(tokId){
-  const t=tokens[tokId];
-  if(!t || t.type!=='pc') return false;
-  if(isGM) return false;
-  return !canPlayerControlToken(t);
-}
-
-// ── CLAIM MODAL ───────────────────────────────────────────────────────────────
-window.openClaimModal=()=>{
-  if(isGM)return;
-
-  const list=document.getElementById('claim-list');
-  if(!list)return;
-
-  const pcs=Object.entries(tokens)
-    .filter(([,t])=>t.type==='pc')
-    .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
-
-  list.innerHTML='';
-
-  if(!pcs.length){
-    list.innerHTML=`<div style="font-size:0.8rem;color:var(--dim);font-style:italic;">No PC tokens are currently placed in this session.</div>`;
-  } else {
-    pcs.forEach(([id,t])=>{
-      const ownedByMe=t.ownerUserId===myId;
-      const unclaimed=!t.ownerUserId;
-      const canClaim=isClaimablePcToken(t);
-
-      const row=document.createElement('div');
-      row.style.cssText='display:flex;align-items:center;gap:0.6rem;padding:0.45rem 0.5rem;border:1px solid var(--border);background:rgba(0,0,0,0.18);';
-
-      row.innerHTML=`
-        <img src="${escHtml(t.url||'')}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid var(--border);flex-shrink:0;">
-        <div style="flex:1;min-width:0;">
-          <div style="font-family:'Cinzel',serif;font-size:0.7rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(t.name||'Unnamed')}</div>
-          <div style="font-size:0.68rem;color:var(--dim);font-style:italic;">
-            ${ownedByMe?'Already yours':unclaimed?'Available':`Claimed by ${escHtml(t.ownerName||'Someone')}`}
-          </div>
-        </div>
-      `;
-
-      const btn=document.createElement('button');
-      btn.className=canClaim?'btn-p':'btn-g';
-      btn.style.width='auto';
-      btn.style.margin='0';
-      btn.style.padding='0.45rem 0.7rem';
-      btn.textContent=ownedByMe?'Mine':(unclaimed?'Claim':'Taken');
-      btn.disabled=!canClaim;
-      if(!canClaim){
-        btn.style.opacity='0.55';
-        btn.style.cursor='not-allowed';
-      }
-
-      btn.onclick=()=>claimCharacter(id);
-
-      row.appendChild(btn);
-      list.appendChild(row);
-    });
-  }
-
-  document.getElementById('claim-modal').classList.add('open');
-};
-
-window.closeClaimModal=()=>{
-  document.getElementById('claim-modal').classList.remove('open');
-};
-
-window.claimCharacter=async(tokId)=>{
-  if(isGM)return;
-
-  const t=tokens[tokId];
-  if(!t){
-    toast('Token not found');
-    return;
-  }
-
-  if(!isClaimablePcToken(t)){
-    toast('That character is already claimed');
-    return;
-  }
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    ownerUserId:myId,
-    ownerName:myName,
-    claimable:true
-  });
-
-  closeClaimModal();
-  toast(`You are now controlling ${t.name}`);
-
-  setTimeout(()=>{
-    const tt=tokens[tokId];
-    if(tt)centerOnToken(tt);
-    refreshLeftPane();
-  },150);
-};
-
-window.unclaimToken=async(tokId)=>{
-  if(!isGM)return;
-  const t=tokens[tokId];
-  if(!t)return;
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    ownerUserId:null,
-    ownerName:null
-  });
-
-  toast(`${t.name} unclaimed`);
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 };
 
 // ── ENTER ─────────────────────────────────────────────────────────────────────
@@ -960,24 +626,10 @@ window.enter=async()=>{
   catch(e){toast('Firebase: '+e.message);return;}
   if(isGM)document.body.classList.add('is-gm');
 
-<<<<<<< HEAD
   tokRef=ref(db,`s/${sid}/tokens`);rollRef=ref(db,`s/${sid}/rolls`);mapRef=ref(db,`s/${sid}/map`);
   presRef=ref(db,`s/${sid}/pres/${myId}`);pingRef=ref(db,`s/${sid}/pings`);fogRef=ref(db,`s/${sid}/fogs`);
   calibRef=ref(db,`s/${sid}/calib`);rulerFireRef=ref(db,`s/${sid}/rulers`);
   assetsRef=ref(db,`assets`);scenesRef=ref(db,`scenes`);
-=======
-  tokRef      =ref(db,`s/${sid}/tokens`);
-  rollRef     =ref(db,`s/${sid}/rolls`);
-  mapRef      =ref(db,`s/${sid}/map`);
-  presRef     =ref(db,`s/${sid}/pres/${myId}`);
-  pingRef     =ref(db,`s/${sid}/pings`);
-  fogRef      =ref(db,`s/${sid}/fogs`);
-  calibRef    =ref(db,`s/${sid}/calib`);
-  liveRef     =ref(db,`s/${sid}/live`);
-  rulerFireRef=ref(db,`s/${sid}/rulers`);
-  assetsRef   =ref(db,`assets`);
-  scenesRef   =ref(db,`scenes`);
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 
   await set(presRef,{name:myName,ts:serverTimestamp()});
   onDisconnect(presRef).remove();
@@ -988,55 +640,9 @@ window.enter=async()=>{
   onValue(mapRef,snap=>{const d=snap.val();d?applyMap(d):clearMapLocal();});
   onValue(tokRef,snap=>{
     tokens=snap.val()||{};
-<<<<<<< HEAD
     updateClaimBadge();renderTokens();renderTokList();renderParty();
     if(selTok&&!tokens[selTok])selTok=null;
     refreshLeftPane();maybePromptClaim();
-=======
-    updateMyClaimBadge();
-    renderTokens();
-    renderTokList();
-    renderParty();
-
-    if(selTok && !tokens[selTok]) selTok=null;
-    if(activeSheet && !tokens[activeSheet]) activeSheet=null;
-
-    refreshLeftPane();
-    maybePromptClaim();
-  });
-
-  onValue(rollRef,snap=>{
-    renderRolls(Object.values(snap.val()||{}).sort((a,b)=>a.ts-b.ts));
-  });
-
-  onValue(pingRef,snap=>{
-    const p=snap.val()||{};
-    Object.entries(p).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));
-  });
-
-  onValue(fogRef,snap=>{
-    fogs=snap.val()||{};
-    renderFogs();
-  });
-
-  onValue(calibRef,snap=>{
-    const d=snap.val();
-    if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;
-  });
-
-  onValue(liveRef,snap=>{
-    liveSheetData=snap.val()||{};
-  });
-
-  onValue(assetsRef,snap=>{
-    assets=snap.val()||{};
-    renderHotbar();
-  });
-
-  onValue(scenesRef,snap=>{
-    scenes=snap.val()||{};
-    renderHotbar();
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
   });
   onValue(rollRef,snap=>{renderRolls(Object.values(snap.val()||{}).sort((a,b)=>a.ts-b.ts));});
   onValue(pingRef,snap=>{Object.entries(snap.val()||{}).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));});
@@ -1175,10 +781,6 @@ async function loadMapUrl(url){await set(mapRef,{url,ts:Date.now()});}
 window.openAddTokModal=()=>{
   currentAssetModalType='token';
   document.getElementById('asset-modal-title').textContent='Add Token to Map';
-<<<<<<< HEAD
-=======
-  document.getElementById('asset-sheet-wrap').style.display='none';
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
   document.getElementById('asset-lore-wrap').style.display='none';
   document.getElementById('asset-name').value='';document.getElementById('asset-url').value='';document.getElementById('asset-lore').value='';
   document.getElementById('asset-modal').classList.add('open');
@@ -1189,10 +791,6 @@ window.saveAsset=async()=>{
   const url=document.getElementById('asset-url').value.trim();
   if(!name){toast('Enter a name');return;}if(!url){toast('Paste an image URL');return;}
   const type=currentAssetModalType;
-<<<<<<< HEAD
-=======
-  const sheetUrl=document.getElementById('asset-sheet').value.trim();
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
   const lore=document.getElementById('asset-lore').value.trim();
   const aid=push(assetsRef).key;
   await set(ref(db,`assets/${aid}`),{name,url,type,lore,ts:Date.now()});
@@ -1206,19 +804,8 @@ async function dropTokenOnMap(asset,cx,cy){
   const y=cy??((b.clientHeight/2-panY)/scale);
   const id=push(tokRef).key;
   await set(ref(db,`s/${sid}/tokens/${id}`),{
-<<<<<<< HEAD
     name:asset.name,type:asset.type||'pc',url:asset.url,lore:asset.lore||'',
     x,y,size:70,statuses:[],ownerUserId:null,ownerName:null,
-=======
-    name:asset.name,
-    type:asset.type||'pc',
-    url:asset.url,
-    sheetUrl:asset.sheetUrl||'',
-    lore:asset.lore||'',
-    x,y,size:70,statuses:[],
-    ownerUserId:null,
-    ownerName:null,
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     claimable:(asset.type||'pc')==='pc',
     sheet:{ac:10,init:0,spd:30,prof:2,lvl:1,hpCurrent:1,hpMax:1,tempHp:0,
       abilities:{str:10,dex:10,con:10,int:10,wis:10,cha:10},inventory:[],notes:[]}
@@ -1237,18 +824,8 @@ function renderTokens(){
       el.addEventListener('click',ev=>{if(dragId)return;handleTokClick(id);ev.stopPropagation();});
       if(isGM){
         el.addEventListener('mousedown',ev=>{
-<<<<<<< HEAD
           if(ev.button!==0)return;ev.stopPropagation();
           selTok=id;renderTokens();renderTokList();renderParty();refreshLeftPane();
-=======
-          if(ev.button!==0)return;
-          ev.stopPropagation();
-          selTok=id;
-          renderTokens();
-          renderTokList();
-          renderParty();
-          refreshLeftPane();
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
           const pos=boardPos(ev.clientX,ev.clientY);
           dOX=pos.x-tokens[id].x;dOY=pos.y-tokens[id].y;
           dragId=id;el.classList.add('dragging');
@@ -1257,17 +834,8 @@ function renderTokens(){
       layer.appendChild(el);
     }
     const size=t.size||70;
-<<<<<<< HEAD
     el.style.left=t.x+'px';el.style.top=t.y+'px';el.style.width=size+'px';el.style.height=size+'px';
     el.className=`token type-${t.type}`+(selTok===id?' selected':'')+(isGM?' can-drag':'');
-=======
-    el.style.left=t.x+'px';
-    el.style.top=t.y+'px';
-    el.style.width=size+'px';
-    el.style.height=size+'px';
-    el.className=`token type-${t.type}`+(selTok===id?' selected':'')+(isGM?' can-drag':'');
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     el.querySelector('img').src=t.url||'';
     el.querySelector('.token-name').textContent=t.name||'';
     // HP display for PC tokens
@@ -1291,58 +859,17 @@ function renderTokList(){
     const ownerText=t.type==='pc'?(t.ownerUserId?` • ${t.ownerName||'claimed'}`:' • unclaimed'):'';
     const div=document.createElement('div');
     div.className='tli'+(selTok===id?' sel':'');
-<<<<<<< HEAD
     div.innerHTML=`<img src="${t.url||''}"><span class="tli-name">${escHtml(t.name)}${ownerText}</span><span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span>${isGM&&t.type==='pc'&&t.ownerUserId?`<button class="tli-del tli-unclaim" title="Unclaim">↺</button>`:''}<button class="tli-del">✕</button>`;
     div.addEventListener('click',()=>{selTok=id;renderTokens();renderTokList();renderParty();handleTokClick(id);});
     const dels=div.querySelectorAll('.tli-del');
     dels[dels.length-1].addEventListener('click',async ev=>{ev.stopPropagation();await remove(ref(db,`s/${sid}/tokens/${id}`));if(selTok===id){selTok=null;refreshLeftPane();}});
     const unc=div.querySelector('.tli-unclaim');
     if(unc)unc.addEventListener('click',async ev=>{ev.stopPropagation();await update(ref(db,`s/${sid}/tokens/${id}`),{ownerUserId:null,ownerName:null});toast(`${t.name} unclaimed`);});
-=======
-
-    div.innerHTML=`
-      <img src="${t.url||''}">
-      <span class="tli-name">${escHtml(t.name)}${ownerText}</span>
-      <span class="tli-type">${t.type==='pc'?'PC':'NPC'}</span>
-      ${isGM && t.type==='pc' && t.ownerUserId ? `<button class="tli-del tli-unclaim" title="Unclaim">↺</button>` : ''}
-      <button class="tli-del">✕</button>
-    `;
-
-    div.addEventListener('click',()=>{
-      selTok=id;
-      renderTokens();
-      renderTokList();
-      renderParty();
-      handleTokClick(id);
-    });
-
-    const delBtns=div.querySelectorAll('.tli-del');
-    const mainDel=delBtns[delBtns.length-1];
-
-    mainDel.addEventListener('click',async ev=>{
-      ev.stopPropagation();
-      await remove(ref(db,`s/${sid}/tokens/${id}`));
-      if(selTok===id){
-        selTok=null;
-        refreshLeftPane();
-      }
-    });
-
-    const unclaimBtn=div.querySelector('.tli-unclaim');
-    if(unclaimBtn){
-      unclaimBtn.addEventListener('click',async ev=>{
-        ev.stopPropagation();
-        await unclaimToken(id);
-      });
-    }
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
     list.appendChild(div);
   });
 }
 
 function renderParty(){
-<<<<<<< HEAD
   const list=document.getElementById('party-list');if(!list)return;
   const pcs=Object.entries(tokens).filter(([,t])=>t.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
   list.innerHTML='';
@@ -1354,159 +881,9 @@ function renderParty(){
     row.innerHTML=`<div class="party-dot"></div><div class="party-name">${escHtml(t.name||'Unnamed')}</div><div class="party-stats">${s.hpCurrent??1}/${s.hpMax??1} hp · ${s.ac??10} ac</div>`;
     row.addEventListener('click',()=>{selTok=id;renderTokens();renderTokList();renderParty();refreshLeftPane();});
     list.appendChild(row);
-=======
-  const list=document.getElementById('party-list');
-  if(!list)return;
-
-  const pcs=Object.entries(tokens)
-    .filter(([,t])=>t.type==='pc')
-    .sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
-
-  list.innerHTML='';
-
-  if(!pcs.length){
-    list.innerHTML=`<div style="font-size:0.72rem;color:var(--dim);font-style:italic;">No PCs on map.</div>`;
-    return;
-  }
-
-  pcs.forEach(([id,t])=>{
-    const s=ensureTokenSheet(t);
-    const hpCur=nInt(s.hpCurrent,1);
-    const hpMax=Math.max(1,nInt(s.hpMax,1));
-    const ac=nInt(s.ac,10);
-
-    const row=document.createElement('div');
-    row.className='party-row'+(selTok===id?' sel':'');
-
-    row.innerHTML=`
-      <div class="party-dot"></div>
-      <div class="party-name">${escHtml(t.name||'Unnamed')}</div>
-      <div class="party-stats">${hpCur}/${hpMax} : ${ac}</div>
-    `;
-
-    row.addEventListener('click',()=>{
-      selTok=id;
-      renderTokens();
-      renderTokList();
-      renderParty();
-      refreshLeftPane();
-    });
-
-    list.appendChild(row);
   });
 }
 
-// ── HOTBAR ────────────────────────────────────────────────────────────────────
-window.toggleHotbar=()=>{
-  const hb=document.getElementById('hotbar');
-  hb.classList.toggle('open');
-  document.getElementById('btn-hotbar').classList.toggle('active',hb.classList.contains('open'));
-};
-
-window.switchHbTab=(tab)=>{
-  activeHbTab=tab;
-  document.querySelectorAll('.hb-tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
-  renderHotbar();
-};
-
-function renderHotbar(){
-  const content=document.getElementById('hotbar-content');
-  content.innerHTML='';
-
-  if(activeHbTab==='scenes'){
-    const addBtn=document.createElement('div');
-    addBtn.className='hb-add';
-    addBtn.title='Save current scene';
-    addBtn.textContent='💾';
-    addBtn.onclick=()=>openSceneModal();
-    content.appendChild(addBtn);
-
-    Object.entries(scenes).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0)).forEach(([id,sc])=>{
-      const item=document.createElement('div');
-      item.className='hb-item';
-      item.innerHTML=`<div class="hb-scene-thumb">🗺</div><div class="hb-label">${sc.name}</div><div class="hb-del">✕</div>`;
-      item.querySelector('.hb-del').addEventListener('click',async e=>{
-        e.stopPropagation();
-        await remove(ref(db,`scenes/${id}`));
-      });
-      item.addEventListener('click',()=>loadScene(sc));
-      content.appendChild(item);
-    });
-  } else {
-    const addBtn=document.createElement('div');
-    addBtn.className='hb-add';
-    addBtn.title=`Add ${activeHbTab.slice(0,-1)}`;
-    addBtn.textContent='+';
-    addBtn.onclick=()=>openHbAddModal(activeHbTab.slice(0,-1));
-    content.appendChild(addBtn);
-
-    const typeMap={maps:'map',tokens:'token',props:'prop',mounts:'mount'};
-    const type=typeMap[activeHbTab];
-
-    Object.entries(assets)
-      .filter(([,a])=>a.type===type)
-      .sort((a,b)=>(b[1].ts||0)-(a[1].ts||0))
-      .forEach(([id,a])=>{
-        const item=document.createElement('div');
-        item.className='hb-item';
-        const isCircle=type!=='map';
-        item.innerHTML=`<img class="hb-thumb${isCircle?' circle':''}" src="${a.url}" loading="lazy"><div class="hb-label">${a.name}</div><div class="hb-del">✕</div>`;
-
-        item.querySelector('.hb-del').addEventListener('click',async e=>{
-          e.stopPropagation();
-          await remove(ref(db,`assets/${id}`));
-        });
-
-        item.addEventListener('click',()=>hbItemClick(a,type));
-        content.appendChild(item);
-      });
-  }
-}
-
-function openHbAddModal(type){
-  currentAssetModalType=type;
-  document.getElementById('asset-modal-title').textContent=`Add ${type.charAt(0).toUpperCase()+type.slice(1)}`;
-  document.getElementById('asset-sheet-wrap').style.display='none';
-  document.getElementById('asset-lore-wrap').style.display=type==='token'?'block':'none';
-  document.getElementById('asset-name').value='';
-  document.getElementById('asset-url').value='';
-  document.getElementById('asset-sheet').value='';
-  document.getElementById('asset-lore').value='';
-  document.getElementById('asset-modal').classList.add('open');
-}
-
-async function hbItemClick(asset,type){
-  if(type==='map'){
-    await loadMapUrl(asset.url);
-    toast(`Map: ${asset.name}`);
-  } else {
-    await dropTokenOnMap({...asset,type:type==='token'?'pc':'enemy'});
-    toast(`${asset.name} placed`);
-  }
-}
-
-// ── SCENES ────────────────────────────────────────────────────────────────────
-window.openSceneModal=()=>document.getElementById('scene-modal').classList.add('open');
-window.closeSceneModal=()=>document.getElementById('scene-modal').classList.remove('open');
-
-window.saveScene=async()=>{
-  const name=document.getElementById('scene-name').value.trim();
-  if(!name){toast('Enter a scene name');return;}
-
-  const mapSnap=await new Promise(res=>onValue(mapRef,res,{onlyOnce:true}));
-  const id=push(scenesRef).key;
-
-  await set(ref(db,`scenes/${id}`),{
-    name,
-    map:mapSnap.val()||null,
-    tokens:JSON.parse(JSON.stringify(tokens)),
-    fogs:JSON.parse(JSON.stringify(fogs)),
-    ts:Date.now()
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
-  });
-}
-
-<<<<<<< HEAD
 // ── CLAIM MODAL ───────────────────────────────────────────────────────────────
 window.openClaimModal=()=>{
   if(isGM)return;
@@ -1593,208 +970,6 @@ function renderLeftSheet(tokId){
         ${['str','dex','con','int','wis','cha'].map(k=>`<label class="f" style="margin:0;"><span class="sheet-mini-label">${k.toUpperCase()}</span><input id="sh-${k}" type="number" value="${s.abilities?.[k]??10}" ${!canEdit?'disabled':''}></label>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--dim);">${['str','dex','con','int','wis','cha'].map(k=>`${k.toUpperCase()} ${fmtMod(abMod(s.abilities?.[k]??10))}`).join(' · ')}</div>
-=======
-// ── LEFT PANE RENDERING ───────────────────────────────────────────────────────
-function refreshLeftPane(){
-  const displayId=getDisplayTokenId();
-
-  const empty=document.getElementById('left-empty');
-  const sheetPane=document.getElementById('left-sheet-pane');
-  const enemyPane=document.getElementById('left-enemy-pane');
-
-  empty.style.display='none';
-  sheetPane.classList.remove('open');
-  enemyPane.classList.remove('open');
-
-  if(!displayId || !tokens[displayId]){
-    empty.style.display='block';
-    empty.textContent=isGM
-      ? 'Select a token to inspect or edit.'
-      : 'No character selected. If you’ve claimed a PC, your character will appear here automatically.';
-    activeSheet=null;
-    return;
-  }
-
-  const t=tokens[displayId];
-  if(t.type==='enemy'){
-    activeSheet=null;
-    document.getElementById('left-enemy-name-lbl').textContent=t.name||'Enemy';
-    document.getElementById('left-enemy-body').textContent=t.lore||'No description.';
-    enemyPane.classList.add('open');
-    return;
-  }
-
-  activeSheet=displayId;
-  renderLeftSheet(displayId);
-  sheetPane.classList.add('open');
-}
-
-window.clearSelection=()=>{
-  selTok=null;
-  renderTokens();
-  renderTokList();
-  renderParty();
-  refreshLeftPane();
-};
-
-function handleTokClick(id){
-  const t=tokens[id];
-  if(!t)return;
-
-  selTok=id;
-  renderTokens();
-  renderTokList();
-  renderParty();
-  refreshLeftPane();
-}
-
-function buildPublicSheetHTML(tokId,t,s){
-  const hpCur=nInt(s.hpCurrent,1);
-  const hpMax=Math.max(1,nInt(s.hpMax,1));
-  const ac=nInt(s.ac,10);
-  const init=nInt(s.init,0);
-  const spd=nInt(s.spd,30);
-  const lvl=nInt(s.lvl,1);
-  const prof=nInt(s.prof,2);
-
-  const abilities=s.abilities||{str:10,dex:10,con:10,int:10,wis:10,cha:10};
-
-  return `
-    <div class="sheet-top">
-      <div class="stat-box"><div class="sv">${hpCur}/${hpMax}</div><div class="sl">HP</div></div>
-      <div class="stat-box"><div class="sv">${ac}</div><div class="sl">AC</div></div>
-      <div class="stat-box"><div class="sv">${fmtMod(init)}</div><div class="sl">INIT</div></div>
-    </div>
-
-    <div class="sheet-top" style="grid-template-columns:1fr 1fr 1fr;">
-      <div class="stat-box"><div class="sv">${spd}</div><div class="sl">SPD</div></div>
-      <div class="stat-box"><div class="sv">${lvl}</div><div class="sl">LVL</div></div>
-      <div class="stat-box"><div class="sv">${fmtMod(prof)}</div><div class="sl">PROF</div></div>
-    </div>
-
-    <div class="cs-section open">
-      <div class="cs-header" onclick="toggleSection(this)">
-        <div class="cs-title">Abilities</div>
-        <div class="cs-arrow">▾</div>
-      </div>
-      <div class="cs-body">
-        <div class="ab-grid">
-          ${['str','dex','con','int','wis','cha'].map(k=>`
-            <div class="ab-box">
-              <div class="ab-mod">${fmtMod(abMod(abilities[k]??10))}</div>
-              <div class="ab-score">${abilities[k]??10}</div>
-              <div class="ab-name">${k.toUpperCase()}</div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="cs-section open">
-      <div class="cs-header" onclick="toggleSection(this)">
-        <div class="cs-title">Public View</div>
-        <div class="cs-arrow">▾</div>
-      </div>
-      <div class="cs-body">
-        <div style="font-size:0.74rem;color:var(--dim);font-style:italic;line-height:1.6;">
-          Inventory and private notes are hidden. This is a read-only combat view.
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function buildEditableSheetHTML(tokId,t,s,canEdit,canAdjustHp){
-  return `
-    <div style="display:grid;gap:10px;font-size:12px;">
-      <div style="font-family:'Cinzel',serif;font-size:0.62rem;color:var(--dim);text-align:center;letter-spacing:0.06em;">
-        Embedded token sheet
-      </div>
-
-      <div class="sheet-form-grid">
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">AC</span>
-          <input id="sheet-ac" type="number" value="${s.ac??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">Init</span>
-          <input id="sheet-init" type="number" value="${s.init??0}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">Speed</span>
-          <input id="sheet-spd" type="number" value="${s.spd??30}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">Prof</span>
-          <input id="sheet-prof" type="number" value="${s.prof??2}" ${!canEdit?'disabled':''}>
-        </label>
-
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">Level</span>
-          <input id="sheet-lvl" type="number" value="${s.lvl??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">HP</span>
-          <input id="sheet-hpcur" type="number" value="${s.hpCurrent??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">HP Max</span>
-          <input id="sheet-hpmax" type="number" value="${s.hpMax??1}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">Temp HP</span>
-          <input id="sheet-temphp" type="number" value="${s.tempHp??0}" ${!canEdit?'disabled':''}>
-        </label>
-      </div>
-
-      <div class="sheet-form-grid-abilities">
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">STR</span>
-          <input id="sheet-str" type="number" value="${s.abilities.str??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">DEX</span>
-          <input id="sheet-dex" type="number" value="${s.abilities.dex??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">CON</span>
-          <input id="sheet-con" type="number" value="${s.abilities.con??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">INT</span>
-          <input id="sheet-int" type="number" value="${s.abilities.int??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">WIS</span>
-          <input id="sheet-wis" type="number" value="${s.abilities.wis??10}" ${!canEdit?'disabled':''}>
-        </label>
-        <label class="f" style="margin:0;">
-          <span class="sheet-mini-label">CHA</span>
-          <input id="sheet-cha" type="number" value="${s.abilities.cha??10}" ${!canEdit?'disabled':''}>
-        </label>
-      </div>
-
-      <div style="font-size:11px;color:var(--dim);">
-        Mods:
-        STR ${fmtMod(abMod(s.abilities.str))},
-        DEX ${fmtMod(abMod(s.abilities.dex))},
-        CON ${fmtMod(abMod(s.abilities.con))},
-        INT ${fmtMod(abMod(s.abilities.int))},
-        WIS ${fmtMod(abMod(s.abilities.wis))},
-        CHA ${fmtMod(abMod(s.abilities.cha))}
-      </div>
-
-      <div>
-        <div style="font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:4px;">Inventory (one per line)</div>
-        <textarea id="sheet-inventory" rows="5" class="notes-area" ${!canEdit?'disabled':''}>${escHtml(arrToLines(s.inventory))}</textarea>
-      </div>
-
-      <div>
-        <div style="font-family:'Cinzel',serif;font-size:0.58rem;color:var(--gold);letter-spacing:0.08em;margin-bottom:4px;">Notes (one per line)</div>
-        <textarea id="sheet-notes" rows="6" class="notes-area" ${!canEdit?'disabled':''}>${escHtml(arrToLines(s.notes))}</textarea>
-      </div>
-
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         ${canEdit?`<button class="action-btn" style="margin:0;flex:1;" onclick="saveSheet('${tokId}')">Save Sheet</button>`:''}
         ${canAdjHp?`<button class="action-btn" style="margin:0;flex:1;" onclick="adjHp('${tokId}',-1)">HP −1</button><button class="action-btn" style="margin:0;flex:1;" onclick="adjHp('${tokId}',1)">HP +1</button>`:''}
@@ -1802,72 +977,7 @@ function buildEditableSheetHTML(tokId,t,s,canEdit,canAdjustHp){
     </div>`;
 }
 
-<<<<<<< HEAD
 window.toggleSection=h=>h.parentElement.classList.toggle('open');
-=======
-function renderLeftSheet(tokId){
-  const t=tokens[tokId];
-  if(!t)return;
-
-  const s=ensureTokenSheet(t);
-  const publicOnly=isPublicViewOnly(tokId);
-  const canEdit=isGM;
-  const canAdjustHp=isGM || canPlayerControlToken(t);
-
-  document.getElementById('left-sheet-char-name').textContent=t.name||'Character';
-
-  let sub='GM view';
-  if(!isGM){
-    if(canPlayerControlToken(t)) sub='Your character';
-    else sub='Read-only public view';
-  }
-  document.getElementById('left-sheet-sub').textContent=sub;
-
-  const body=document.getElementById('left-sheet-body');
-  body.innerHTML=publicOnly
-    ? buildPublicSheetHTML(tokId,t,s)
-    : buildEditableSheetHTML(tokId,t,s,canEdit,canAdjustHp);
-}
-
-window.toggleSection=(h)=>h.parentElement.classList.toggle('open');
-
-window.saveTokenSheet=async(tokId)=>{
-  const t=tokens[tokId];
-  if(!t)return;
-
-  const canEdit=isGM;
-  if(!canEdit)return;
-
-  const current=ensureTokenSheet(t);
-
-  const nextSheet={
-    ...current,
-    ac:nInt(document.getElementById('sheet-ac')?.value, current.ac??10),
-    init:nInt(document.getElementById('sheet-init')?.value, current.init??0),
-    spd:nInt(document.getElementById('sheet-spd')?.value, current.spd??30),
-    prof:nInt(document.getElementById('sheet-prof')?.value, current.prof??2),
-    lvl:nInt(document.getElementById('sheet-lvl')?.value, current.lvl??1),
-    hpCurrent:nInt(document.getElementById('sheet-hpcur')?.value, current.hpCurrent??1),
-    hpMax:Math.max(1,nInt(document.getElementById('sheet-hpmax')?.value, current.hpMax??1)),
-    tempHp:Math.max(0,nInt(document.getElementById('sheet-temphp')?.value, current.tempHp??0)),
-    abilities:{
-      str:nInt(document.getElementById('sheet-str')?.value, current.abilities?.str??10),
-      dex:nInt(document.getElementById('sheet-dex')?.value, current.abilities?.dex??10),
-      con:nInt(document.getElementById('sheet-con')?.value, current.abilities?.con??10),
-      int:nInt(document.getElementById('sheet-int')?.value, current.abilities?.int??10),
-      wis:nInt(document.getElementById('sheet-wis')?.value, current.abilities?.wis??10),
-      cha:nInt(document.getElementById('sheet-cha')?.value, current.abilities?.cha??10)
-    },
-    inventory:linesToArr(document.getElementById('sheet-inventory')?.value),
-    notes:linesToArr(document.getElementById('sheet-notes')?.value)
-  };
-
-  nextSheet.hpCurrent=Math.max(0,Math.min(nextSheet.hpCurrent,nextSheet.hpMax));
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    sheet:nextSheet
-  });
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 
 window.saveSheet=async(tokId)=>{
   const t=tokens[tokId];if(!t||!isGM)return;
@@ -1889,21 +999,7 @@ window.adjHp=async(tokId,delta)=>{
   const s=ensureSheet(t);
   const hpMax=Math.max(1,nInt(s.hpMax,1));
   const hpCurrent=Math.max(0,Math.min(hpMax,nInt(s.hpCurrent,1)+delta));
-<<<<<<< HEAD
   await update(ref(db,`s/${sid}/tokens/${tokId}`),{sheet:{...s,hpCurrent}});
-=======
-
-  await update(ref(db,`s/${sid}/tokens/${tokId}`),{
-    sheet:{
-      ...s,
-      hpCurrent
-    }
-  });
-
-  if(activeSheet===tokId){
-    setTimeout(()=>refreshLeftPane(),30);
-  }
->>>>>>> 72497bfc539b8a72e25ecd9983985129d49800f9
 };
 
 // ── STATUS ────────────────────────────────────────────────────────────────────
@@ -2110,18 +1206,6 @@ function initBoard(){
 
   board.addEventListener('click',e=>{
     if(e.target===board||e.target.id==='board-wrap'||e.target.id==='map-img'){selTok=null;renderTokens();renderTokList();renderParty();refreshLeftPane();}
-  });
-
-  board.addEventListener('click',e=>{
-    if(e.target===board || e.target.id==='board-wrap' || e.target.id==='map-img'){
-      // single-clicking empty map clears explicit selection
-      // left pane then falls back to My Character (player) or empty (GM)
-      selTok=null;
-      renderTokens();
-      renderTokList();
-      renderParty();
-      refreshLeftPane();
-    }
   });
 
   board.addEventListener('contextmenu',e=>e.preventDefault());
