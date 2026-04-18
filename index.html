@@ -126,8 +126,25 @@ body.is-gm .gm-b{display:block!important;}
 
 /* BOARD */
 #board{flex:1;position:relative;overflow:hidden;background:#080604;cursor:default;min-width:200px;}
-#board-wrap{position:absolute;transform-origin:0 0;}
-#map-img{display:block;position:relative;z-index:1;pointer-events:none;user-select:none;}
+#board-wrap{
+  position:absolute;
+  top:0;
+  left:0;
+  transform-origin:0 0;
+}
+
+#map-img{
+  display:block;
+  position:absolute;
+  top:0;
+  left:0;
+  z-index:1;
+  pointer-events:none;
+  user-select:none;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
 #fog-layer{position:absolute;top:0;left:0;z-index:20;pointer-events:none;}
 body.is-gm #fog-layer{pointer-events:all;}
 #token-layer{position:absolute;top:0;left:0;z-index:30;}
