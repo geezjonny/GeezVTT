@@ -821,8 +821,8 @@ body.is-gm #party-strip{top:3rem;}
    TOAST
 ═══════════════════════════════════════════ */
 #toast{
-  position:fixed;bottom:5.5rem;left:50%;
-  transform:translateX(-50%) translateY(60px);
+  position:fixed;top:3.5rem;left:50%;
+  transform:translateX(-50%) translateY(-60px);
   background:var(--surface);border:1px solid var(--border);
   color:var(--text);font-size:0.72rem;font-weight:500;
   padding:0.45rem 1rem;border-radius:999px;
@@ -1470,7 +1470,14 @@ function launchApp(){
   });
   onValue(mapRef,s=>{const d=s.val();d?applyMap(d):clearMapLocal();});
   onValue(tokRef,s=>{tokens=s.val()||{};renderTokens();renderParty();if(activeCardId)refreshCard();});
-  onValue(rollRef,s=>{renderRolls(Object.values(s.val()||{}).sort((a,b)=>a.ts-b.ts));});
+  onValue(rollRef,s=>{
+    const allRolls=Object.values(s.val()||{}).sort((a,b)=>a.ts-b.ts);
+    // On first load, mark all existing rolls as seen so we don't animate history
+    if(seenRollIds.size===0&&allRolls.length>0){
+      allRolls.forEach(r=>seenRollIds.add((r.ts||0)+'|'+(r.player||'')));
+    }
+    renderRolls(allRolls);
+  });
   onValue(pingRef,s=>{Object.entries(s.val()||{}).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));});
   onValue(fogRef,s=>{fogs=s.val()||{};renderFogs();});
   onValue(calibRef,s=>{const d=s.val();if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;});
@@ -1501,7 +1508,6 @@ function launchApp(){
   el('sid-lbl').textContent=sid;
   el('sdot').classList.add('ok');
   initBoard();
-  toast('Welcome, '+myName);
 }
 
 // ── MAP ────────────────────────────────────────────────────────────────────────
@@ -2187,6 +2193,7 @@ window.roll=async(sides)=>{
 window.rollExpr=async()=>{const expr=prompt('Dice (e.g. 2d6+3):');if(!expr)return;const m=expr.match(/(\d+)d(\d+)([+-]\d+)?/i);if(!m){toast('Invalid');return;}el('qty').value=m[1];el('rmod').value=parseInt(m[3]||'0');roll(parseInt(m[2]));};
 
 let lastRollTs=0,animTimer=null;
+const seenRollIds=new Set();
 function renderRolls(rolls){
   const log=el('roll-log');log.innerHTML='';
   [...rolls].reverse().slice(0,30).forEach(r=>{
@@ -2195,12 +2202,17 @@ function renderRolls(rolls){
     div.innerHTML=`<span class="re-who">${esc(r.player)}</span> ${r.dice}${ms} → <span class="re-tot">${r.total}</span>${r.crit?' 🌟':r.fumble?' 💀':''}<div class="re-detail">[${r.rolls.join(', ')}]${ms}</div>`;
     log.appendChild(div);
   });
-  // Trigger animation for the newest roll if it's fresh (within 4 seconds)
+  // Animate the newest roll we haven't seen yet
+  // Use Firebase push key (stored as the array index here) — instead track by ts+player
   if(rolls.length>0){
     const newest=rolls[rolls.length-1];
-    if(newest.ts&&newest.ts>lastRollTs&&Date.now()-newest.ts<4000){
-      lastRollTs=newest.ts;
-      playDiceAnimation(newest);
+    const rollKey=(newest.ts||0)+'|'+(newest.player||'');
+    if(!seenRollIds.has(rollKey)){
+      seenRollIds.add(rollKey);
+      // Only animate if the roll is reasonably recent (within 30s to handle slow connections)
+      if(!newest.ts||Date.now()-newest.ts<30000){
+        playDiceAnimation(newest);
+      }
     }
   }
 }
@@ -2317,7 +2329,7 @@ function bpos(cx,cy){const r=el('board').getBoundingClientRect();return{x:(cx-r.
 // ── UTILS ──────────────────────────────────────────────────────────────────────
 window.copySid=()=>navigator.clipboard.writeText(sid).then(()=>toast('Session ID copied'));
 let toastT;
-window.toast=msg=>{const e=el('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),2600);};
+window.toast=msg=>{const e=el('toast');e.textContent=msg;e.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>e.classList.remove('show'),1800);};
 </script>
 </body>
 </html>
