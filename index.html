@@ -3094,11 +3094,21 @@ remainingMove:speed,speed,hasAction:true,hasBonusAction:true,turnActive:true,ts:
 });
 }
 
+// Clear the outgoing combatant’s turnActive so their action menu closes immediately
+async function clearPrevTurnActive(prevIdx){
+const prev=initOrder[prevIdx];
+if(prev?.tokenId){
+await update(ref(db,‘map/’+sid+’/actionState/’+prev.tokenId),{turnActive:false});
+}
+}
+
 window.nextTurn=async()=>{
 if(!isGM||!initOrder.length)return;
 cancelMoveMode();
+const prevIdx=initCurrent%initOrder.length;
 initCurrent=(initCurrent+1)%initOrder.length;
 await saveInit();
+await clearPrevTurnActive(prevIdx);
 const cur=initOrder[initCurrent];
 toast(cur.name+”’s turn”);
 await resetActionStateFor(cur);
@@ -3107,8 +3117,10 @@ await resetActionStateFor(cur);
 window.prevTurn=async()=>{
 if(!isGM||!initOrder.length)return;
 cancelMoveMode();
+const prevIdx=initCurrent%initOrder.length;
 initCurrent=(initCurrent-1+initOrder.length)%initOrder.length;
 await saveInit();
+await clearPrevTurnActive(prevIdx);
 const cur=initOrder[initCurrent];
 toast(cur.name+”’s turn”);
 await resetActionStateFor(cur);
@@ -3116,6 +3128,9 @@ await resetActionStateFor(cur);
 
 window.endCombat=async()=>{
 if(!isGM)return;
+cancelMoveMode();
+// Fix #2 — clear all actionState so no action menus linger after combat
+await set(ref(db,‘map/’+sid+’/actionState’),null);
 initOrder=[];initCurrent=0;initActive=false;
 await set(initRef,{order:[],current:0,active:false,ts:Date.now()});
 el(‘init-panel’).classList.remove(‘open’);
@@ -3125,9 +3140,21 @@ renderTokens();toast(‘Combat ended’);
 
 window.removeFromInit=async(idx)=>{
 if(!isGM)return;
+// Fix #3 — if removing the current or a previous combatant, adjust index correctly
+const removingCurrent=idx===initCurrent%initOrder.length;
 initOrder.splice(idx,1);
-if(initCurrent>=initOrder.length)initCurrent=Math.max(0,initOrder.length-1);
+if(!initOrder.length){
+// Last combatant removed — end combat
+await endCombat();return;
+}
+// If we removed someone before or at current, step back so current stays correct
+if(idx<=initCurrent%Math.max(1,initOrder.length+1)){
+initCurrent=Math.max(0,initCurrent-1);
+}
+initCurrent=initCurrent%initOrder.length;
 await saveInit();
+// If we removed the active combatant, activate the one now at that index
+if(removingCurrent)await resetActionStateFor(initOrder[initCurrent]);
 };
 
 // Add a specific token/char to initiative
