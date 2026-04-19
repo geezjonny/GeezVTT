@@ -1751,11 +1751,19 @@ async function claimAndLaunch(id,c){
   }
   el('char-pick').style.display='none';
   launchApp();
-  // Open their character card once tokens load
-  setTimeout(()=>{
-    const mine=Object.entries(chars).find(([,c])=>c.ownerUserId===myId);
-    if(mine)openCard(mine[0]);
-  },800);
+  // Open the character card — use the known char id directly rather than searching
+  // chars (which may not be populated yet). Retry until tokens are loaded.
+  const tryOpen=()=>{
+    // The char's token may not be on the map yet — open card by char id directly
+    // openCard needs a token id OR a char id that matches. Try token with matching charId first.
+    const tokEntry=Object.entries(tokens).find(([,t])=>t.charId===id);
+    if(tokEntry){openCard(tokEntry[0]);return;}
+    // No token yet — open via char id directly (card shows sheet without map token)
+    if(chars[id]||c){openCard(id);return;}
+    // Neither loaded yet — retry
+    setTimeout(tryOpen,300);
+  };
+  setTimeout(tryOpen,400);
 }
 
 function launchApp(){
@@ -3072,18 +3080,19 @@ return modB-modA;
 });
 initOrder=newOrder;initCurrent=0;initActive=true;
 await saveInit();
-// Initialize action state for the first combatant
-if(newOrder.length&&newOrder[0].tokenId){
-const first=newOrder[0];
-const charId=first.charId||first.tokenId;
+await resetActionStateFor(newOrder[0]);
+toast(‘Initiative rolled’);
+};
+
+async function resetActionStateFor(entry){
+if(!entry?.tokenId)return;
+const charId=entry.charId||entry.tokenId;
 const c=chars[charId];
 const speed=c?.combat?.speed??30;
-await set(ref(db,‘map/’+sid+’/actionState/’+first.tokenId),{
+await set(ref(db,‘map/’+sid+’/actionState/’+entry.tokenId),{
 remainingMove:speed,speed,hasAction:true,hasBonusAction:true,turnActive:true,ts:Date.now()
 });
 }
-toast(‘Initiative rolled’);
-};
 
 window.nextTurn=async()=>{
 if(!isGM||!initOrder.length)return;
@@ -3091,17 +3100,8 @@ cancelMoveMode();
 initCurrent=(initCurrent+1)%initOrder.length;
 await saveInit();
 const cur=initOrder[initCurrent];
-toast(cur.name+”‘s turn”);
-// Initialize action state for the new combatant
-if(cur.tokenId){
-const t=tokens[cur.tokenId];
-const charId=cur.charId||cur.tokenId;
-const c=chars[charId];
-const speed=c?.combat?.speed??30;
-await set(ref(db,‘map/’+sid+’/actionState/’+cur.tokenId),{
-remainingMove:speed,speed,hasAction:true,hasBonusAction:true,turnActive:true,ts:Date.now()
-});
-}
+toast(cur.name+”’s turn”);
+await resetActionStateFor(cur);
 };
 
 window.prevTurn=async()=>{
@@ -3111,6 +3111,7 @@ initCurrent=(initCurrent-1+initOrder.length)%initOrder.length;
 await saveInit();
 const cur=initOrder[initCurrent];
 toast(cur.name+”’s turn”);
+await resetActionStateFor(cur);
 };
 
 window.endCombat=async()=>{
@@ -3479,20 +3480,11 @@ if(!gmPresent)await nextTurnAuto();
 };
 
 async function nextTurnAuto(){
-// Same as nextTurn but callable by player in GM-less sessions
 if(!initOrder.length)return;
 const newIdx=(initCurrent+1)%initOrder.length;
 const cur=initOrder[newIdx];
 await set(initRef,{order:initOrder,current:newIdx,active:initActive,ts:Date.now()});
-if(cur?.tokenId){
-const t=tokens[cur.tokenId];
-const charId=cur.charId||cur.tokenId;
-const c=chars[charId];
-const speed=c?.combat?.speed??30;
-await set(ref(db,‘map/’+sid+’/actionState/’+cur.tokenId),{
-remainingMove:speed,speed,hasAction:true,hasBonusAction:true,turnActive:true,ts:Date.now()
-});
-}
+await resetActionStateFor(cur);
 }
 </script>
 
