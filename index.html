@@ -836,6 +836,41 @@ body.is-gm #party-strip{top:3rem;}
 body.is-gm .gm-only{display:flex!important;}
 body.is-gm .gm-b{display:block!important;}
 .gm-b{display:none;}
+
+/* CHARACTER PICKER SCREEN */
+#char-pick{
+  display:none;min-height:100vh;
+  flex-direction:column;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 30%,#0d1a3a 0%,#0a0c14 70%);
+  padding:2rem 1rem;gap:1.5rem;
+}
+.cp-title{font-family:var(--font-head);font-size:1.4rem;font-weight:700;color:var(--text);text-align:center;}
+.cp-sub{font-size:0.8rem;color:var(--text3);text-align:center;}
+#cp-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+  gap:0.8rem;width:100%;max-width:700px;
+}
+.cp-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:1.2rem;
+  display:flex;flex-direction:column;align-items:center;gap:0.6rem;
+  cursor:pointer;transition:all 0.18s;text-align:center;
+  position:relative;
+}
+.cp-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 8px 24px rgba(79,142,247,0.2);}
+.cp-card.taken{opacity:0.45;cursor:not-allowed;pointer-events:none;}
+.cp-card.mine{border-color:var(--green);background:rgba(34,197,94,0.05);}
+.cp-avatar{width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid var(--border-hi);}
+.cp-name{font-family:var(--font-head);font-size:0.9rem;font-weight:600;color:var(--text);}
+.cp-class{font-size:0.7rem;color:var(--text3);}
+.cp-status{
+  font-size:0.62rem;font-weight:600;padding:0.15rem 0.5rem;
+  border-radius:999px;letter-spacing:0.04em;
+}
+.cp-status.available{background:var(--accent-dim);color:var(--accent);}
+.cp-status.taken{background:var(--red-dim);color:var(--red);}
+.cp-status.mine{background:var(--green-dim);color:var(--green);}
+.cp-none{font-size:0.85rem;color:var(--text3);font-style:italic;text-align:center;padding:2rem;}
 </style>
 </head>
 <body>
@@ -865,6 +900,13 @@ body.is-gm .gm-b{display:block!important;}
     <button class="btn-primary" onclick="enter()">Enter</button>
     <button class="btn-secondary" onclick="openCfgModal()">⚙ Firebase Config</button>
   </div>
+</div>
+
+<!-- CHARACTER PICKER (players only) -->
+<div id="char-pick">
+  <div class="cp-title">Choose Your Character</div>
+  <div class="cp-sub" id="cp-sub">Select your PC for this session.</div>
+  <div id="cp-grid"></div>
 </div>
 
 <!-- CONFIG MODAL -->
@@ -1131,7 +1173,7 @@ let db,sid='',myName='',isGM=false;
 const myId=(()=>{let id=localStorage.getItem('vtt-uid');if(!id){id=Math.random().toString(36).slice(2,10);localStorage.setItem('vtt-uid',id);}return id;})();
 let sc=1,px=0,py=0;
 let panning=false,psx=0,psy=0,pox=0,poy=0;
-let tokens={},chars={},liveData={},assets={},scenes={};
+let tokens={},chars={},liveData={},assets={},scenes={},presenceData={};
 let selTokId=null,dragId=null,dox=0,doy=0,mapW=0,mapH=0;
 let fogs={},selFog=null,fogMode=false,fogAlpha=1;
 let fdrag=null,fdox=0,fdoy=0,fresize=null,frsw=0,frsh=0,frmx=0,frmy=0;
@@ -1227,8 +1269,72 @@ window.enter=async()=>{
   await set(presRef,{name:myName,ts:serverTimestamp()});
   onDisconnect(presRef).remove();
 
+  // For players: show character picker first, then launch app after claim
+  if(!isGM){
+    el('setup').style.display='none';
+    el('char-pick').style.display='flex';
+    // Load chars once to render picker
+    onValue(charRef,s=>{
+      chars=s.val()||{};
+      renderCharPicker();
+    });
+    return; // App launches after player picks a character
+  }
+
+  // GM goes straight to app
+  launchApp();
+};
+
+function renderCharPicker(){
+  const grid=el('cp-grid');grid.innerHTML='';
+  const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
+
+  if(!pcs.length){
+    grid.innerHTML='<div class="cp-none">No characters have been created yet.<br>Ask your GM to set up the session first.</div>';
+    return;
+  }
+
+  const alreadyMine=pcs.find(([,c])=>c.ownerUserId===myId);
+  if(alreadyMine){
+    el('cp-sub').textContent='Welcome back! Your character is ready.';
+  }
+
+  pcs.forEach(([id,c])=>{
+    const isMine=c.ownerUserId===myId;
+    const isTaken=c.ownerUserId&&!isMine;
+    const div=document.createElement('div');
+    div.className='cp-card'+(isTaken?' taken':isMine?' mine':'');
+    div.innerHTML=
+      '<img class="cp-avatar" src="'+esc(c.imageUrl||'')+'" alt="">'+
+      '<div class="cp-name">'+esc(c.name)+'</div>'+
+      '<div class="cp-class">'+esc([c.race,c.charClass].filter(Boolean).join(' '))+'</div>'+
+      '<div class="cp-status '+(isMine?'mine':isTaken?'taken':'available')+'">'+(isMine?'Your Character':isTaken?'Taken by '+esc(c.ownerName||'someone'):'Available')+'</div>';
+    if(!isTaken){
+      div.addEventListener('click',()=>claimAndLaunch(id,c));
+    }
+    grid.appendChild(div);
+  });
+}
+
+async function claimAndLaunch(id,c){
+  // Claim if not already owned
+  if(!c.ownerUserId){
+    await update(ref(db,`sheets/${sid}/chars/${id}`),{ownerUserId:myId,ownerName:myName});
+  }
+  el('char-pick').style.display='none';
+  launchApp();
+  // Open their character card once tokens load
+  setTimeout(()=>{
+    const mine=Object.entries(chars).find(([,c])=>c.ownerUserId===myId);
+    if(mine)openCard(mine[0]);
+  },800);
+}
+
+function launchApp(){
+  presenceData={};
   onValue(ref(db,`map/${sid}/pres`),s=>{
-    el('pip-wrap').innerHTML=Object.values(s.val()||{}).map(x=>`<span class="pip" title="${esc(x.name)}"></span>`).join(' ');
+    presenceData=s.val()||{};
+    el('pip-wrap').innerHTML=Object.values(presenceData).map(x=>`<span class="pip" title="${esc(x.name)}"></span>`).join(' ');
   });
   onValue(mapRef,s=>{const d=s.val();d?applyMap(d):clearMapLocal();});
   onValue(tokRef,s=>{tokens=s.val()||{};renderTokens();renderParty();if(activeCardId)refreshCard();});
@@ -1239,25 +1345,32 @@ window.enter=async()=>{
   onValue(rulerRef,s=>{rdata=s.val()||{};redrawRuler();});
   onValue(assetsRef,s=>{assets=s.val()||{};renderHotbar();});
   onValue(scenesRef,s=>{scenes=s.val()||{};renderHotbar();});
-  onValue(charRef,s=>{
-    chars=s.val()||{};
-    renderParty();
-    if(activeCardId&&chars[activeCardId])refreshCard();
-    // Auto-assign player's own char
-    if(!isGM&&!activeCardId){
-      const mine=Object.entries(chars).find(([,c])=>c.type==='pc'&&c.ownerUserId===myId);
-      if(mine)openCard(mine[0]);
-    }
-  });
+  if(isGM){
+    // GM also listens to chars
+    onValue(charRef,s=>{
+      chars=s.val()||{};
+      renderParty();
+      if(activeCardId&&chars[activeCardId])refreshCard();
+    });
+  } else {
+    // Player already has charRef listener from picker — just add app listeners
+    // Re-register so refreshCard works during play
+    onValue(charRef,s=>{
+      chars=s.val()||{};
+      renderParty();
+      if(activeCardId&&chars[activeCardId])refreshCard();
+    });
+  }
   onValue(liveRef,s=>{liveData=s.val()||{};renderTokens();renderParty();if(activeCardId)refreshCard();});
 
   el('setup').style.display='none';
+  el('char-pick').style.display='none';
   el('app').style.display='block';
   el('sid-lbl').textContent=sid;
   el('sdot').classList.add('ok');
   initBoard();
-  toast(`Welcome, ${myName}`);
-};
+  toast('Welcome, '+myName);
+}
 
 // ── MAP ────────────────────────────────────────────────────────────────────────
 function applyMap(d){
@@ -1375,8 +1488,14 @@ function renderCard(id,t,c){
   if(isGM&&t&&!c){
     const delTok=document.createElement('button');delTok.className='card-btn red';delTok.textContent='Remove Token';delTok.onclick=async()=>{await remove(ref(db,`map/${sid}/tokens/${id}`));closeCard();};gmActs.appendChild(delTok);
   }
-  if(isGM&&c?.type==='pc'&&!c.ownerUserId){
-    const assignBtn=document.createElement('button');assignBtn.className='card-btn';assignBtn.textContent='Assign Owner';assignBtn.onclick=()=>{const name=prompt('Player name to assign:');if(name)assignCharOwner(id,name);};gmActs.appendChild(assignBtn);
+  if(isGM&&c?.type==='pc'&&c.ownerUserId){
+    const unassignBtn=document.createElement('button');
+    unassignBtn.className='card-btn red';unassignBtn.textContent='Unassign';
+    unassignBtn.onclick=async()=>{
+      await update(ref(db,`sheets/${sid}/chars/${id}`),{ownerUserId:null,ownerName:null});
+      toast(c.name+' unassigned');
+    };
+    gmActs.appendChild(unassignBtn);
   }
 
   // HP section (PCs only)
@@ -1615,10 +1734,9 @@ async function deleteChar(id){
   closeCard();toast('Character deleted');
 }
 
-async function assignCharOwner(id,playerName){
-  const uid=Object.entries(liveData).find(([,v])=>v?.name===playerName)?.[0];
-  await update(ref(db,`sheets/${sid}/chars/${id}`),{ownerName:playerName});
-  toast(`Assigned to ${playerName}`);
+async function assignCharOwner(id,ownerUid,ownerName){
+  await update(ref(db,`sheets/${sid}/chars/${id}`),{ownerUserId:ownerUid,ownerName:ownerName});
+  toast((chars[id]?.name||'Character')+' assigned to '+ownerName);
 }
 
 // ── LIVE SYNC ──────────────────────────────────────────────────────────────────
