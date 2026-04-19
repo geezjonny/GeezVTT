@@ -176,6 +176,8 @@ body{
 #map-img{display:block;position:relative;z-index:1;pointer-events:none;user-select:none;}
 #fog-layer{position:absolute;top:0;left:0;z-index:20;pointer-events:none;}
 body.is-gm #fog-layer{pointer-events:all;}
+/* Players see fog via vision canvas, not DOM rects */
+body:not(.is-gm) .fog-rect{display:none;}
 #tok-layer{position:absolute;top:0;left:0;z-index:30;}
 #ping-layer{position:absolute;top:0;left:0;z-index:40;pointer-events:none;}
 #ruler-layer{position:absolute;top:0;left:0;z-index:50;pointer-events:none;}
@@ -1164,6 +1166,7 @@ body.is-gm .gm-b{display:block!important;}
     <div id="bwrap">
       <img id="map-img" src="" style="display:none">
       <div id="fog-layer"></div>
+      <canvas id="vision-canvas" style="position:absolute;top:0;left:0;z-index:25;pointer-events:none;display:none;"></canvas>
       <div id="tok-layer"></div>
       <div id="ping-layer"></div>
       <div id="ruler-layer"><canvas id="ruler-canvas"></canvas></div>
@@ -1479,8 +1482,8 @@ function launchApp(){
     renderRolls(allRolls);
   });
   onValue(pingRef,s=>{Object.entries(s.val()||{}).forEach(([id,v])=>showPing(v.x,v.y,v.name,id));});
-  onValue(fogRef,s=>{fogs=s.val()||{};renderFogs();});
-  onValue(calibRef,s=>{const d=s.val();if(d?.pxPerFoot)pxPerFoot=d.pxPerFoot;});
+  onValue(fogRef,s=>{fogs=s.val()||{};renderFogs();drawVision();});
+  onValue(calibRef,s=>{const d=s.val();if(d?.pxPerFoot){pxPerFoot=d.pxPerFoot;drawVision();}});
   onValue(rulerRef,s=>{rdata=s.val()||{};redrawRuler();});
   onValue(assetsRef,s=>{assets=s.val()||{};renderHotbar();});
   onValue(scenesRef,s=>{scenes=s.val()||{};renderHotbar();});
@@ -1518,7 +1521,8 @@ function applyMap(d){
     mapW=img.naturalWidth;mapH=img.naturalHeight;
     ['bwrap','tok-layer','fog-layer','ping-layer','ruler-layer'].forEach(id=>{const e=el(id);e.style.width=mapW+'px';e.style.height=mapH+'px';});
     const rc=el('ruler-canvas');rc.width=mapW;rc.height=mapH;
-    fitScreen();renderFogs();
+    const vc=el('vision-canvas');vc.width=mapW;vc.height=mapH;vc.style.width=mapW+'px';vc.style.height=mapH+'px';
+    fitScreen();renderFogs();drawVision();
   };
   img.onerror=()=>toast('Could not load map');
 }
@@ -1571,6 +1575,7 @@ function renderTokens(){
     const allConds=[...new Set([...manualConds,...liveConds])];
     e.querySelector('.tok-statuses').innerHTML=allConds.map(c=>`<span class="tok-badge ${COND_CLS[c]||''}">${c}</span>`).join('');
   });
+  drawVision();
 }
 
 // ── PARTY STRIP ────────────────────────────────────────────────────────────────
@@ -2325,6 +2330,65 @@ function initBoard(){
 }
 function applyT(){el('bwrap').style.transform=`translate(${px}px,${py}px) scale(${sc})`;}
 function bpos(cx,cy){const r=el('board').getBoundingClientRect();return{x:(cx-r.left-px)/sc,y:(cy-r.top-py)/sc};}
+
+// ── PLAYER VISION (fog of war per player) ─────────────────────────────────────
+const VISION_FT=60; // vision radius in feet
+function drawVision(){
+  const vc=el('vision-canvas');
+  if(!vc||!mapW||!mapH)return;
+
+  // GM sees nothing from this canvas — their fog is the DOM rectangles
+  if(isGM){vc.style.display='none';return;}
+
+  // Check if there's any fog to show
+  if(!fogs||Object.keys(fogs).length===0){vc.style.display='none';return;}
+
+  // Find all tokens owned by this player
+  const myTokens=Object.values(tokens).filter(t=>
+    t.type==='pc'&&(
+      // Match by charId → ownerUserId, or direct ownerUserId on token
+      (t.charId&&chars[t.charId]?.ownerUserId===myId)||
+      t.ownerUserId===myId
+    )
+  );
+
+  vc.style.display='block';
+  const ctx=vc.getContext('2d');
+  ctx.clearRect(0,0,mapW,mapH);
+
+  // Step 1: Fill entire canvas with opaque black (the fog)
+  ctx.fillStyle='rgba(6,8,16,1)';
+  ctx.fillRect(0,0,mapW,mapH);
+
+  if(myTokens.length===0){
+    // No token on map — full darkness
+    return;
+  }
+
+  // Step 2: Cut out vision circles using destination-out
+  // This erases the black fog wherever the player can see
+  ctx.globalCompositeOperation='destination-out';
+
+  const visionPx=VISION_FT*pxPerFoot;
+
+  myTokens.forEach(t=>{
+    const cx=t.x,cy=t.y;
+    // Radial gradient: fully transparent (erases fog) at center,
+    // fading to fully opaque (keeps fog) at edge
+    const grad=ctx.createRadialGradient(cx,cy,0,cx,cy,visionPx);
+    grad.addColorStop(0,  'rgba(0,0,0,1)');   // fully erased at center
+    grad.addColorStop(0.6,'rgba(0,0,0,0.95)'); // still clear in mid-range
+    grad.addColorStop(0.85,'rgba(0,0,0,0.5)'); // soft fade starts
+    grad.addColorStop(1,  'rgba(0,0,0,0)');   // fog returns at edge
+    ctx.fillStyle=grad;
+    ctx.beginPath();
+    ctx.arc(cx,cy,visionPx,0,Math.PI*2);
+    ctx.fill();
+  });
+
+  // Reset composite operation
+  ctx.globalCompositeOperation='source-over';
+}
 
 // ── UTILS ──────────────────────────────────────────────────────────────────────
 window.copySid=()=>navigator.clipboard.writeText(sid).then(()=>toast('Session ID copied'));
