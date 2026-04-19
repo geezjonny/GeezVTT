@@ -1238,6 +1238,7 @@ function defaultChar(type='pc'){
 
 // ── ENTER ──────────────────────────────────────────────────────────────────────
 window.enter=async()=>{
+  launched=false;
   myName=el('inp-name').value.trim();
   const role=el('inp-role').value;
   sid=el('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-')||'default';
@@ -1289,26 +1290,27 @@ function renderCharPicker(){
   const grid=el('cp-grid');grid.innerHTML='';
   const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
 
+  // If player already has a character claimed, go straight in
+  const alreadyMine=pcs.find(([id,c])=>c.ownerUserId===myId);
+  if(alreadyMine){
+    claimAndLaunch(alreadyMine[0],alreadyMine[1]);
+    return;
+  }
+
   if(!pcs.length){
     grid.innerHTML='<div class="cp-none">No characters have been created yet.<br>Ask your GM to set up the session first.</div>';
     return;
   }
 
-  const alreadyMine=pcs.find(([,c])=>c.ownerUserId===myId);
-  if(alreadyMine){
-    el('cp-sub').textContent='Welcome back! Your character is ready.';
-  }
-
   pcs.forEach(([id,c])=>{
-    const isMine=c.ownerUserId===myId;
-    const isTaken=c.ownerUserId&&!isMine;
+    const isTaken=!!c.ownerUserId;
     const div=document.createElement('div');
-    div.className='cp-card'+(isTaken?' taken':isMine?' mine':'');
+    div.className='cp-card'+(isTaken?' taken':'');
     div.innerHTML=
       '<img class="cp-avatar" src="'+esc(c.imageUrl||'')+'" alt="">'+
       '<div class="cp-name">'+esc(c.name)+'</div>'+
       '<div class="cp-class">'+esc([c.race,c.charClass].filter(Boolean).join(' '))+'</div>'+
-      '<div class="cp-status '+(isMine?'mine':isTaken?'taken':'available')+'">'+(isMine?'Your Character':isTaken?'Taken by '+esc(c.ownerName||'someone'):'Available')+'</div>';
+      '<div class="cp-status '+(isTaken?'taken':'available')+'">'+(isTaken?'Taken by '+esc(c.ownerName||'someone'):'Available')+'</div>';
     if(!isTaken){
       div.addEventListener('click',()=>claimAndLaunch(id,c));
     }
@@ -1316,7 +1318,9 @@ function renderCharPicker(){
   });
 }
 
+let launched=false;
 async function claimAndLaunch(id,c){
+  if(launched)return;launched=true;
   // Claim if not already owned
   if(!c.ownerUserId){
     await update(ref(db,`sheets/${sid}/chars/${id}`),{ownerUserId:myId,ownerName:myName});
