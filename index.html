@@ -837,6 +837,129 @@ body.is-gm .gm-only{display:flex!important;}
 body.is-gm .gm-b{display:block!important;}
 .gm-b{display:none;}
 
+/* ── DICE ANIMATION POPUP ── */
+#dice-anim-wrap{
+  position:fixed;
+  bottom:6rem;right:1.2rem;
+  z-index:500;
+  pointer-events:none;
+  display:flex;flex-direction:column;align-items:center;gap:0.5rem;
+  opacity:0;
+  transform:translateY(10px) scale(0.9);
+  transition:opacity 0.2s,transform 0.2s;
+}
+#dice-anim-wrap.show{opacity:1;transform:translateY(0) scale(1);}
+#dice-anim-wrap.hide{opacity:0;transform:translateY(-8px) scale(0.95);}
+
+.da-window{
+  background:rgba(17,24,39,0.97);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius-lg);
+  padding:1rem 1.4rem;
+  box-shadow:var(--shadow-lg);
+  display:flex;flex-direction:column;align-items:center;gap:0.6rem;
+  min-width:140px;
+  backdrop-filter:blur(16px);
+}
+.da-who{
+  font-size:0.65rem;font-weight:600;color:var(--text3);
+  letter-spacing:0.08em;text-transform:uppercase;
+}
+.da-dice-type{
+  font-size:0.7rem;font-weight:600;color:var(--accent);
+  letter-spacing:0.06em;
+}
+
+/* 3D die scene */
+.da-scene{
+  width:70px;height:70px;
+  perspective:200px;
+  perspective-origin:50% 50%;
+}
+.da-cube{
+  width:100%;height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  animation:none;
+}
+.da-cube.rolling{
+  animation:cubeRoll 0.15s linear infinite;
+}
+.da-cube.landing{
+  animation:cubeLand 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes cubeRoll{
+  0%  {transform:rotateX(0deg) rotateY(0deg) rotateZ(0deg);}
+  25% {transform:rotateX(90deg) rotateY(45deg) rotateZ(30deg);}
+  50% {transform:rotateX(180deg) rotateY(90deg) rotateZ(60deg);}
+  75% {transform:rotateX(270deg) rotateY(135deg) rotateZ(90deg);}
+  100%{transform:rotateX(360deg) rotateY(180deg) rotateZ(120deg);}
+}
+@keyframes cubeLand{
+  0%  {transform:rotateX(720deg) rotateY(360deg) rotateZ(180deg) scale(1.2);}
+  60% {transform:rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1.05);}
+  80% {transform:rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(0.97);}
+  100%{transform:rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1);}
+}
+
+.da-face{
+  position:absolute;
+  width:60px;height:60px;
+  left:5px;top:5px;
+  border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-head);font-weight:700;
+  font-size:1.4rem;
+  border:2px solid rgba(255,255,255,0.15);
+  backface-visibility:hidden;
+}
+/* Six faces of the cube */
+.da-face-front {background:var(--surface2);transform:translateZ(30px);}
+.da-face-back  {background:var(--surface2);transform:rotateY(180deg) translateZ(30px);}
+.da-face-left  {background:var(--surface3);transform:rotateY(-90deg) translateZ(30px);}
+.da-face-right {background:var(--surface3);transform:rotateY(90deg) translateZ(30px);}
+.da-face-top   {background:var(--surface3);transform:rotateX(90deg) translateZ(30px);}
+.da-face-bottom{background:var(--surface3);transform:rotateX(-90deg) translateZ(30px);}
+
+/* Non-d6 dice use a single face that spins */
+.da-mono{
+  width:70px;height:70px;
+  border-radius:10px;
+  background:var(--surface2);
+  border:2px solid var(--border-hi);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-head);font-weight:700;font-size:1.5rem;
+  color:var(--text);
+  box-shadow:0 4px 20px rgba(0,0,0,0.4);
+}
+.da-mono.rolling{animation:monoRoll 0.12s linear infinite;}
+.da-mono.landing{animation:monoLand 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+@keyframes monoRoll{
+  0%  {transform:rotateY(0deg) rotateZ(0deg);}
+  100%{transform:rotateY(360deg) rotateZ(20deg);}
+}
+@keyframes monoLand{
+  0%  {transform:rotateY(720deg) rotateZ(30deg) scale(1.15);}
+  65% {transform:rotateY(0deg) rotateZ(0deg) scale(1.05);}
+  82% {transform:scale(0.96);}
+  100%{transform:scale(1);}
+}
+
+/* Result display */
+.da-result{
+  font-family:var(--font-head);font-size:2rem;font-weight:700;
+  color:var(--text);line-height:1;
+  min-width:60px;text-align:center;
+}
+.da-result.crit{color:var(--gold);}
+.da-result.fumble{color:var(--red);}
+.da-result.rolling-num{color:var(--text3);font-size:1.5rem;}
+.da-breakdown{
+  font-size:0.6rem;color:var(--text3);text-align:center;
+  max-width:130px;word-break:break-all;
+}
+.da-flag{font-size:1rem;}
+
 /* CHARACTER PICKER SCREEN */
 #char-pick{
   display:none;min-height:100vh;
@@ -1150,6 +1273,11 @@ body.is-gm .gm-b{display:block!important;}
 </div>
 
 <div id="toast"></div>
+
+<!-- DICE ANIMATION POPUP -->
+<div id="dice-anim-wrap">
+  <div class="da-window" id="da-window"></div>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -2057,6 +2185,8 @@ window.roll=async(sides)=>{
   await push(rollRef,{player:myName,dice:`${qty}d${sides}`,rolls,mod,total,crit,fumble,ts:Date.now()});
 };
 window.rollExpr=async()=>{const expr=prompt('Dice (e.g. 2d6+3):');if(!expr)return;const m=expr.match(/(\d+)d(\d+)([+-]\d+)?/i);if(!m){toast('Invalid');return;}el('qty').value=m[1];el('rmod').value=parseInt(m[3]||'0');roll(parseInt(m[2]));};
+
+let lastRollTs=0,animTimer=null;
 function renderRolls(rolls){
   const log=el('roll-log');log.innerHTML='';
   [...rolls].reverse().slice(0,30).forEach(r=>{
@@ -2065,6 +2195,79 @@ function renderRolls(rolls){
     div.innerHTML=`<span class="re-who">${esc(r.player)}</span> ${r.dice}${ms} → <span class="re-tot">${r.total}</span>${r.crit?' 🌟':r.fumble?' 💀':''}<div class="re-detail">[${r.rolls.join(', ')}]${ms}</div>`;
     log.appendChild(div);
   });
+  // Trigger animation for the newest roll if it's fresh (within 4 seconds)
+  if(rolls.length>0){
+    const newest=rolls[rolls.length-1];
+    if(newest.ts&&newest.ts>lastRollTs&&Date.now()-newest.ts<4000){
+      lastRollTs=newest.ts;
+      playDiceAnimation(newest);
+    }
+  }
+}
+
+function playDiceAnimation(r){
+  clearTimeout(animTimer);
+  const wrap=el('dice-anim-wrap');
+  const win=el('da-window');
+  const sides=parseInt((r.dice||'d20').replace(/^\d+d/,''))||20;
+  const isD6=sides===6;
+  const isCrit=r.crit,isFumble=r.fumble;
+  const ms=r.mod>0?'+'+r.mod:r.mod<0?''+r.mod:'';
+  const breakdown=r.rolls.length>1?'['+r.rolls.join(', ')+']'+ms:'';
+
+  // Build inner HTML
+  let diceEl,diceClass;
+  if(isD6){
+    diceEl='<div class="da-cube" id="da-cube">'+
+      '<div class="da-face da-face-front" id="da-face-front">?</div>'+
+      '<div class="da-face da-face-back">'+Math.ceil(sides/2)+'</div>'+
+      '<div class="da-face da-face-left">'+Math.ceil(sides/3)+'</div>'+
+      '<div class="da-face da-face-right">'+Math.ceil(sides/4)+'</div>'+
+      '<div class="da-face da-face-top">'+Math.ceil(sides/5)+'</div>'+
+      '<div class="da-face da-face-bottom">'+Math.ceil(sides/6)+'</div>'+
+    '</div>';
+  } else {
+    diceEl='<div class="da-mono" id="da-mono">?</div>';
+  }
+
+  win.innerHTML=
+    '<div class="da-who">'+esc(r.player)+'</div>'+
+    '<div class="da-dice-type">'+esc(r.dice)+(ms?ms:'')+'</div>'+
+    '<div class="da-scene">'+diceEl+'</div>'+
+    '<div class="da-result rolling-num" id="da-result">?</div>'+
+    (breakdown?'<div class="da-breakdown">'+esc(breakdown)+'</div>':'')+
+    (isCrit?'<div class="da-flag">&#x1F31F; Critical!</div>':'')+
+    (isFumble?'<div class="da-flag">&#x1F480; Fumble!</div>':'');
+
+  // Show
+  wrap.classList.remove('hide');wrap.classList.add('show');
+
+  // Rolling phase — cycle numbers
+  const diceNode=el(isD6?'da-cube':'da-mono');
+  const faceNode=isD6?el('da-face-front'):diceNode;
+  const resultNode=el('da-result');
+  if(diceNode)diceNode.classList.add('rolling');
+
+  let cycleCount=0;const totalCycles=18; // ~1.5s at 80ms
+  const cycleInterval=setInterval(()=>{
+    const fakeNum=Math.floor(Math.random()*sides)+1;
+    if(faceNode)faceNode.textContent=fakeNum;
+    resultNode.textContent=fakeNum;
+    cycleCount++;
+    if(cycleCount>=totalCycles){
+      clearInterval(cycleInterval);
+      // Landing phase
+      if(diceNode){diceNode.classList.remove('rolling');diceNode.classList.add('landing');}
+      if(faceNode)faceNode.textContent=r.rolls[0];
+      resultNode.textContent=r.total;
+      resultNode.className='da-result'+(isCrit?' crit':isFumble?' fumble':'');
+      // Hide after display
+      animTimer=setTimeout(()=>{
+        wrap.classList.add('hide');
+        setTimeout(()=>{wrap.classList.remove('show','hide');},300);
+      },2500);
+    }
+  },80);
 }
 
 // ── BOARD EVENTS ───────────────────────────────────────────────────────────────
