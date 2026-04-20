@@ -2614,13 +2614,18 @@ function redoCalibration(){
 }
 
 function updateCalibHud(){
-  const steps=['Draw a box over one grid square in the TOP-LEFT corner','Draw a box over one grid square in the TOP-RIGHT corner','Draw a box over one grid square in the BOTTOM-LEFT corner','Draw a box over one grid square in the BOTTOM-RIGHT corner'];
-  el('calib-hud-step').textContent=calibStep<4?steps[calibStep]:'All four corners measured!';
+  const stepLabels=[
+    'Sample 1 of 4 — draw a box over any single grid square',
+    'Sample 2 of 4 — draw a box over another grid square',
+    'Sample 3 of 4 — draw a box in a different area of the map',
+    'Sample 4 of 4 — one more, spread across the map for accuracy',
+  ];
+  el('calib-hud-step').textContent=calibStep<4?stepLabels[calibStep]:'All four samples taken!';
 
-  // Update corner highlights
+  // Corner guides are just subtle hints — no active/done enforcement
   ['calib-q0','calib-q1','calib-q2','calib-q3'].forEach((qid,i)=>{
     const q=el(qid);
-    q.className='calib-quad'+(i<calibStep?' done':i===calibStep?' active':'');
+    q.className='calib-quad'+(i<calibStep?' done':'');
   });
 
   // Show samples
@@ -2628,7 +2633,7 @@ function updateCalibHud(){
   calibSamples.forEach((s,i)=>{
     const span=document.createElement('span');
     span.className='calib-sample ok';
-    span.textContent=CALIB_CORNERS[i].replace('-',' ')+': '+s.toFixed(0)+'px';
+    span.textContent='Sample '+(i+1)+': '+s.toFixed(0)+'px';
     samplesEl.appendChild(span);
   });
 
@@ -2717,7 +2722,7 @@ window.toggleCalib=()=>{
   if(fogMode){fogMode=false;el('btn-fog').classList.remove('active');}
   if(rulerMode){rulerMode=false;el('btn-ruler').classList.remove('active');}
   startCalibrationFlow();
-  toast('Draw a box over one grid square in each corner');
+  toast('Draw a box over any grid square — 4 samples needed');
 };
 
 // ── RULER ──────────────────────────────────────────────────────────────────────
