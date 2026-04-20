@@ -355,7 +355,8 @@ let selectedId = null;
 let activeLocId = null;
 let activeLocation = null;
 let calendarData = null;
-let weatherToday = null;
+let weatherTodayMap = {};
+let activeWeather = null;
 let weatherHistory = {};
 
 const el = id => document.getElementById(id);
@@ -780,14 +781,13 @@ window.initCalendar = async () => {
   const day = clamp(Number(el('cal-day').value) || 1, 1, maxDays);
 
   calendarData = {
-    initialized: true,
-    year: Number(el('cal-year').value) || 1492,
-    monthIndex,
-    day,
-    weekdays: [...DEFAULT_CALENDAR.weekdays],
-    months,
-    ts: Date.now()
-  };
+  initialized: true,
+  year: Number(el('cal-year').value) || 391,
+  monthIndex,
+  day,
+  months,
+  ts: Date.now()
+};
 
   await set(calendarRef, calendarData);
   el('cal-status').textContent = 'Calendar saved.';
@@ -847,33 +847,6 @@ function incrementCalendar(cal){
       cal.year++;
     }
   }
-}
-
-function getWeekday(cal){
-  const totalDays = countDaysSinceEpoch(cal);
-  const weekdays = cal.weekdays || DEFAULT_CALENDAR.weekdays;
-  return weekdays[totalDays % weekdays.length];
-}
-
-function countDaysSinceEpoch(cal){
-  let total = 0;
-
-  const daysPerYear = cal.months.reduce((sum, m) => sum + m.days, 0);
-  total += (cal.year - 1) * daysPerYear;
-
-  for(let i = 0; i < cal.monthIndex; i++){
-    total += cal.months[i].days;
-  }
-
-  total += (cal.day - 1);
-  return total;
-}
-
-function getDateKey(cal = calendarData){
-  if(!cal?.initialized) return 'unknown-date';
-  const mm = String(cal.monthIndex + 1).padStart(2, '0');
-  const dd = String(cal.day).padStart(2, '0');
-  return `${cal.year}-${mm}-${dd}`;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -990,37 +963,35 @@ function renderWeatherToday(){
     `</div>` +
     `<div class="small" style="margin-top:4px;">${esc(weather.detail || '')}</div>`;
 }
-  }
-
-  const badge = weatherBadgeClass(weatherToday);
-  el('weather-today').innerHTML =
-    `<div class="pill ${badge}">${esc(weatherToday.summary)}</div>` +
-    `<div style="margin-top:8px;">` +
-    `<strong>${esc(weatherToday.locationName || 'Wilderness')}</strong>` +
-    ` • ${esc(weatherToday.season || '—')} • ${esc(weatherToday.dateKey || '')}` +
-    `</div>` +
-    `<div class="small" style="margin-top:4px;">${esc(weatherToday.detail || '')}</div>`;
-}
 
 function renderWeatherHistory(){
   const box = el('weather-history-list');
   box.innerHTML = '';
 
-  const rows = Object.values(weatherHistory || {})
-    .sort((a,b) => String(b.dateKey || '').localeCompare(String(a.dateKey || '')))
+  const targetId = selectedId || activeLocId || '_wilderness';
+  const targetName =
+    (selectedId && places[selectedId]?.name) ||
+    (activeLocId && places[activeLocId]?.name) ||
+    'Wilderness';
+
+  const rows = Object.entries(weatherHistory || {})
+    .sort((a,b) => String(b[0]).localeCompare(String(a[0])))
+    .map(([dateKey, map]) => ({ dateKey, weather: map?.[targetId] || null }))
+    .filter(row => row.weather)
     .slice(0, 12);
 
   if(!rows.length){
-    box.innerHTML = '<div style="font-size:12px;color:var(--muted);">No weather history yet.</div>';
+    box.innerHTML = `<div style="font-size:12px;color:var(--muted);">No weather history yet for ${esc(targetName)}.</div>`;
     return;
   }
 
-  rows.forEach(w => {
+  rows.forEach(row => {
+    const w = row.weather;
     const div = document.createElement('div');
     div.className = 'hist-item';
     div.innerHTML =
-      `<div><strong>${esc(w.dateKey || 'unknown')}</strong> — ${esc(w.summary || '—')}</div>` +
-      `<div class="small">${esc(w.locationName || 'Wilderness')} • ${esc(w.season || '')}</div>`;
+      `<div><strong>${esc(row.dateKey)}</strong> — ${esc(w.summary || '—')}</div>` +
+      `<div class="small">${esc(w.locationName || targetName)} • ${esc(w.season || '')}</div>`;
     box.appendChild(div);
   });
 }
