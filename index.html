@@ -956,33 +956,6 @@ body.is-gm #party-strip{top:3rem;}
 /* Add combatant modal */
 #init-add-modal .modal{width:380px;}
 
-/* ── CALIBRATION OVERLAY ── */
-.calib-quad{
-  position:absolute;width:35%;height:35%;
-  border:2px dashed rgba(245,197,66,0.25);
-  pointer-events:none;transition:all 0.2s;
-}
-.calib-quad.active{
-  border-color:var(--gold);
-  background:rgba(245,197,66,0.06);
-  animation:calibPulse 1.4s ease-in-out infinite;
-}
-.calib-quad.done{
-  border-color:var(--green);
-  background:rgba(34,197,94,0.06);
-}
-@keyframes calibPulse{
-  0%,100%{border-color:var(--gold);box-shadow:inset 0 0 20px rgba(245,197,66,0.05);}
-  50%{border-color:var(--gold-hi);box-shadow:inset 0 0 40px rgba(245,197,66,0.12);}
-}
-.calib-sample{
-  font-family:var(--font-head);font-size:0.68rem;font-weight:600;
-  padding:0.2rem 0.5rem;border-radius:var(--radius-sm);
-  background:var(--surface2);border:1px solid var(--border);color:var(--text2);
-}
-.calib-sample.ok{border-color:var(--green);color:var(--green);}
-.calib-sample.warn{border-color:var(--gold);color:var(--gold);}
-
 /* GM only visibility */
 .gm-only{display:none!important;}
 body.is-gm .gm-only{display:flex!important;}
@@ -1504,34 +1477,6 @@ body.is-gm .gm-b{display:block!important;}
 </div>
 
 <!-- CALIBRATION OVERLAY -->
-<div id="calib-overlay" style="display:none;position:fixed;inset:0;z-index:600;pointer-events:none;">
-  <!-- Corner quadrant guides — pointer-events:none inherited, just visual -->
-  <div id="calib-q0" class="calib-quad" style="top:0;left:0;"></div>
-  <div id="calib-q1" class="calib-quad" style="top:0;right:0;"></div>
-  <div id="calib-q2" class="calib-quad" style="bottom:0;left:0;"></div>
-  <div id="calib-q3" class="calib-quad" style="bottom:0;right:0;"></div>
-</div>
-<!-- Calib HUD wrapper — sits above everything, transparent background passes map clicks through except on the card -->
-<div id="calib-hud-wrap" style="display:none;position:fixed;inset:0;z-index:9998;pointer-events:none;">
-  <div id="calib-hud" style="
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:rgba(17,24,39,0.97);border:1px solid var(--gold);
-    border-radius:var(--radius-lg);padding:1rem 1.4rem;
-    font-family:var(--font-head);text-align:center;
-    box-shadow:var(--shadow-lg);min-width:280px;
-    pointer-events:all;
-  ">
-    <div id="calib-hud-title" style="font-size:0.8rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;letter-spacing:0.06em;">CALIBRATE GRID</div>
-    <div id="calib-hud-step" style="font-size:0.72rem;color:var(--text2);margin-bottom:0.8rem;line-height:1.5;"></div>
-    <div id="calib-hud-samples" style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.8rem;flex-wrap:wrap;"></div>
-    <div style="display:flex;gap:0.5rem;justify-content:center;">
-      <button id="calib-skip-btn" onclick="cancelCalibration()" style="padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Skip</button>
-      <button id="calib-commit-btn" onclick="commitCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--gold);background:rgba(245,197,66,0.12);color:var(--gold);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;font-weight:600;">Apply</button>
-      <button id="calib-redo-btn" onclick="redoCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Redo</button>
-    </div>
-  </div>
-</div>
-
 <div id="toast"></div>
 
 <!-- DICE ANIMATION POPUP -->
@@ -1819,10 +1764,6 @@ function applyMap(d){
     const vc=el('vision-canvas');vc.width=mapW;vc.height=mapH;vc.style.width=mapW+'px';vc.style.height=mapH+'px';
     const mc=el('move-canvas');mc.width=mapW;mc.height=mapH;mc.style.width=mapW+'px';mc.style.height=mapH+'px';
     fitScreen();renderFogs();drawVision();
-    // Auto-prompt calibration for GM on new map if not yet calibrated for this map
-    if(isGM&&pxPerFoot===20){
-      setTimeout(()=>startCalibrationFlow(),600);
-    }
   };
   img.onerror=()=>toast('Could not load map');
 }
@@ -2550,7 +2491,7 @@ async function loadScene(sc){
 }
 
 // ── FOG ────────────────────────────────────────────────────────────────────────
-window.toggleFog=()=>{fogMode=!fogMode;el('btn-fog').classList.toggle('active',fogMode);if(el('calib-overlay').style.display==='block'){cancelCalibration();}toast(fogMode?'Draw fog: click-drag':'Fog off');};
+window.toggleFog=()=>{fogMode=!fogMode;el('btn-fog').classList.toggle('active',fogMode);if(calibMode){calibMode=false;el('btn-calib').classList.remove('active');cleanCalib();}toast(fogMode?'Draw fog: click-drag':'Fog off');};
 window.clearFog=async()=>{if(!isGM)return;await remove(fogRef);toast('Fog cleared');};
 window.setFogAlpha=v=>{fogAlpha=v/100;document.querySelectorAll('.fog-rect').forEach(e=>e.style.background=`rgba(6,8,16,${fogAlpha})`);};
 function renderFogs(){
@@ -2581,9 +2522,7 @@ async function updateFDraw(cx,cy){if(!fdrawing||!fdrawId)return;const pos=bpos(c
 async function endFDraw(){if(!fdrawing)return;fdrawing=false;const f=fogs[fdrawId];if(f&&f.w<8&&f.h<8)await remove(ref(db,`map/${sid}/fogs/${fdrawId}`));fdrawId=null;}
 
 // ── CALIBRATION (four-corner) ──────────────────────────────────────────────────
-const CALIB_CORNERS=['top-left','top-right','bottom-left','bottom-right'];
-let calibStep=0;
-let calibSamples=[];
+// ── CALIBRATION ────────────────────────────────────────────────────────────────
 let calibGridOrigin={x:0,y:0};
 
 function cleanCalib(){
@@ -2591,87 +2530,19 @@ function cleanCalib(){
   calibDrawing=false;
 }
 
-function startCalibrationFlow(){
-  if(!isGM||!mapW||!mapH)return;
-  calibMode=true;
-  calibStep=0;calibSamples=[];calibGridOrigin={x:0,y:0};
-  cleanCalib();
-  el('calib-overlay').style.display='block';
-  el('calib-hud-wrap').style.display='block';
-  updateCalibHud();
-}
-
-function cancelCalibration(){
-  el('calib-overlay').style.display='none';
-  el('calib-hud-wrap').style.display='none';
-  cleanCalib();
-  calibMode=false;
-  el('btn-calib').classList.remove('active');
-}
-
-function redoCalibration(){
-  calibStep=0;calibSamples=[];
-  cleanCalib();
-  updateCalibHud();
-}
-
-function updateCalibHud(){
-  const stepLabels=[
-    'Sample 1 of 4 — draw a box over any single grid square',
-    'Sample 2 of 4 — draw a box over another grid square',
-    'Sample 3 of 4 — draw a box in a different area of the map',
-    'Sample 4 of 4 — one more, spread across the map for accuracy',
-  ];
-  el('calib-hud-step').textContent=calibStep<4?stepLabels[calibStep]:'All four samples taken!';
-
-  // Corner guides are just subtle hints — no active/done enforcement
-  ['calib-q0','calib-q1','calib-q2','calib-q3'].forEach((qid,i)=>{
-    const q=el(qid);
-    q.className='calib-quad'+(i<calibStep?' done':'');
-  });
-
-  // Show samples
-  const samplesEl=el('calib-hud-samples');samplesEl.innerHTML='';
-  calibSamples.forEach((s,i)=>{
-    const span=document.createElement('span');
-    span.className='calib-sample ok';
-    span.textContent='Sample '+(i+1)+': '+s.toFixed(0)+'px';
-    samplesEl.appendChild(span);
-  });
-
-  // Done state
-  if(calibStep>=4){
-    const avg=calibSamples.reduce((a,b)=>a+b,0)/calibSamples.length;
-    const variance=Math.max(...calibSamples)-Math.min(...calibSamples);
-    const pct=Math.round(variance/avg*100);
-    const warn=pct>15;
-    const summary=document.createElement('div');
-    summary.style.cssText='font-size:0.7rem;color:'+(warn?'var(--gold)':'var(--green)')+';margin-top:0.3rem;';
-    summary.textContent='Avg: '+avg.toFixed(1)+'px = 5ft'+(warn?' ('+pct+'% variance — grid may be uneven)':' ✓');
-    samplesEl.appendChild(summary);
-    el('calib-commit-btn').style.display='inline-block';
-    el('calib-redo-btn').style.display='inline-block';
-    el('calib-skip-btn').textContent='Cancel';
+window.toggleCalib=()=>{
+  calibMode=!calibMode;
+  el('btn-calib').classList.toggle('active',calibMode);
+  if(calibMode){
+    if(fogMode){fogMode=false;el('btn-fog').classList.remove('active');}
+    if(rulerMode){rulerMode=false;el('btn-ruler').classList.remove('active');}
+    toast('Draw a box over one grid square');
   } else {
-    el('calib-commit-btn').style.display='none';
-    el('calib-redo-btn').style.display='none';
-    el('calib-skip-btn').textContent='Skip';
+    cleanCalib();
   }
-}
+};
 
-async function commitCalibration(){
-  if(!calibSamples.length)return;
-  const avg=calibSamples.reduce((a,b)=>a+b,0)/calibSamples.length;
-  pxPerFoot=avg/5;
-  await set(calibRef,{pxPerFoot,gridOrigin:calibGridOrigin,ts:Date.now()});
-  cancelCalibration();
-  renderTokens();drawVision();
-  toast('Grid calibrated — 1ft = '+pxPerFoot.toFixed(1)+'px');
-}
-
-// Called from board mousedown when calibration overlay is active
 function startCalibDraw(cx,cy){
-  if(calibStep>=4)return;
   const pos=bpos(cx,cy);
   calibSx2=pos.x;calibSy2=pos.y;
   cleanCalib();
@@ -2692,43 +2563,26 @@ function moveCalibDraw(cx,cy){
   calibBox.style.width=w+'px';calibBox.style.height=h+'px';
 }
 
-function endCalibDraw(cx,cy){
+async function endCalibDraw(cx,cy){
   if(!calibDrawing)return;
   calibDrawing=false;
   const pos=bpos(cx,cy);
   const w=Math.abs(pos.x-calibSx2),h=Math.abs(pos.y-calibSy2);
   const measurement=Math.max(w,h);
-  if(measurement<8){cleanCalib();return;} // too small, ignore
-  // Store grid origin from first sample
-  if(calibStep===0){
-    calibGridOrigin={x:Math.min(calibSx2,pos.x),y:Math.min(calibSy2,pos.y)};
-  }
-  // Turn box green to show it's captured
-  if(calibBox){
-    calibBox.style.borderColor='var(--green)';
-    calibBox.style.background='rgba(34,197,94,0.08)';
-    // Fade out after 600ms
-    setTimeout(()=>{if(calibBox){calibBox.remove();calibBox=null;}},600);
-  }
-  calibSamples.push(measurement);
-  calibStep++;
-  updateCalibHud();
+  if(measurement<8){cleanCalib();return;}
+  const ft=parseFloat(prompt('This box = how many feet?','5'))||5;
+  pxPerFoot=measurement/ft;
+  calibGridOrigin={x:Math.min(calibSx2,pos.x),y:Math.min(calibSy2,pos.y)};
+  await set(calibRef,{pxPerFoot,gridOrigin:calibGridOrigin,ts:Date.now()});
+  cleanCalib();
+  calibMode=false;
+  el('btn-calib').classList.remove('active');
+  renderTokens();drawVision();
+  toast('Grid calibrated — 1ft = '+pxPerFoot.toFixed(1)+'px');
 }
 
-window.toggleCalib=()=>{
-  if(calibStep>=0&&el('calib-overlay').style.display==='block'){
-    cancelCalibration();return;
-  }
-  calibMode=true;
-  el('btn-calib').classList.add('active');
-  if(fogMode){fogMode=false;el('btn-fog').classList.remove('active');}
-  if(rulerMode){rulerMode=false;el('btn-ruler').classList.remove('active');}
-  startCalibrationFlow();
-  toast('Draw a box over any grid square — 4 samples needed');
-};
-
 // ── RULER ──────────────────────────────────────────────────────────────────────
-window.toggleRuler=()=>{rulerMode=!rulerMode;el('btn-ruler').classList.toggle('active',rulerMode);if(rulerMode){if(fogMode){fogMode=false;el('btn-fog').classList.remove('active');}if(el('calib-overlay').style.display==='block'){cancelCalibration();}}else redrawRuler();toast(rulerMode?'Drag to measure':'Ruler off');};
+window.toggleRuler=()=>{rulerMode=!rulerMode;el('btn-ruler').classList.toggle('active',rulerMode);if(rulerMode){if(fogMode){fogMode=false;el('btn-fog').classList.remove('active');}if(calibMode){calibMode=false;el('btn-calib').classList.remove('active');cleanCalib();}}else redrawRuler();toast(rulerMode?'Drag to measure':'Ruler off');};
 async function startRuler(cx,cy){const pos=bpos(cx,cy);rsx=pos.x;rsy=pos.y;rcx=pos.x;rcy=pos.y;rDraw=true;myRid=push(rulerRef).key;await set(ref(db,`map/${sid}/rulers/${myRid}`),{x1:pos.x,y1:pos.y,x2:pos.x,y2:pos.y,name:myName,ts:Date.now()});}
 async function updateRuler(cx,cy){if(!rDraw||!myRid)return;const pos=bpos(cx,cy);rcx=pos.x;rcy=pos.y;redrawRuler();await update(ref(db,`map/${sid}/rulers/${myRid}`),{x2:pos.x,y2:pos.y});}
 async function endRuler(){if(!rDraw)return;rDraw=false;const id=myRid;myRid=null;setTimeout(async()=>{try{await remove(ref(db,`map/${sid}/rulers/${id}`));}catch{}},2500);}
@@ -2875,10 +2729,7 @@ function initBoard(){
       if(moveMode&&!onTok){
         handleMoveClick(e.clientX,e.clientY);return;
       }
-      // Calibration — draw anywhere on the board (HUD is separate and blocks its own clicks)
-      if(isGM&&calibMode&&!e.target.closest('#calib-hud')){
-        startCalibDraw(e.clientX,e.clientY);return;
-      }
+      if(isGM&&calibMode){startCalibDraw(e.clientX,e.clientY);return;}
       if(rulerMode&&!onTok){startRuler(e.clientX,e.clientY);return;}
       if(isGM&&fogMode&&!onTok&&!onFog){startFDraw(e.clientX,e.clientY);return;}
       if(!onTok&&!onFog){selFog=null;renderFogs();closeCard();}
