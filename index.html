@@ -2780,7 +2780,7 @@ function applyT(){el('bwrap').style.transform=`translate(${px}px,${py}px) scale(
 function bpos(cx,cy){const r=el('board').getBoundingClientRect();return{x:(cx-r.left-px)/sc,y:(cy-r.top-py)/sc};}
 
 // ── PLAYER VISION (fog of war per player) ─────────────────────────────────────
-const VISION_FT=60; // vision radius in feet
+const VISION_FT=30; // vision radius in feet — adjust per campaign
 // squarePx: pixels per 5ft grid square. Derived from calibration.
 // pxPerFoot default is 20 → squarePx default = 100px
 function squarePx(){return Math.max(10,pxPerFoot*5);}
