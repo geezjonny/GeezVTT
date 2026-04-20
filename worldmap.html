@@ -221,7 +221,6 @@ function findNearest(x, y){
 function renderMarkers(){
   const container = el('markers');
   container.innerHTML='';
-  container.style.pointerEvents='all';
   Object.entries(places).forEach(([id,p])=>{
     const dot = document.createElement('div');
     dot.className='marker '+p.type+(id===selectedId?' selected':'')+(id===activeLocId?' active-loc':'');
@@ -229,6 +228,7 @@ function renderMarkers(){
     dot.style.top=p.yPct+'%';
     dot.style.background=TYPE_COLORS[p.type]||'#aaa';
     dot.title = p.name;
+    dot.style.pointerEvents = 'auto';
     dot.onclick = e => { e.stopPropagation(); selectLocation(id); };
     container.appendChild(dot);
     const lbl = document.createElement('div');
