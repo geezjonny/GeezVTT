@@ -147,7 +147,6 @@
         <div id="calendar-view">
           <div class="kv"><div class="k">Date</div><div id="date-display">Not initialized</div></div>
           <div class="kv"><div class="k">Season</div><div id="season-display">—</div></div>
-          <div class="kv"><div class="k">Weekday</div><div id="weekday-display">—</div></div>
         </div>
 
         <div class="sep"></div>
@@ -317,20 +316,26 @@ const TYPE_COLORS = {
 
 const DEFAULT_CALENDAR = {
   initialized: true,
-  year: 1492,
+  year: 391,
   monthIndex: 0,
   day: 1,
-  weekdays: ['Moonsday','Tyrsday','Windsday','Thundersday','Freeday','Starday','Sunsday'],
+
+  // 12 months, 30 days each = 360-day year
   months: [
-    { name:'Dawnwane', days:30, season:'spring' },
-    { name:'Bloomtide', days:30, season:'spring' },
-    { name:'Suncrest', days:30, season:'summer' },
-    { name:'Highsun', days:30, season:'summer' },
+    { name:'Hammerfall',  days:30, season:'winter' },
+    { name:'Deepcold',    days:30, season:'winter' },
+    { name:'Thawrise',    days:30, season:'spring' },
+    { name:'Bloomtide',   days:30, season:'spring' },
+    { name:'Greengold',   days:30, season:'spring' },
+    { name:'Highsun',     days:30, season:'summer' },
+    { name:'Suncrest',    days:30, season:'summer' },
+    { name:'Emberwane',   days:30, season:'summer' },
     { name:'Harvestfall', days:30, season:'autumn' },
-    { name:'Duskmere', days:30, season:'autumn' },
-    { name:'Frostwane', days:30, season:'winter' },
-    { name:'Deepfrost', days:30, season:'winter' }
+    { name:'Duskmere',    days:30, season:'autumn' },
+    { name:'Frostwane',   days:30, season:'autumn' },
+    { name:'Longnight',   days:30, season:'winter' }
   ],
+
   ts: Date.now()
 };
 
@@ -737,16 +742,13 @@ function renderCalendar(){
   if(!calendarData?.initialized){
     el('date-display').textContent = 'Not initialized';
     el('season-display').textContent = '—';
-    el('weekday-display').textContent = '—';
     return;
   }
 
   const month = calendarData.months[calendarData.monthIndex];
-  const weekday = getWeekday(calendarData);
 
-  el('date-display').textContent = `${calendarData.day} ${month.name}, ${calendarData.year}`;
+  el('date-display').textContent = `Day ${calendarData.day} of ${month.name}, Year ${calendarData.year}`;
   el('season-display').textContent = capitalize(month.season);
-  el('weekday-display').textContent = weekday;
 }
 
 window.initCalendar = async () => {
