@@ -1214,7 +1214,11 @@ body.is-gm .gm-b{display:block!important;}
       <div class="field" style="margin:0"><label>Hit Die</label><select id="cm-hd"><option>d6</option><option>d8</option><option selected>d10</option><option>d12</option></select></div>
     </div>
     <div class="field" style="margin-top:0.5rem"><label>Token Image URL</label><input id="cm-img" type="text" placeholder="https://..."><div class="hint">Used on the map and party strip</div></div>
-    <div class="field"><label>Alignment / Notes</label><input id="cm-align" type="text" maxlength="60"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+      <div class="field" style="margin:0"><label>Alignment / Notes</label><input id="cm-align" type="text" maxlength="60"></div>
+      <div class="field" style="margin:0"><label>Visible to Players</label><select id="cm-visible"><option value="true">Yes</option><option value="false">No (GM only)</option></select></div>
+    </div>
+    <div class="field"><label>Weapons (one per line: Name | +toHit | damage e.g. Longsword | +5 | 1d8+3 slashing)</label><textarea id="cm-weapons" rows="3" placeholder="Longsword | +5 | 1d8+3 slashing&#10;Dagger | +5 | 1d4+3 piercing"></textarea></div>
     <div class="modal-btns">
       <button class="btn-primary" onclick="saveCharModal()">Save Character</button>
       <button class="btn-secondary" onclick="closeCharModal()">Cancel</button>
@@ -1567,14 +1571,14 @@ const COND_CLS={Blinded:'sb-blinded',Charmed:'sb-charmed',Deafened:'sb-blinded',
 function defaultChar(type='pc'){
   return {
     name:'New Character',type,race:'',charClass:'',subclass:'',background:'',alignment:'',
-    level:1,hitDie:'d8',imageUrl:'',
+    level:1,hitDie:'d8',imageUrl:'',visibleToPlayers:true,
     hp:{current:8,max:8,temp:0},
     abilities:{str:10,dex:10,con:10,int:10,wis:10,cha:10},
     savingThrows:{str:false,dex:false,con:false,int:false,wis:false,cha:false},
     skills:{},combat:{ac:10,initiative:0,speed:30,passivePerception:10},
     spellSlots:{1:{max:0,used:0},2:{max:0,used:0},3:{max:0,used:0},4:{max:0,used:0},
       5:{max:0,used:0},6:{max:0,used:0},7:{max:0,used:0},8:{max:0,used:0},9:{max:0,used:0}},
-    spells:[],inventory:[],currency:{pp:0,gp:0,ep:0,sp:0,cp:0},
+    weapons:[],spells:[],inventory:[],currency:{pp:0,gp:0,ep:0,sp:0,cp:0},
     features:[],conditions:[],notes:'',ownerUserId:null,ownerName:null,ts:Date.now()
   };
 }
@@ -1998,7 +2002,13 @@ function renderCard(id,t,c){
   const gmActs=el('uc-gm-actions');gmActs.innerHTML='';
   if(isGM&&c){
     const editBtn=document.createElement('button');editBtn.className='card-btn gold';editBtn.textContent='Edit';editBtn.onclick=()=>openCharModal(id);gmActs.appendChild(editBtn);
+    const dupBtn=document.createElement('button');dupBtn.className='card-btn';dupBtn.textContent='Duplicate';dupBtn.onclick=()=>duplicateChar(id);gmActs.appendChild(dupBtn);
+    const restBtn=document.createElement('button');restBtn.className='card-btn';restBtn.textContent='Long Rest';restBtn.onclick=()=>longRest(id);gmActs.appendChild(restBtn);
     const delBtn=document.createElement('button');delBtn.className='card-btn red';delBtn.textContent='Delete';delBtn.onclick=()=>deleteChar(id);gmActs.appendChild(delBtn);
+  }
+  // Player long rest on own character
+  if(!isGM&&c&&canAdj){
+    const restBtn=document.createElement('button');restBtn.className='card-btn';restBtn.textContent='Long Rest';restBtn.onclick=()=>longRest(id);gmActs.appendChild(restBtn);
   }
   if(isGM&&t&&!c){
     const delTok=document.createElement('button');delTok.className='card-btn red';delTok.textContent='Remove Token';delTok.onclick=async()=>{await remove(ref(db,`map/${sid}/tokens/${id}`));closeCard();};gmActs.appendChild(delTok);
@@ -2049,6 +2059,7 @@ function renderCard(id,t,c){
   if(c){
     tabs.push({id:'core',label:'Core'});
     if(isPC){
+      if((c.weapons||[]).length>0)tabs.push({id:'weapons',label:'Weapons'});
       tabs.push({id:'spells',label:'Spells'});
       tabs.push({id:'inventory',label:'Inventory'});
       tabs.push({id:'notes',label:'Notes'});
@@ -2079,7 +2090,22 @@ function renderCardTab(tabId,id,t,c,canEdit,canAdj,live){
   const prof=pb(c);
   const ce=canEditInv(c);
 
-  if(tabId==='core'){
+  if(tabId==='weapons'){
+    const weapons=c.weapons||[];
+    let h='<div class="sec-lbl">Weapons';
+    if(isGM)h+=' <button class="card-btn" onclick="openCharModal(\''+id+'\')">Edit in Sheet</button>';
+    h+='</div>';
+    if(!weapons.length){h+='<div style="font-size:0.75rem;color:var(--text3);margin-top:0.4rem;">No weapons. Add them in Edit Sheet.</div>';}
+    else{
+      h+='<table class="inv-table"><thead><tr><th>Weapon</th><th>To Hit</th><th>Damage</th></tr></thead><tbody>';
+      weapons.forEach(w=>{
+        h+='<tr><td>'+esc(w.name||'')+'</td><td style="text-align:center;font-weight:700;color:var(--gold)">'+esc(w.toHit||'')+'</td><td>'+esc(w.damage||'')+'</td></tr>';
+      });
+      h+='</tbody></table>';
+    }
+    body.innerHTML=h;
+
+  } else if(tabId==='core'){
     const initBonus=abMod(c.abilities?.dex??10)+(c.combat?.initiative??0);
     let h='<div class="quick-stats">';
     h+='<div class="qs"><div class="qs-val">'+(c.combat?.ac??10)+'</div><div class="qs-lbl">AC</div></div>';
@@ -2211,6 +2237,10 @@ window.openCharModal=(id,type='pc')=>{
   el('cm-sub').value=c?.subclass||'';el('cm-bg').value=c?.background||'';
   el('cm-level').value=c?.level||1;el('cm-hd').value=c?.hitDie||'d8';
   el('cm-img').value=c?.imageUrl||'';el('cm-align').value=c?.alignment||'';
+  el('cm-visible').value=c?.visibleToPlayers===false?'false':'true';
+  // Weapons — serialize array back to lines
+  const weapons=c?.weapons||[];
+  el('cm-weapons').value=weapons.map(w=>[w.name,w.toHit,w.damage].filter(Boolean).join(' | ')).join('\n');
   el('char-modal').classList.add('open');
 };
 window.closeCharModal=()=>el('char-modal').classList.remove('open');
@@ -2223,10 +2253,18 @@ window.saveCharModal=async()=>{
   const id=editingCharId||push(charRef).key;
   const existing=editingCharId?chars[editingCharId]:null;
   const base=existing||defaultChar(type);
+  // Parse weapons from plain text lines
+  const weaponLines=el('cm-weapons').value.split('\n').map(l=>l.trim()).filter(Boolean);
+  const weapons=weaponLines.map(line=>{
+    const parts=line.split('|').map(p=>p.trim());
+    return {name:parts[0]||'',toHit:parts[1]||'',damage:parts[2]||''};
+  });
   const charData={...base,name,type,
     race:el('cm-race').value.trim(),charClass:el('cm-class').value.trim(),
     subclass:el('cm-sub').value.trim(),background:el('cm-bg').value.trim(),
     alignment:el('cm-align').value.trim(),level,hitDie:el('cm-hd').value,imageUrl,
+    visibleToPlayers:el('cm-visible').value!=='false',
+    weapons,
     ownerUserId:existing?.ownerUserId??(!isGM&&type==='pc'?myId:null),
     ownerName:existing?.ownerName??(!isGM&&type==='pc'?myName:null),ts:Date.now()
   };
@@ -2247,6 +2285,30 @@ async function deleteChar(id){
   await remove(ref(db,`assets/${id}`));
   await remove(ref(db,`map/${sid}/live/${id}`));
   closeCard();toast('Character deleted');
+}
+
+async function longRest(id){
+  const c=chars[id];if(!c)return;
+  const isOwner=c.ownerUserId===myId;
+  if(!isGM&&!isOwner){toast('Not your character');return;}
+  // Restore HP to max
+  const hpMax=c.hp?.max??c.hp?.current??8;
+  // Reset spell slots used to 0
+  const slots={};
+  Object.entries(c.spellSlots||{}).forEach(([lvl,sd])=>{ slots[lvl]={...sd,used:0}; });
+  await update(ref(db,`sheets/${sid}/chars/${id}`),{'hp/current':hpMax,spellSlots:slots,ts:Date.now()});
+  await update(ref(db,`map/${sid}/live/${id}`),{'hp/current':hpMax});
+  toast((c.name||'Character')+' — long rest complete. HP and spell slots restored.');
+}
+
+async function duplicateChar(id){
+  if(!isGM)return;
+  const c=chars[id];if(!c)return;
+  const newId=push(charRef).key;
+  const copy={...c,name:c.name+' (Copy)',ownerUserId:null,ownerName:null,ts:Date.now()};
+  await set(ref(db,`sheets/${sid}/chars/${newId}`),copy);
+  await set(ref(db,`assets/${newId}`),{name:copy.name,url:copy.imageUrl||'',type:copy.type,charId:newId,lore:`${copy.race} ${copy.charClass}`.trim(),ts:Date.now()});
+  toast(c.name+' duplicated');
 }
 
 async function assignCharOwner(id,ownerUid,ownerName){
