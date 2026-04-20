@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GM Campaign Builder Suite — World Map</title>
+<style>
+  :root{
+    --bg:#0f1115;
+    --panel:#171a21;
+    --panel2:#101522;
+    --border:#2b3445;
+    --text:#e9edf5;
+    --muted:#9aa6bf;
+    --accent:#6ea8fe;
+    --accent2:#8b5cf6;
+    --good:#22c55e;
+    --gold:#f5c542;
+    --warn:#f59e0b;
+    --bad:#ef4444;
+    --purple:#a855f7;
+    --purple2:#7c3aed;
+    --radius:12px;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{
+    font-family:Inter,system-ui,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+
+  .wrap{
+    padding:16px;
+    max-width:1800px;
+    margin:0 auto;
+  }
+
+  h1{
+    font-size:1.35rem;
+    font-weight:700;
+    margin-bottom:4px;
+  }
+
+  .sub{
+    font-size:13px;
+    color:var(--muted);
+    margin-bottom:16px;
+  }
+
+  .conn-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:14px;
+    font-size:13px;
+    color:var(--muted);
+    flex-wrap:wrap;
+  }
+
+  .sdot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+    background:#333;
+    display:inline-block;
+    transition:all .3s;
+  }
+
+  .sdot.ok{
+    background:var(--good);
+    box-shadow:0 0 6px var(--good);
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns:360px 1fr 380px;
+    gap:16px;
+    align-items:start;
+  }
+
+  .left,.right{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    min-width:0;
+  }
+
+  @media (max-width: 1500px){
+    .layout{grid-template-columns:320px 1fr 340px;}
+  }
+
+  @media (max-width: 1100px){
+    .layout{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:14px;
+  }
+
+  .card h3{
+    font-size:14px;
+    font-weight:700;
+    color:var(--accent);
+    margin-bottom:10px;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+
+  .field{margin-bottom:10px;}
+  .field label{
+    display:block;
+    font-size:12px;
+    color:var(--muted);
+    margin-bottom:4px;
+  }
+
+  input,select,textarea{
+    width:100%;
+    padding:8px 10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:var(--panel2);
+    color:var(--text);
+    font-size:13px;
+    outline:none;
+  }
+
+  input:focus,select:focus,textarea:focus{
+    border-color:var(--accent);
+  }
+
+  select option{
+    background:var(--panel2);
+  }
+
+  button{
+    padding:8px 12px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:#20283a;
+    color:var(--text);
+    cursor:pointer;
+    font-size:13px;
+    font-weight:600;
+    transition:all .12s;
+  }
+
+  button:hover{
+    transform:translateY(-1px);
+  }
+
+  button.primary{
+    background:linear-gradient(135deg,var(--accent),var(--accent2));
+    border-color:transparent;
+  }
+
+  button.good{
+    background:rgba(34,197,94,.12);
+    border-color:rgba(34,197,94,.35);
+    color:#86efac;
+  }
+
+  button.active-loc{
+    background:rgba(245,197,66,.15);
+    border-color:var(--gold);
+    color:var(--gold);
+  }
+
+  button.danger{
+    border-color:rgba(239,68,68,.4);
+    color:var(--bad);
+  }
+
+  button.danger:hover{
+    background:rgba(239,68,68,.1);
+  }
+
+  .btn-row{
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+
+  .mini-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+
+  .triple-row{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:8px;
+  }
+
+  .status{
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+    min-height:16px;
+    line-height:1.35;
+  }
+
+  .small{
+    font-size:11px;
+    color:var(--muted);
+  }
+
+  .sep{
+    height:1px;
+    background:var(--border);
+    margin:12px 0;
+  }
+
+  .kv{
+    display:grid;
+    grid-template-columns:110px 1fr;
+    gap:8px;
+    align-items:start;
+    font-size:13px;
+    line-height:1.45;
+  }
+
+  .kv + .kv{
+    margin-top:6px;
+  }
+
+  .kv .k{
+    color:var(--muted);
+  }
+
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 8px;
+    border-radius:999px;
+    font-size:11px;
+    border:1px solid var(--border);
+    background:rgba(255,255,255,.03);
+  }
+
+  .pill.good{
+    border-color:rgba(34,197,94,.35);
+    color:#86efac;
+    background:rgba(34,197,94,.08);
+  }
+
+  .pill.warn{
+    border-color:rgba(245,158,11,.35);
+    color:#fcd34d;
+    background:rgba(245,158,11,.08);
+  }
+
+  .pill.bad{
+    border-color:rgba(239,68,68,.35);
+    color:#fca5a5;
+    background:rgba(239,68,68,.08);
+  }
+
+  .pill.purple{
+    border-color:rgba(168,85,247,.35);
+    color:#d8b4fe;
+    background:rgba(168,85,247,.08);
+  }
+
+  .type-colors{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:6px;
+  }
+
+  .tc{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    color:var(--muted);
+  }
+
+  .tc-dot{
+    width:8px;
+    height:8px;
+    border-radius:50%;
+  }
+
+  .map-wrap{
+    position:relative;
+    overflow:auto;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:#080a0f;
+    min-height:700px;
+  }
+
+  #mapStage{
+    position:relative;
+    display:inline-block;
+  }
+
+  #mapImg{
+    display:block;
+    max-width:100%;
+    cursor:crosshair;
+    user-select:none;
+    -webkit-user-drag:none;
+  }
+
+  .marker{
+    position:absolute;
+    width:14px;
+    height:14px;
+    border-radius:50%;
+    transform:translate(-50%,-50%);
+    border:2px solid white;
+    cursor:pointer;
+    transition:all .12s;
+    z-index:3;
+  }
+
+  .marker:hover{
+    transform:translate(-50%,-50%) scale(1.25);
+  }
+
+  .marker.selected{
+    outline:3px solid var(--gold);
+    outline-offset:2px;
+  }
+
+  .marker.current{
+    box-shadow:0 0 0 3px rgba(34,197,94,.45);
+  }
+
+  .marker-label{
+    position:absolute;
+    transform:translateX(-50%);
+    font-size:10px;
+    color:white;
+    text-shadow:0 1px 3px #000;
+    white-space:nowrap;
+    pointer-events:none;
+    z-index:2;
+  }
+
+  .loc-list,.history-list{
+    display:flex;
+    flex-direction:column;
+    gap:4px;
+    max-height:220px;
+    overflow-y:auto;
+    margin-top:8px;
+  }
+
+  .history-list{
+    gap:6px;
+    max-height:300px;
+  }
+
+  .loc-item{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:6px 7px;
+    border-radius:6px;
+    border:1px solid transparent;
+    cursor:pointer;
+    font-size:12px;
+    transition:all .1s;
+  }
+
+  .loc-item:hover{
+    background:rgba(255,255,255,.04);
+    border-color:var(--border);
+  }
+
+  .loc-item.sel{
+    border-color:var(--accent);
+    background:rgba(79,142,247,.07);
+  }
+
+  .loc-item.current{
+    border-color:var(--good);
+    background:rgba(34,197,94,.07);
+  }
+
+  .loc-dot{
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+
+  .loc-name{
+    flex:1;
+    font-weight:600;
+  }
+
+  .loc-region{
+    color:var(--muted);
+    font-size:11px;
+  }
+
+  .blend-box,.weather-box{
+    margin-top:8px;
+    padding:10px;
+    border-radius:10px;
+    background:rgba(255,255,255,.03);
+    border:1px solid var(--border);
+    font-size:13px;
+    line-height:1.5;
+  }
+
+  .blend-box{
+    border-style:dashed;
+  }
+
+  .hist-item{
+    padding:8px 9px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:rgba(255,255,255,.02);
+    font-size:12px;
+    line-height:1.45;
+  }
+
+  .event-item{
+    padding:9px 10px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:rgba(255,255,255,.02);
+    font-size:12px;
+    line-height:1.45;
+  }
+
+  .event-title{
+    font-weight:700;
+    margin-bottom:3px;
+  }
+
+  .event-meta{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:4px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>World Map</h1>
+  <p class="sub">GM Campaign Builder Suite — campaign hub, world state, weather, calendar, and current party location</p>
+
+  <div class="conn-bar">
+    <div class="sdot" id="sdot"></div>
+    <span id="conn-label">Not connected</span>
+    <input id="inp-sid" type="text" placeholder="campaign-id" style="max-width:220px;">
+    <button class="primary" onclick="connect()">Connect</button>
+    <span class="small">Map is hardcoded to Rancor.png</span>
+  </div>
+
+  <div class="layout">
+
+    <!-- LEFT -->
+    <div class="left">
+
+      <div class="card">
+        <h3>Legend</h3>
+        <div class="type-colors">
+          <div class="tc"><div class="tc-dot" style="background:#60a5fa"></div>City / Capital</div>
+          <div class="tc"><div class="tc-dot" style="background:#86efac"></div>Town / Village</div>
+          <div class="tc"><div class="tc-dot" style="background:#fbbf24"></div>POI / Dungeon</div>
+          <div class="tc"><div class="tc-dot" style="background:#f472b6"></div>Region Anchor</div>
+          <div class="tc"><div class="tc-dot" style="background:#9ca3af"></div>Ruined</div>
+          <div class="tc"><div class="tc-dot" style="background:#7c3aed"></div>Consumed</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Location</h3>
+
+        <div class="field">
+          <label>Name</label>
+          <input id="loc-name" type="text" placeholder="Duskmere">
+        </div>
+
+        <div class="field">
+          <label>Type</label>
+          <select id="loc-type"></select>
+        </div>
+
+        <div class="mini-row">
+          <div class="field">
+            <label>Region ID</label>
+            <input id="loc-region" type="text" placeholder="west-marches">
+          </div>
+          <div class="field">
+            <label>State</label>
+            <select id="loc-state"></select>
+          </div>
+        </div>
+
+        <div class="mini-row">
+          <div class="field">
+            <label>Climate</label>
+            <select id="loc-climate"></select>
+          </div>
+          <div class="field">
+            <label>Terrain</label>
+            <select id="loc-terrain"></select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Weather Modifier (-3 to +3)</label>
+          <input id="loc-weather" type="number" value="0" min="-3" max="3">
+        </div>
+
+        <div class="field">
+          <label>Notes</label>
+          <textarea id="loc-notes" rows="3" placeholder="GM notes about this location..."></textarea>
+        </div>
+
+        <div class="mini-row">
+          <div class="field">
+            <label>X %</label>
+            <input id="loc-x" type="number" step="0.01">
+          </div>
+          <div class="field">
+            <label>Y %</label>
+            <input id="loc-y" type="number" step="0.01">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" onclick="saveLocation()">Save Location</button>
+          <button onclick="clearSelection()">Clear</button>
+          <button class="danger" onclick="deleteLocation()">Delete</button>
+        </div>
+
+        <div class="btn-row">
+          <button class="active-loc" onclick="setCurrentFromSelected()">Set Selected as Current Party Location</button>
+          <button onclick="previewSelectedWeather()">Preview Weather Here</button>
+        </div>
+
+        <div class="status" id="loc-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Current Party Location</h3>
+        <div id="current-loc-display" style="font-size:13px;color:var(--muted);">Not set</div>
+        <div class="blend-box" id="current-loc-box">
+          Select a location and click <b>Set Selected as Current Party Location</b>.
+        </div>
+        <div class="status" id="current-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>All Locations</h3>
+        <div class="loc-list" id="loc-list"></div>
+      </div>
+
+    </div>
+
+    <!-- CENTER -->
+    <div class="map-wrap" id="mapWrap">
+      <div id="mapStage">
+        <img id="mapImg" alt="Rancor World Map">
+        <div id="markers" style="position:absolute;inset:0;"></div>
+
+        <!-- click preview -->
+        <div id="clickPreview" style="
+          position:absolute;
+          width:14px;
+          height:14px;
+          border-radius:50%;
+          border:2px solid white;
+          background:#ff4d4f;
+          transform:translate(-50%,-50%);
+          display:none;
+          pointer-events:none;
+          z-index:4;
+        "></div>
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="right">
+
+      <div class="card">
+        <h3>Calendar</h3>
+
+        <div id="calendar-view">
+          <div class="kv"><div class="k">Date</div><div id="date-display">Not initialized</div></div>
+          <div class="kv"><div class="k">Season</div><div id="season-display">—</div></div>
+          <div class="kv"><div class="k">Date Key</div><div id="date-key-display">—</div></div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="field">
+          <label>Year</label>
+          <input id="cal-year" type="number" value="391">
+        </div>
+
+        <div class="mini-row">
+          <div class="field">
+            <label>Month</label>
+            <select id="cal-month"></select>
+          </div>
+          <div class="field">
+            <label>Day</label>
+            <input id="cal-day" type="number" min="1" max="30" value="1">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" onclick="initCalendar()">Create / Save Calendar</button>
+          <button onclick="advanceDay(1)">Advance Day</button>
+          <button onclick="advanceDay(7)">+7 Days</button>
+        </div>
+
+        <div class="mini-row" style="margin-top:8px;">
+          <div class="field" style="margin-bottom:0;">
+            <label>Advance Custom Days</label>
+            <input id="advance-custom" type="number" min="1" value="3">
+          </div>
+          <div style="display:flex;align-items:end;">
+            <button style="width:100%;" onclick="advanceCustom()">Advance</button>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="danger" onclick="resetCalendar()">Reset Calendar</button>
+        </div>
+
+        <div class="status" id="cal-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Weather</h3>
+
+        <div class="kv"><div class="k">Current Party</div><div id="weather-current-label">No current party location</div></div>
+        <div class="kv"><div class="k">Selected Preview</div><div id="selected-preview-label">No location selected</div></div>
+
+        <div class="blend-box" id="weather-context">
+          Roll weather for all saved locations for the current date. Weather is tied to season, climate, terrain, and local weather modifier.
+        </div>
+
+        <div class="weather-box">
+          <div style="font-weight:700;margin-bottom:4px;">Today @ Current Party Location</div>
+          <div id="weather-today">No weather rolled yet.</div>
+        </div>
+
+        <div class="weather-box">
+          <div style="font-weight:700;margin-bottom:4px;">Preview @ Selected Location</div>
+          <div id="weather-preview">Select a location to preview local weather.</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" onclick="rollWeather()">Roll Weather</button>
+          <button onclick="previewSelectedWeather()">Preview Selected</button>
+        </div>
+
+        <div class="status" id="weather-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Selected Location Weather History</h3>
+        <div class="history-list" id="weather-history-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>Recent Canon</h3>
+        <div class="history-list" id="event-list"></div>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import {
+  getDatabase, ref, set, onValue, remove, push, get, child
+} from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+const CFG = {
+  apiKey:'AIzaSyBxhgU7Ef039EywGNuIWwjuxz1Vsn_ekrE',
+  authDomain:'disney-vtt.firebaseapp.com',
+  databaseURL:'https://disney-vtt-default-rtdb.firebaseio.com',
+  projectId:'disney-vtt'
+};
+
+const MAP_URL = 'https://github.com/geezjonny/GeezVTT/blob/main/maps/Rancor.png?raw=true';
+
+const MONTHS = [
+  'Frostwane',
+  'Thawmere',
+  'Rainfall',
+  'Bloomtide',
+  'Suncrest',
+  'Highsun',
+  'Emberwake',
+  'Harvestmere',
+  'Duskmere',
+  'Hollowfall',
+  'Darkwane',
+  'Deepfrost'
+];
+
+const LOCATION_TYPES = [
+  'region_anchor',
+  'capital',
+  'city',
+  'town',
+  'village',
+  'hamlet',
+  'ruin',
+  'dungeon',
+  'cave',
+  'fortress',
+  'keep',
+  'shrine',
+  'tower',
+  'camp',
+  'landmark',
+  'port',
+  'crossing',
+  'mine',
+  'wilderness_poi'
+];
+
+const LOCATION_STATES = [
+  'normal',
+  'threatened',
+  'occupied',
+  'ruined',
+  'consumed'
+];
+
+const CLIMATES = [
+  'temperate',
+  'coastal',
+  'forest',
+  'plains',
+  'mountain',
+  'swamp',
+  'desert',
+  'tundra',
+  'volcanic',
+  'cursed'
+];
+
+const TERRAINS = [
+  'plains',
+  'forest',
+  'hills',
+  'mountains',
+  'swamp',
+  'desert',
+  'coast',
+  'riverlands',
+  'badlands',
+  'ruins',
+  'underground'
+];
+
+const TYPE_COLORS = {
+  region_anchor:'#f472b6',
+  capital:'#60a5fa',
+  city:'#60a5fa',
+  town:'#86efac',
+  village:'#86efac',
+  hamlet:'#86efac',
+  ruin:'#9ca3af',
+  dungeon:'#fbbf24',
+  cave:'#fbbf24',
+  fortress:'#fbbf24',
+  keep:'#fbbf24',
+  shrine:'#fbbf24',
+  tower:'#fbbf24',
+  camp:'#fbbf24',
+  landmark:'#fbbf24',
+  port:'#fbbf24',
+  crossing:'#fbbf24',
+  mine:'#fbbf24',
+  wilderness_poi:'#fbbf24'
+};
+
+let db = null;
+let sid = '';
+let appInstance = null;
+
+let locationsRef = null;
+let currentLocationRef = null;
+let calendarRef = null;
+let weatherDateRef = null;
+let eventsRef = null;
+
+let locations = {};
+let selectedId = null;
+let currentLocationId = null;
+let calendarState = null;
+let weatherForToday = {};
+let eventsData = {};
+
+const el = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function prettyType(t){
+  return String(t || '')
+    .replace(/_/g,' ')
+    .replace(/\b\w/g, m => m.toUpperCase());
+}
+
+function prettyState(s){
+  return prettyType(s);
+}
+
+function statePill(state){
+  switch(state){
+    case 'normal': return '<span class="pill good">Normal</span>';
+    case 'threatened': return '<span class="pill warn">Threatened</span>';
+    case 'occupied': return '<span class="pill bad">Occupied</span>';
+    case 'ruined': return '<span class="pill">Ruined</span>';
+    case 'consumed': return '<span class="pill purple">Consumed</span>';
+    default: return '<span class="pill">'+esc(prettyState(state))+'</span>';
+  }
+}
+
+function getSeason(monthIndex){
+  if([11,0,1].includes(monthIndex)) return 'Winter';
+  if([2,3,4].includes(monthIndex)) return 'Spring';
+  if([5,6,7].includes(monthIndex)) return 'Summer';
+  return 'Autumn';
+}
+
+function getDateKey(cal){
+  return `${cal.year}-${String(cal.monthIndex+1).padStart(2,'0')}-${String(cal.day).padStart(2,'0')}`;
+}
+
+function getDateText(cal){
+  return `Day ${cal.day} of ${MONTHS[cal.monthIndex]}, Year ${cal.year}`;
+}
+
+function seedFromString(str){
+  let h = 2166136261;
+  for(let i=0;i<str.length;i++){
+    h ^= str.charCodeAt(i);
+    h += (h<<1) + (h<<4) + (h<<7) + (h<<8) + (h<<24);
+  }
+  return Math.abs(h >>> 0);
+}
+
+function mulberry32(a){
+  return function(){
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pickWeighted(rng, entries){
+  const total = entries.reduce((a,b)=>a+b.w,0);
+  let roll = rng() * total;
+  for(const entry of entries){
+    roll -= entry.w;
+    if(roll <= 0) return entry.v;
+  }
+  return entries[entries.length - 1].v;
+}
+
+function populateSelect(id, values){
+  const sel = el(id);
+  sel.innerHTML = values.map(v => `<option value="${v}">${prettyType(v)}</option>`).join('');
+}
+
+function getMarkerColor(loc){
+  if(loc.state === 'consumed') return '#7c3aed';
+  if(loc.state === 'ruined') return '#9ca3af';
+  if(loc.state === 'occupied') return '#ef4444';
+  if(loc.state === 'threatened') return '#f59e0b';
+  return TYPE_COLORS[loc.type] || '#aaa';
+}
+
+function climateBias(climate){
+  switch(climate){
+    case 'coastal': return { wet: 2, wind: 2, cold: 0, heat: 0, fog: 1 };
+    case 'forest': return { wet: 2, wind: 0, cold: 0, heat: 0, fog: 1 };
+    case 'plains': return { wet: 0, wind: 2, cold: 0, heat: 1, fog: 0 };
+    case 'mountain': return { wet: 1, wind: 2, cold: 3, heat: -1, fog: 1 };
+    case 'swamp': return { wet: 3, wind: -1, cold: -1, heat: 1, fog: 3 };
+    case 'desert': return { wet: -3, wind: 1, cold: -1, heat: 4, fog: 0 };
+    case 'tundra': return { wet: 0, wind: 1, cold: 4, heat: -4, fog: 0 };
+    case 'volcanic': return { wet: -1, wind: 0, cold: -3, heat: 4, fog: 1 };
+    case 'cursed': return { wet: 1, wind: 1, cold: 1, heat: 1, fog: 4 };
+    default: return { wet: 1, wind: 0, cold: 0, heat: 0, fog: 0 };
+  }
+}
+
+function seasonBias(season){
+  switch(season){
+    case 'Winter': return { wet: 0, wind: 1, cold: 4, heat: -3, fog: 0 };
+    case 'Spring': return { wet: 3, wind: 1, cold: 0, heat: 0, fog: 1 };
+    case 'Summer': return { wet: 0, wind: 0, cold: -4, heat: 4, fog: 0 };
+    case 'Autumn': return { wet: 2, wind: 1, cold: 1, heat: -1, fog: 1 };
+    default: return { wet: 0, wind: 0, cold: 0, heat: 0, fog: 0 };
+  }
+}
+
+function terrainBias(terrain){
+  switch(terrain){
+    case 'forest': return { fog: 1, wind: -1 };
+    case 'mountains': return { wind: 2, cold: 2 };
+    case 'swamp': return { fog: 2, wet: 2 };
+    case 'desert': return { heat: 2, wet: -2 };
+    case 'coast': return { wind: 2, wet: 1 };
+    case 'riverlands': return { wet: 1, fog: 1 };
+    case 'badlands': return { wind: 1, heat: 1 };
+    case 'ruins': return { fog: 1 };
+    case 'underground': return { wet: 0, wind: -3, cold: 0, heat: 0, fog: 2 };
+    default: return {};
+  }
+}
+
+function mergeBias(...objs){
+  const out = { wet:0, wind:0, cold:0, heat:0, fog:0 };
+  for(const o of objs){
+    for(const k of Object.keys(out)){
+      out[k] += o[k] || 0;
+    }
+  }
+  return out;
+}
+
+function generateWeather(loc, cal){
+  const season = getSeason(cal.monthIndex);
+  const dateKey = getDateKey(cal);
+  const seed = seedFromString(`${sid}|${dateKey}|${loc.id}|${loc.name}`);
+  const rng = mulberry32(seed);
+
+  const bias = mergeBias(
+    climateBias(loc.climate || 'temperate'),
+    seasonBias(season),
+    terrainBias(loc.terrain || 'plains'),
+    { wet: Number(loc.weatherModifier || 0), wind:0, cold:0, heat:0, fog:0 }
+  );
+
+  const severityRoll = Math.floor(rng()*20) + 1 + Math.max(-2, Math.min(2, Number(loc.weatherModifier || 0)));
+  let severity = 'mild';
+  if(severityRoll >= 18) severity = 'severe';
+  else if(severityRoll >= 13) severity = 'moderate';
+
+  const wetChance = 4 + bias.wet;
+  const windChance = 3 + bias.wind;
+  const fogChance = 2 + bias.fog;
+  const coldChance = 3 + bias.cold;
+  const heatChance = 3 + bias.heat;
+
+  const weatherType = pickWeighted(rng, [
+    { v:'clear', w: Math.max(1, 10 - wetChance - fogChance) },
+    { v:'cloudy', w: 5 },
+    { v:'rain', w: Math.max(1, wetChance) },
+    { v:'storm', w: Math.max(1, wetChance - 1 + (severity === 'severe' ? 3 : 0)) },
+    { v:'fog', w: Math.max(1, fogChance) },
+    { v:'wind', w: Math.max(1, windChance) },
+    { v:'snow', w: Math.max(1, coldChance + (season === 'Winter' ? 2 : 0) + (loc.climate === 'tundra' ? 2 : 0)) },
+    { v:'heat', w: Math.max(1, heatChance + (season === 'Summer' ? 2 : 0) + (loc.climate === 'desert' ? 2 : 0)) },
+    { v:'ash', w: loc.climate === 'volcanic' ? 4 : 1 },
+    { v:'eerie', w: loc.climate === 'cursed' ? 5 : 1 }
+  ]);
+
+  let summary = '';
+  let detail = '';
+  let tempBand = 'temperate';
+
+  switch(weatherType){
+    case 'clear':
+      summary = severity === 'severe' ? 'Brilliant Clear Skies' : 'Clear Skies';
+      detail = severity === 'severe'
+        ? 'Excellent visibility and calm conditions. Travel is favorable.'
+        : 'A stable, uneventful day with good visibility.';
+      break;
+    case 'cloudy':
+      summary = severity === 'severe' ? 'Low Dark Overcast' : 'Cloudy';
+      detail = 'Heavy cloud cover hangs over the region, muting light and mood.';
+      break;
+    case 'rain':
+      summary = severity === 'severe' ? 'Driving Rain' : severity === 'moderate' ? 'Steady Rain' : 'Light Rain';
+      detail = severity === 'severe'
+        ? 'Roads grow slick and visibility worsens.'
+        : 'Persistent rain dampens travel and camp conditions.';
+      break;
+    case 'storm':
+      summary = severity === 'severe' ? 'Violent Storm' : 'Thunderstorm';
+      detail = severity === 'severe'
+        ? 'Lightning, hard rain, and dangerous winds batter the area.'
+        : 'Thunder rolls through with bursts of heavy rain.';
+      break;
+    case 'fog':
+      summary = severity === 'severe' ? 'Dense Fog' : 'Morning Fog';
+      detail = severity === 'severe'
+        ? 'Visibility is sharply reduced. Ambushes and wrong turns are likely.'
+        : 'A drifting haze lingers through much of the day.';
+      break;
+    case 'wind':
+      summary = severity === 'severe' ? 'Harsh Winds' : 'Strong Winds';
+      detail = 'Gusts complicate ranged attacks, travel, and open-water movement.';
+      break;
+    case 'snow':
+      summary = severity === 'severe' ? 'Snowstorm' : 'Snowfall';
+      detail = severity === 'severe'
+        ? 'Snow and wind threaten exposure and poor visibility.'
+        : 'Cold snow blankets the land and slows overland movement.';
+      tempBand = 'cold';
+      break;
+    case 'heat':
+      summary = severity === 'severe' ? 'Scorching Heat' : 'Hot and Dry';
+      detail = severity === 'severe'
+        ? 'Exhaustion and water shortages become immediate concerns.'
+        : 'The air is dry and oppressive, especially under direct sun.';
+      tempBand = 'hot';
+      break;
+    case 'ash':
+      summary = severity === 'severe' ? 'Ash Storm' : 'Ashfall';
+      detail = 'Fine ash coats the region, fouling lungs, gear, and visibility.';
+      tempBand = 'hot';
+      break;
+    case 'eerie':
+      summary = severity === 'severe' ? 'Unnatural Omen Skies' : 'Eerie Weather';
+      detail = 'The air feels wrong. Strange silence, odd lights, or unnatural chill unsettle the day.';
+      break;
+  }
+
+  if(weatherType === 'clear' && bias.cold >= 3) tempBand = 'cold';
+  if(weatherType === 'clear' && bias.heat >= 3) tempBand = 'hot';
+
+  return {
+    dateKey,
+    dateText: getDateText(cal),
+    season,
+    climate: loc.climate || 'temperate',
+    terrain: loc.terrain || 'plains',
+    summary,
+    detail,
+    tempBand,
+    severity,
+    ts: Date.now()
+  };
+}
+
+async function addEvent(type, title, summary, locationId = null){
+  if(!eventsRef || !calendarState) return;
+  const id = push(eventsRef).key;
+  await set(ref(db, `world/${sid}/events/${id}`), {
+    id,
+    dateKey: getDateKey(calendarState),
+    dateText: getDateText(calendarState),
+    type,
+    title,
+    summary,
+    locationId: locationId || '',
+    canon: true,
+    ts: Date.now()
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// INIT UI
+// ─────────────────────────────────────────────────────────────
+populateSelect('loc-type', LOCATION_TYPES);
+populateSelect('loc-state', LOCATION_STATES);
+populateSelect('loc-climate', CLIMATES);
+populateSelect('loc-terrain', TERRAINS);
+populateSelect('cal-month', MONTHS.map((_,i)=>String(i)));
+
+el('cal-month').innerHTML = MONTHS.map((m,i)=>`<option value="${i}">${m}</option>`).join('');
+el('mapImg').src = MAP_URL;
+el('mapImg').addEventListener('click', handleMapClick);
+
+// ─────────────────────────────────────────────────────────────
+// CONNECT
+// ─────────────────────────────────────────────────────────────
+window.connect = async () => {
+  sid = el('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-') || 'default';
+
+  if(!db){
+    appInstance = initializeApp(CFG, 'worldmap-v1-' + sid);
+    db = getDatabase(appInstance);
+  }
+
+  locationsRef = ref(db, `world/${sid}/locations`);
+  currentLocationRef = ref(db, `world/${sid}/currentLocation`);
+  calendarRef = ref(db, `world/${sid}/calendar`);
+  eventsRef = ref(db, `world/${sid}/events`);
+
+  el('sdot').classList.add('ok');
+  el('conn-label').textContent = sid;
+
+  // locations
+  onValue(locationsRef, snap => {
+    locations = snap.val() || {};
+    renderMarkers();
+    renderLocList();
+    renderCurrentLocationBox();
+    renderWeatherPanels();
+  });
+
+  // current location
+  onValue(currentLocationRef, snap => {
+    const d = snap.val();
+    currentLocationId = d?.id || null;
+    renderCurrentLocationBox();
+    renderMarkers();
+    renderLocList();
+    renderWeatherPanels();
+  });
+
+  // calendar
+  onValue(calendarRef, async snap => {
+    const d = snap.val();
+    if(!d){
+      const def = { year:391, monthIndex:8, day:1 }; // Day 1 of Duskmere, Year 391
+      await set(calendarRef, def);
+      return;
+    }
+    calendarState = d;
+    renderCalendar();
+    await bindWeatherForCurrentDate();
+  });
+
+  // events
+  onValue(eventsRef, snap => {
+    eventsData = snap.val() || {};
+    renderEventList();
+  });
+};
+
+// ─────────────────────────────────────────────────────────────
+// WEATHER BIND
+// ─────────────────────────────────────────────────────────────
+async function bindWeatherForCurrentDate(){
+  if(!db || !sid || !calendarState) return;
+  weatherDateRef = ref(db, `world/${sid}/weather/${getDateKey(calendarState)}`);
+  onValue(weatherDateRef, snap => {
+    weatherForToday = snap.val() || {};
+    renderWeatherPanels();
+    renderWeatherHistory();
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// MAP
+// ─────────────────────────────────────────────────────────────
+function handleMapClick(e){
+  const rect = el('mapImg').getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
+  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+
+  el('loc-x').value = x;
+  el('loc-y').value = y;
+
+  const preview = el('clickPreview');
+  preview.style.left = x + '%';
+  preview.style.top = y + '%';
+  preview.style.display = 'block';
+
+  el('loc-status').textContent = `Coordinates set to ${x}%, ${y}%`;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RENDER
+// ─────────────────────────────────────────────────────────────
+function renderMarkers(){
+  const container = el('markers');
+  container.innerHTML = '';
+
+  Object.entries(locations).forEach(([id, loc]) => {
+    const dot = document.createElement('div');
+    dot.className = 'marker' + (id === selectedId ? ' selected' : '') + (id === currentLocationId ? ' current' : '');
+    dot.style.left = (loc.xPct || 0) + '%';
+    dot.style.top = (loc.yPct || 0) + '%';
+    dot.style.background = getMarkerColor(loc);
+    dot.title = loc.name;
+    dot.style.pointerEvents = 'auto';
+    dot.onclick = (ev) => {
+      ev.stopPropagation();
+      selectLocation(id);
+    };
+    container.appendChild(dot);
+
+    const lbl = document.createElement('div');
+    lbl.className = 'marker-label';
+    lbl.style.left = (loc.xPct || 0) + '%';
+    lbl.style.top = ((loc.yPct || 0) + 1.6) + '%';
+    lbl.textContent = loc.name;
+    container.appendChild(lbl);
+  });
+}
+
+function renderLocList(){
+  const list = el('loc-list');
+  list.innerHTML = '';
+
+  const sorted = Object.entries(locations).sort((a,b) => (a[1].name || '').localeCompare(b[1].name || ''));
+
+  if(!sorted.length){
+    list.innerHTML = '<div class="small">No locations yet. Click the map and save one.</div>';
+    return;
+  }
+
+  sorted.forEach(([id, loc]) => {
+    const div = document.createElement('div');
+    div.className = 'loc-item' + (id === selectedId ? ' sel' : '') + (id === currentLocationId ? ' current' : '');
+    div.innerHTML = `
+      <div class="loc-dot" style="background:${getMarkerColor(loc)}"></div>
+      <span class="loc-name">${esc(loc.name)}</span>
+      <span class="loc-region">${esc(loc.regionId || '')}</span>
+    `;
+    div.onclick = () => selectLocation(id);
+    list.appendChild(div);
+  });
+}
+
+function renderCurrentLocationBox(){
+  const display = el('current-loc-display');
+  const box = el('current-loc-box');
+
+  if(!currentLocationId || !locations[currentLocationId]){
+    display.textContent = 'Not set';
+    box.innerHTML = 'Select a location and click <b>Set Selected as Current Party Location</b>.';
+    el('weather-current-label').textContent = 'No current party location';
+    return;
+  }
+
+  const loc = locations[currentLocationId];
+  display.innerHTML = `<b>${esc(loc.name)}</b> (${esc(prettyType(loc.type))})`;
+  box.innerHTML = `
+    <div><b>Region:</b> ${esc(loc.regionId || '—')}</div>
+    <div><b>State:</b> ${statePill(loc.state || 'normal')}</div>
+    <div><b>Climate:</b> ${esc(prettyType(loc.climate || 'temperate'))}</div>
+    <div><b>Terrain:</b> ${esc(prettyType(loc.terrain || 'plains'))}</div>
+    <div style="margin-top:6px;">${esc(loc.notes || 'No notes.')}</div>
+  `;
+  el('weather-current-label').textContent = loc.name;
+}
+
+function renderCalendar(){
+  if(!calendarState) return;
+
+  el('date-display').textContent = getDateText(calendarState);
+  el('season-display').textContent = getSeason(calendarState.monthIndex);
+  el('date-key-display').textContent = getDateKey(calendarState);
+
+  el('cal-year').value = calendarState.year;
+  el('cal-month').value = String(calendarState.monthIndex);
+  el('cal-day').value = calendarState.day;
+}
+
+function renderWeatherPanels(){
+  // current location weather
+  const weatherTodayEl = el('weather-today');
+
+  if(currentLocationId && weatherForToday[currentLocationId] && locations[currentLocationId]){
+    const w = weatherForToday[currentLocationId];
+    weatherTodayEl.innerHTML = `
+      <div><b>${esc(w.summary)}</b></div>
+      <div>${esc(w.detail)}</div>
+      <div class="event-meta">${esc(w.season)} • ${esc(prettyType(w.climate))} • ${esc(prettyType(w.terrain || 'plains'))} • ${esc(prettyType(w.severity))}</div>
+    `;
+  } else {
+    weatherTodayEl.textContent = 'No weather rolled yet for the current party location.';
+  }
+
+  // selected preview
+  const previewEl = el('weather-preview');
+  const previewLabel = el('selected-preview-label');
+
+  if(selectedId && locations[selectedId]){
+    previewLabel.textContent = locations[selectedId].name;
+    const w = weatherForToday[selectedId];
+    if(w){
+      previewEl.innerHTML = `
+        <div><b>${esc(w.summary)}</b></div>
+        <div>${esc(w.detail)}</div>
+        <div class="event-meta">${esc(w.season)} • ${esc(prettyType(w.climate))} • ${esc(prettyType(w.terrain || 'plains'))} • ${esc(prettyType(w.severity))}</div>
+      `;
+    } else {
+      previewEl.textContent = 'No weather rolled yet for the selected location on this date.';
+    }
+  } else {
+    previewLabel.textContent = 'No location selected';
+    previewEl.textContent = 'Select a location to preview local weather.';
+  }
+}
+
+function renderWeatherHistory(){
+  const list = el('weather-history-list');
+  list.innerHTML = '';
+
+  if(!selectedId){
+    list.innerHTML = '<div class="small">Select a location to see recent weather history.</div>';
+    return;
+  }
+
+  const rows = Object.values(weatherForToday)
+    .filter(w => w.locationId === selectedId);
+
+  // For v1, we only have today's bound weather live. We'll augment by fetching below when selected.
+  // This placeholder gets replaced by loadWeatherHistoryForSelected().
+  if(!rows.length){
+    list.innerHTML = '<div class="small">Loading history...</div>';
+  }
+}
+
+function renderEventList(){
+  const list = el('event-list');
+  list.innerHTML = '';
+
+  const rows = Object.values(eventsData)
+    .sort((a,b) => (b.ts || 0) - (a.ts || 0))
+    .slice(0, 12);
+
+  if(!rows.length){
+    list.innerHTML = '<div class="small">No canon events yet.</div>';
+    return;
+  }
+
+  rows.forEach(ev => {
+    const div = document.createElement('div');
+    div.className = 'event-item';
+    div.innerHTML = `
+      <div class="event-title">${esc(ev.title || 'Event')}</div>
+      <div>${esc(ev.summary || '')}</div>
+      <div class="event-meta">${esc(ev.dateText || '')} • ${esc(ev.type || 'system')}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// SELECTION
+// ─────────────────────────────────────────────────────────────
+function selectLocation(id){
+  selectedId = id;
+  const loc = locations[id];
+  if(!loc) return;
+
+  el('loc-name').value = loc.name || '';
+  el('loc-type').value = loc.type || 'city';
+  el('loc-region').value = loc.regionId || '';
+  el('loc-state').value = loc.state || 'normal';
+  el('loc-climate').value = loc.climate || 'temperate';
+  el('loc-terrain').value = loc.terrain || 'plains';
+  el('loc-weather').value = loc.weatherModifier ?? 0;
+  el('loc-notes').value = loc.notes || '';
+  el('loc-x').value = loc.xPct ?? '';
+  el('loc-y').value = loc.yPct ?? '';
+
+  const preview = el('clickPreview');
+  preview.style.left = (loc.xPct || 0) + '%';
+  preview.style.top = (loc.yPct || 0) + '%';
+  preview.style.display = 'block';
+
+  renderMarkers();
+  renderLocList();
+  renderWeatherPanels();
+  loadWeatherHistoryForSelected();
+}
+
+window.clearSelection = () => {
+  selectedId = null;
+  el('loc-name').value = '';
+  el('loc-type').value = 'city';
+  el('loc-region').value = '';
+  el('loc-state').value = 'normal';
+  el('loc-climate').value = 'temperate';
+  el('loc-terrain').value = 'plains';
+  el('loc-weather').value = 0;
+  el('loc-notes').value = '';
+  el('loc-x').value = '';
+  el('loc-y').value = '';
+  el('clickPreview').style.display = 'none';
+  el('selected-preview-label').textContent = 'No location selected';
+  el('weather-preview').textContent = 'Select a location to preview local weather.';
+  el('weather-history-list').innerHTML = '<div class="small">Select a location to see recent weather history.</div>';
+
+  renderMarkers();
+  renderLocList();
+};
+
+// ─────────────────────────────────────────────────────────────
+// SAVE / DELETE
+// ─────────────────────────────────────────────────────────────
+window.saveLocation = async () => {
+  if(!db || !locationsRef){
+    el('loc-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const name = el('loc-name').value.trim();
+  if(!name){
+    el('loc-status').textContent = 'Name required.';
+    return;
+  }
+
+  const id = selectedId || push(locationsRef).key;
+  const existing = !!selectedId;
+
+  const payload = {
+    id,
+    name,
+    type: el('loc-type').value,
+    regionId: el('loc-region').value.trim(),
+    state: el('loc-state').value,
+    climate: el('loc-climate').value,
+    terrain: el('loc-terrain').value,
+    weatherModifier: Number(el('loc-weather').value) || 0,
+    notes: el('loc-notes').value.trim(),
+    xPct: Number(el('loc-x').value) || 0,
+    yPct: Number(el('loc-y').value) || 0,
+    ts: Date.now()
+  };
+
+  await set(ref(db, `world/${sid}/locations/${id}`), payload);
+  selectedId = id;
+  el('loc-status').textContent = `${name} saved.`;
+
+  await addEvent(
+    'location',
+    existing ? `Location updated: ${name}` : `Location added: ${name}`,
+    existing
+      ? `${name} was updated on the world map.`
+      : `${name} was added to the world map as a ${prettyType(payload.type)}.`,
+    id
+  );
+};
+
+window.deleteLocation = async () => {
+  if(!selectedId || !db){
+    el('loc-status').textContent = 'Select a location first.';
+    return;
+  }
+
+  const loc = locations[selectedId];
+  if(!loc) return;
+
+  if(!confirm(`Delete ${loc.name}?`)) return;
+
+  await remove(ref(db, `world/${sid}/locations/${selectedId}`));
+
+  if(currentLocationId === selectedId){
+    await remove(currentLocationRef);
+  }
+
+  await addEvent(
+    'location',
+    `Location removed: ${loc.name}`,
+    `${loc.name} was removed from the world map.`,
+    selectedId
+  );
+
+  clearSelection();
+  el('loc-status').textContent = 'Deleted.';
+};
+
+// ─────────────────────────────────────────────────────────────
+// CURRENT PARTY LOCATION
+// ─────────────────────────────────────────────────────────────
+window.setCurrentFromSelected = async () => {
+  if(!selectedId || !locations[selectedId]){
+    el('current-status').textContent = 'Select a location first.';
+    return;
+  }
+
+  const loc = locations[selectedId];
+
+  await set(currentLocationRef, {
+    id: loc.id,
+    name: loc.name,
+    regionId: loc.regionId || '',
+    ts: Date.now()
+  });
+
+  el('current-status').textContent = `Current party location set to ${loc.name}.`;
+
+  await addEvent(
+    'party',
+    `Party moved to ${loc.name}`,
+    `The party's current location is now ${loc.name}.`,
+    loc.id
+  );
+};
+
+// ─────────────────────────────────────────────────────────────
+// CALENDAR
+// ─────────────────────────────────────────────────────────────
+window.initCalendar = async () => {
+  if(!calendarRef){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const year = Number(el('cal-year').value) || 391;
+  const monthIndex = Math.max(0, Math.min(11, Number(el('cal-month').value) || 0));
+  const day = Math.max(1, Math.min(30, Number(el('cal-day').value) || 1));
+
+  await set(calendarRef, { year, monthIndex, day });
+
+  el('cal-status').textContent = 'Calendar saved.';
+
+  // addEvent will work after onValue updates calendarState; harmless if not immediate
+  setTimeout(() => {
+    addEvent(
+      'system',
+      'Calendar updated',
+      `The campaign date was set to Day ${day} of ${MONTHS[monthIndex]}, Year ${year}.`
+    );
+  }, 200);
+};
+
+function advanceCalendar(cal, days){
+  let year = cal.year;
+  let monthIndex = cal.monthIndex;
+  let day = cal.day;
+
+  for(let i=0;i<days;i++){
+    day++;
+    if(day > 30){
+      day = 1;
+      monthIndex++;
+      if(monthIndex > 11){
+        monthIndex = 0;
+        year++;
+      }
+    }
+  }
+
+  return { year, monthIndex, day };
+}
+
+window.advanceDay = async (days) => {
+  if(!calendarRef || !calendarState){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const next = advanceCalendar(calendarState, days);
+  await set(calendarRef, next);
+  el('cal-status').textContent = `Advanced ${days} day(s).`;
+
+  setTimeout(async () => {
+    await addEvent(
+      'system',
+      days === 1 ? 'Advanced 1 day' : `Advanced ${days} days`,
+      `Time advanced to ${getDateText(next)}.`
+    );
+    await rollWeather();
+  }, 250);
+};
+
+window.advanceCustom = async () => {
+  const days = Math.max(1, Number(el('advance-custom').value) || 1);
+  await advanceDay(days);
+};
+
+window.resetCalendar = async () => {
+  if(!calendarRef){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const def = { year:391, monthIndex:8, day:1 }; // Duskmere start
+  await set(calendarRef, def);
+  el('cal-status').textContent = 'Calendar reset.';
+
+  setTimeout(() => {
+    addEvent(
+      'system',
+      'Calendar reset',
+      `The calendar was reset to ${getDateText(def)}.`
+    );
+  }, 200);
+};
+
+// ─────────────────────────────────────────────────────────────
+// WEATHER
+// ─────────────────────────────────────────────────────────────
+window.rollWeather = async () => {
+  if(!db || !calendarState){
+    el('weather-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const dateKey = getDateKey(calendarState);
+  const basePath = `world/${sid}/weather/${dateKey}`;
+
+  const entries = Object.values(locations);
+  if(!entries.length){
+    el('weather-status').textContent = 'No locations to roll weather for.';
+    return;
+  }
+
+  for(const loc of entries){
+    const weather = generateWeather(loc, calendarState);
+    weather.locationId = loc.id;
+    await set(ref(db, `${basePath}/${loc.id}`), weather);
+  }
+
+  el('weather-status').textContent = `Weather rolled for ${entries.length} location(s).`;
+
+  await addEvent(
+    'weather',
+    'Weather rolled',
+    `Weather was generated for ${entries.length} location(s) on ${getDateText(calendarState)}.`
+  );
+};
+
+window.previewSelectedWeather = () => {
+  if(!selectedId || !locations[selectedId]){
+    el('weather-status').textContent = 'Select a location first.';
+    return;
+  }
+  renderWeatherPanels();
+  loadWeatherHistoryForSelected();
+  el('weather-status').textContent = `Weather preview refreshed for ${locations[selectedId].name}.`;
+};
+
+async function loadWeatherHistoryForSelected(){
+  const list = el('weather-history-list');
+  list.innerHTML = '';
+
+  if(!db || !sid || !selectedId){
+    list.innerHTML = '<div class="small">Select a location to see recent weather history.</div>';
+    return;
+  }
+
+  const snap = await get(ref(db, `world/${sid}/weather`));
+  const all = snap.val() || {};
+
+  const rows = [];
+  Object.entries(all).forEach(([dateKey, byLoc]) => {
+    if(byLoc && byLoc[selectedId]){
+      rows.push(byLoc[selectedId]);
+    }
+  });
+
+  rows.sort((a,b) => (b.ts || 0) - (a.ts || 0));
+
+  if(!rows.length){
+    list.innerHTML = '<div class="small">No weather history yet for this location.</div>';
+    return;
+  }
+
+  rows.slice(0, 12).forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'hist-item';
+    div.innerHTML = `
+      <div><b>${esc(w.dateText || w.dateKey || '')}</b></div>
+      <div style="margin-top:4px;"><b>${esc(w.summary || 'Unknown')}</b></div>
+      <div>${esc(w.detail || '')}</div>
+      <div class="event-meta">${esc(w.season || '')} • ${esc(prettyType(w.climate || 'temperate'))} • ${esc(prettyType(w.severity || 'mild'))}</div>
+    `;
+    list.appendChild(div);
+  });
+}
+</script>
+</body>
+</html>
