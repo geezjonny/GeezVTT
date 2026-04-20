@@ -1165,6 +1165,18 @@ function weatherBadgeClass(w){
 // ───────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ───────────────────────────────────────────────────────────────────────────────
+function getDateKey(){
+  if(!calendarData?.initialized){
+    return 'uninitialized';
+  }
+
+  const year = calendarData.year;
+  const month = String((calendarData.monthIndex || 0) + 1).padStart(2, '0');
+  const day = String(calendarData.day || 1).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+  
 function roll(min, max){
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
