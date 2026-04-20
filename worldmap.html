@@ -3,84 +3,133 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>World Map</title>
+<title>World State (GM)</title>
 <style>
-  :root{--bg:#0f1115;--panel:#171a21;--border:#2b3445;--text:#e9edf5;--muted:#9aa6bf;--accent:#6ea8fe;--good:#22c55e;--gold:#f5c542;}
+  :root{
+    --bg:#0f1115;--panel:#171a21;--border:#2b3445;--text:#e9edf5;--muted:#9aa6bf;
+    --accent:#6ea8fe;--good:#22c55e;--gold:#f5c542;--warn:#f59e0b;--bad:#ef4444;
+  }
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}
-  .wrap{padding:16px;max-width:1400px;margin:0 auto;}
-  h1{font-size:1.3rem;font-weight:700;margin-bottom:4px;}
+  .wrap{padding:16px;max-width:1600px;margin:0 auto;}
+  h1{font-size:1.35rem;font-weight:700;margin-bottom:4px;}
   .sub{font-size:13px;color:var(--muted);margin-bottom:16px;}
-  .layout{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start;}
+  .layout{display:grid;grid-template-columns:360px 1fr;gap:16px;align-items:start;}
+  .left{display:flex;flex-direction:column;gap:12px;min-width:0;}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
   .card h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.04em;text-transform:uppercase;}
   .field{margin-bottom:10px;}
   .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
-  input,select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:#101522;color:var(--text);font-size:13px;outline:none;}
-  input:focus,select:focus{border-color:var(--accent);}
+  input,select,textarea{
+    width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);
+    background:#101522;color:var(--text);font-size:13px;outline:none;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--accent);}
   select option{background:#101522;}
-  button{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#20283a;color:var(--text);cursor:pointer;font-size:13px;font-weight:600;transition:all .12s;}
+  button{
+    padding:8px 12px;border-radius:8px;border:1px solid var(--border);
+    background:#20283a;color:var(--text);cursor:pointer;font-size:13px;font-weight:600;
+    transition:all .12s;
+  }
   button:hover{transform:translateY(-1px);}
   button.primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);border-color:transparent;}
+  button.good{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:#86efac;}
   button.active-loc{background:rgba(245,197,66,.15);border-color:var(--gold);color:var(--gold);}
   button.danger{border-color:rgba(239,68,68,.4);color:#ef4444;}
   button.danger:hover{background:rgba(239,68,68,.1);}
   .btn-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
-  hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
-  .map-wrap{position:relative;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#080a0f;min-height:400px;}
+  .mini-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .status{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;line-height:1.35;}
+  .conn-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--muted);flex-wrap:wrap;}
+  .sdot{width:8px;height:8px;border-radius:50%;background:#333;display:inline-block;transition:all .3s;}
+  .sdot.ok{background:var(--good);box-shadow:0 0 5px var(--good);}
+  .type-colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .tc{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
+  .tc-dot{width:8px;height:8px;border-radius:50%;}
+  .kv{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:start;font-size:13px;line-height:1.45;}
+  .kv + .kv{margin-top:6px;}
+  .kv .k{color:var(--muted);}
+  .pill{
+    display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;
+    font-size:11px;border:1px solid var(--border);background:rgba(255,255,255,.03);
+  }
+  .pill.good{border-color:rgba(34,197,94,.35);color:#86efac;background:rgba(34,197,94,.08);}
+  .pill.warn{border-color:rgba(245,158,11,.35);color:#fcd34d;background:rgba(245,158,11,.08);}
+  .pill.bad{border-color:rgba(239,68,68,.35);color:#fca5a5;background:rgba(239,68,68,.08);}
+  .map-wrap{
+    position:relative;overflow:auto;border:1px solid var(--border);border-radius:12px;
+    background:#080a0f;min-height:520px;
+  }
   #mapStage{position:relative;display:inline-block;}
-  #mapImg{display:block;max-width:100%;}
-  .marker{position:absolute;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid white;cursor:pointer;transition:all .12s;}
-  .marker:hover{transform:translate(-50%,-50%) scale(1.3);}
+  #mapImg{display:block;max-width:100%;cursor:crosshair;}
+  .marker{
+    position:absolute;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);
+    border:2px solid white;cursor:pointer;transition:all .12s;
+  }
+  .marker:hover{transform:translate(-50%,-50%) scale(1.25);}
   .marker.region_anchor{background:#f472b6;}
   .marker.city{background:#60a5fa;}
   .marker.town{background:#86efac;}
   .marker.poi{background:#fbbf24;}
   .marker.selected{outline:3px solid var(--gold);outline-offset:2px;}
   .marker.active-loc{outline:3px solid var(--good);outline-offset:2px;}
-  .marker-label{position:absolute;transform:translateX(-50%);top:10px;font-size:10px;color:white;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none;}
-  .loc-list{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;margin-top:8px;}
-  .loc-item{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;border:1px solid transparent;cursor:pointer;font-size:12px;transition:all .1s;}
+  .marker-label{
+    position:absolute;transform:translateX(-50%);top:10px;font-size:10px;color:white;
+    text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none;
+  }
+  .loc-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-top:8px;}
+  .loc-item{
+    display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;border:1px solid transparent;
+    cursor:pointer;font-size:12px;transition:all .1s;
+  }
   .loc-item:hover{background:rgba(255,255,255,.04);border-color:var(--border);}
   .loc-item.sel{border-color:var(--accent);background:rgba(79,142,247,.07);}
   .loc-item.active{border-color:var(--good);background:rgba(34,197,94,.07);}
   .loc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
   .loc-name{flex:1;font-weight:600;}
   .loc-region{color:var(--muted);font-size:11px;}
-  .blend-box{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px dashed var(--border);font-size:13px;line-height:1.55;color:var(--muted);}
-  .sdot{width:8px;height:8px;border-radius:50%;background:#333;display:inline-block;transition:all .3s;}
-  .sdot.ok{background:var(--good);box-shadow:0 0 5px var(--good);}
-  .conn-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--muted);}
-  .status{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;}
-  .type-colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
-  .tc{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
-  .tc-dot{width:8px;height:8px;border-radius:50%;}
+  .blend-box{
+    margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);
+    border:1px dashed var(--border);font-size:13px;line-height:1.55;color:var(--muted);
+  }
+  .weather-box{
+    margin-top:8px;padding:10px;border-radius:10px;background:rgba(255,255,255,.03);
+    border:1px solid var(--border);font-size:13px;line-height:1.5;
+  }
+  .history-list{display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;margin-top:8px;}
+  .hist-item{
+    padding:8px 9px;border-radius:8px;border:1px solid var(--border);background:rgba(255,255,255,.02);
+    font-size:12px;line-height:1.45;
+  }
+  .small{font-size:11px;color:var(--muted);}
+  .sep{height:1px;background:var(--border);margin:12px 0;}
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>World Map</h1>
-  <p class="sub">Place locations, set region anchors, establish active party location</p>
+  <h1>World State (GM)</h1>
+  <p class="sub">World map, locations, active party position, calendar, and location-aware weather</p>
 
   <div class="conn-bar">
     <div class="sdot" id="sdot"></div>
     <span id="conn-label">Not connected</span>
     <input id="inp-sid" type="text" placeholder="session-id" style="max-width:180px;">
     <button class="primary" onclick="connect()">Connect</button>
-    <input id="inp-mapurl" type="text" placeholder="Map image URL" style="max-width:300px;">
+    <input id="inp-mapurl" type="text" placeholder="Map image URL" style="max-width:320px;">
     <button onclick="loadMap()">Load Map</button>
   </div>
 
   <div class="layout">
-    <!-- LEFT PANEL -->
-    <div style="display:flex;flex-direction:column;gap:12px;">
+    <!-- LEFT COLUMN -->
+    <div class="left">
 
+      <!-- MODE -->
       <div class="card">
         <h3>Mode</h3>
         <div class="field">
           <select id="mode">
             <option value="place">Place / Edit Location</option>
-            <option value="active">Set Active Party Location</option>
+            <option value="active">Set Active Party Location (click near marker)</option>
           </select>
         </div>
         <div class="type-colors">
@@ -91,10 +140,77 @@
         </div>
       </div>
 
+      <!-- CALENDAR -->
+      <div class="card">
+        <h3>Calendar</h3>
+
+        <div id="calendar-view">
+          <div class="kv"><div class="k">Date</div><div id="date-display">Not initialized</div></div>
+          <div class="kv"><div class="k">Season</div><div id="season-display">—</div></div>
+          <div class="kv"><div class="k">Weekday</div><div id="weekday-display">—</div></div>
+        </div>
+
+        <div class="sep"></div>
+
+        <div class="field"><label>Year</label><input id="cal-year" type="number" value="1492"></div>
+        <div class="mini-row">
+          <div class="field">
+            <label>Month</label>
+            <select id="cal-month"></select>
+          </div>
+          <div class="field">
+            <label>Day</label>
+            <input id="cal-day" type="number" min="1" value="1">
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" onclick="initCalendar()">Create / Save Calendar</button>
+          <button onclick="advanceDay(1)">Advance Day</button>
+          <button onclick="advanceDay(7)">+7 Days</button>
+          <button class="danger" onclick="resetCalendar()">Reset</button>
+        </div>
+
+        <div class="status" id="cal-status"></div>
+      </div>
+
+      <!-- WEATHER -->
+      <div class="card">
+        <h3>Weather</h3>
+
+        <div class="kv"><div class="k">Active Location</div><div id="active-loc-display">None set</div></div>
+        <div class="kv"><div class="k">Selected Preview</div><div id="selected-preview-label">No location selected</div></div>
+
+        <div class="blend-box" id="weather-context">
+          Weather is generated for the ACTIVE location when you advance the day or click Roll Weather.
+          Clicking another location shows a preview only.
+        </div>
+
+        <div class="weather-box">
+          <div style="font-weight:700;margin-bottom:4px;">Today @ Active Location</div>
+          <div id="weather-today">No weather rolled yet.</div>
+        </div>
+
+        <div class="weather-box">
+          <div style="font-weight:700;margin-bottom:4px;">Preview @ Selected Location</div>
+          <div id="weather-preview">Select a location to preview local weather.</div>
+        </div>
+
+        <div class="btn-row">
+          <button class="primary" onclick="rollWeather()">Roll Weather</button>
+          <button onclick="previewSelectedWeather()">Preview Selected</button>
+        </div>
+
+        <div class="status" id="weather-status"></div>
+      </div>
+
+      <!-- LOCATION -->
       <div class="card">
         <h3>Location</h3>
         <div class="field"><label>Name</label><input id="loc-name" type="text" placeholder="Baldur's Gate"></div>
-        <div class="field"><label>Type</label>
+
+        <div class="field">
+          <label>Type</label>
           <select id="loc-type">
             <option value="region_anchor">Region Anchor</option>
             <option value="city">City</option>
@@ -102,34 +218,57 @@
             <option value="poi">POI</option>
           </select>
         </div>
+
         <div class="field"><label>Region ID</label><input id="loc-region" type="text" placeholder="sword-coast"></div>
+
+        <div class="field">
+          <label>Climate</label>
+          <select id="loc-climate">
+            <option value="temperate">Temperate</option>
+            <option value="coastal">Coastal</option>
+            <option value="forest">Forest</option>
+            <option value="plains">Plains</option>
+            <option value="mountain">Mountain</option>
+            <option value="swamp">Swamp</option>
+            <option value="desert">Desert</option>
+            <option value="tundra">Tundra</option>
+            <option value="volcanic">Volcanic</option>
+            <option value="cursed">Cursed / Arcane</option>
+          </select>
+        </div>
+
         <div class="field"><label>Weather Modifier (-3 to +3)</label><input id="loc-weather" type="number" value="0" min="-3" max="3"></div>
         <div class="field"><label>Description</label><textarea id="loc-desc" rows="2" placeholder="Brief description..."></textarea></div>
+
         <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
           <div><label>X %</label><input id="loc-x" type="number" step="0.01"></div>
           <div><label>Y %</label><input id="loc-y" type="number" step="0.01"></div>
         </div>
+
         <div class="btn-row">
           <button class="primary" onclick="saveLocation()">Save Location</button>
           <button onclick="clearSelection()">Clear</button>
           <button class="danger" onclick="deleteLocation()">Delete</button>
         </div>
+
+        <div class="btn-row">
+          <button class="active-loc" onclick="setActiveFromSelected()">Set Selected as Active</button>
+          <button onclick="previewSelectedWeather()">Preview Weather Here</button>
+        </div>
+
         <div class="status" id="loc-status"></div>
       </div>
 
-      <div class="card">
-        <h3>Active Party Location</h3>
-        <div id="active-loc-display" style="font-size:13px;color:var(--muted);">None set</div>
-        <div class="blend-box" id="blend-box">
-          Set active location by switching mode to "Set Active Party Location" and clicking a marker — or select from list and click Set Active.
-        </div>
-        <button class="btn-row active-loc" style="margin-top:8px;" onclick="setActiveFromSelected()">Set Selected as Active</button>
-        <div class="status" id="active-status"></div>
-      </div>
-
+      <!-- ALL LOCATIONS -->
       <div class="card">
         <h3>All Locations</h3>
         <div class="loc-list" id="loc-list"></div>
+      </div>
+
+      <!-- WEATHER HISTORY -->
+      <div class="card">
+        <h3>Recent Weather History</h3>
+        <div class="history-list" id="weather-history-list"></div>
       </div>
 
     </div>
@@ -139,6 +278,20 @@
       <div id="mapStage">
         <img id="mapImg" alt="Load a map URL above">
         <div id="markers" style="position:absolute;inset:0;pointer-events:none;"></div>
+
+        <!-- click preview dot -->
+        <div id="clickPreview" style="
+          position:absolute;
+          width:14px;
+          height:14px;
+          border-radius:50%;
+          border:2px solid white;
+          background:#ff4d4f;
+          transform:translate(-50%,-50%);
+          display:none;
+          pointer-events:none;
+          z-index:10;
+        "></div>
       </div>
     </div>
   </div>
@@ -146,7 +299,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getDatabase, ref, set, onValue, remove, push } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+import { getDatabase, ref, set, onValue, remove, push, get } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
 const CFG = {
   apiKey:'AIzaSyBxhgU7Ef039EywGNuIWwjuxz1Vsn_ekrE',
@@ -155,175 +308,837 @@ const CFG = {
   projectId:'disney-vtt'
 };
 
-const TYPE_COLORS = {region_anchor:'#f472b6',city:'#60a5fa',town:'#86efac',poi:'#fbbf24'};
+const TYPE_COLORS = {
+  region_anchor:'#f472b6',
+  city:'#60a5fa',
+  town:'#86efac',
+  poi:'#fbbf24'
+};
 
-let db=null, sid='', locRef=null, activeLocRef=null;
-let places={}, selectedId=null, activeLocId=null;
+const DEFAULT_CALENDAR = {
+  initialized: true,
+  year: 1492,
+  monthIndex: 0,
+  day: 1,
+  weekdays: ['Moonsday','Tyrsday','Windsday','Thundersday','Freeday','Starday','Sunsday'],
+  months: [
+    { name:'Dawnwane', days:30, season:'spring' },
+    { name:'Bloomtide', days:30, season:'spring' },
+    { name:'Suncrest', days:30, season:'summer' },
+    { name:'Highsun', days:30, season:'summer' },
+    { name:'Harvestfall', days:30, season:'autumn' },
+    { name:'Duskmere', days:30, season:'autumn' },
+    { name:'Frostwane', days:30, season:'winter' },
+    { name:'Deepfrost', days:30, season:'winter' }
+  ],
+  ts: Date.now()
+};
+
+let db = null;
+let sid = '';
+
+let locRef = null;
+let activeLocRef = null;
+let mapUrlRef = null;
+let calendarRef = null;
+let weatherTodayRef = null;
+let weatherHistRef = null;
+
+let places = {};
+let selectedId = null;
+let activeLocId = null;
+let activeLocation = null;
+let calendarData = null;
+let weatherToday = null;
+let weatherHistory = {};
 
 const el = id => document.getElementById(id);
-const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-// ── CONNECT ────────────────────────────────────────────────────────────────────
-window.connect = () => {
+populateMonthSelect();
+
+// ───────────────────────────────────────────────────────────────────────────────
+// CONNECT
+// ───────────────────────────────────────────────────────────────────────────────
+window.connect = async () => {
   sid = el('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-') || 'default';
-  if(!db){ const app=initializeApp(CFG,'worldmap-'+sid); db=getDatabase(app); }
-  locRef       = ref(db, `world/${sid}/locations`);
-  activeLocRef = ref(db, `world/${sid}/activeLocation`);
+
+  if(!db){
+    const app = initializeApp(CFG, 'world-state-' + sid);
+    db = getDatabase(app);
+  }
+
+  locRef         = ref(db, `world/${sid}/locations`);
+  activeLocRef   = ref(db, `world/${sid}/activeLocation`);
+  mapUrlRef      = ref(db, `world/${sid}/mapUrl`);
+  calendarRef    = ref(db, `world/${sid}/calendar`);
+  weatherTodayRef= ref(db, `world/${sid}/weatherToday`);
+  weatherHistRef = ref(db, `world/${sid}/weatherHistory`);
+
   el('sdot').classList.add('ok');
   el('conn-label').textContent = sid;
 
-  onValue(locRef, s => { places=s.val()||{}; renderMarkers(); renderLocList(); });
-  onValue(activeLocRef, s => {
-    const d = s.val();
-    activeLocId = d?.id || null;
-    el('active-loc-display').textContent = d ? `${d.name} (${d.regionId||'no region'})` : 'None set';
-    if(d) el('blend-box').textContent = `Weather modifier: ${d.weatherModifier>=0?'+':''}${d.weatherModifier??0}. Region: ${d.regionId||'—'}. ${d.description||''}`;
+  // Locations
+  onValue(locRef, snap => {
+    places = snap.val() || {};
     renderMarkers();
+    renderLocList();
+    refreshSelectedPreviewLabel();
   });
+
+  // Active location
+  onValue(activeLocRef, snap => {
+    const d = snap.val();
+    activeLocation = d || null;
+    activeLocId = d?.id || null;
+
+    el('active-loc-display').textContent = d
+      ? `${d.name} (${d.regionId || 'no region'})`
+      : 'None set';
+
+    renderWeatherContext();
+    renderMarkers();
+    renderLocList();
+    renderWeatherToday();
+  });
+
+  // Map URL
+  onValue(mapUrlRef, snap => {
+    const url = snap.val();
+    if(!url) return;
+    applyMapUrl(url);
+  });
+
+  // Calendar
+  onValue(calendarRef, snap => {
+    const d = snap.val();
+    calendarData = d || null;
+
+    if(calendarData?.initialized){
+      renderCalendar();
+      syncCalendarInputs();
+      el('cal-status').textContent = 'Loaded saved calendar.';
+    } else {
+      calendarData = null;
+      renderCalendar();
+      el('cal-status').textContent = 'No calendar yet. Create it once for this session.';
+    }
+
+    renderWeatherToday();
+    refreshSelectedPreviewLabel();
+  });
+
+  // Today's weather
+  onValue(weatherTodayRef, snap => {
+    weatherToday = snap.val() || null;
+    renderWeatherToday();
+  });
+
+  // History
+  onValue(weatherHistRef, snap => {
+    weatherHistory = snap.val() || {};
+    renderWeatherHistory();
+  });
+
+  // If no calendar exists yet, prefill UI
+  const calSnap = await get(calendarRef);
+  if(!calSnap.exists()){
+    calendarData = structuredClone(DEFAULT_CALENDAR);
+    syncCalendarInputs();
+    renderCalendar();
+  }
 };
 
-// ── MAP ────────────────────────────────────────────────────────────────────────
-window.loadMap = () => {
-  const url = el('inp-mapurl').value.trim();
+// ───────────────────────────────────────────────────────────────────────────────
+// MAP
+// ───────────────────────────────────────────────────────────────────────────────
+function applyMapUrl(url){
   if(!url) return;
+  el('inp-mapurl').value = url;
   const img = el('mapImg');
   img.src = url;
   img.onclick = handleMapClick;
+}
+
+window.loadMap = async () => {
+  const url = el('inp-mapurl').value.trim();
+  if(!url) return;
+
+  applyMapUrl(url);
+
+  if(mapUrlRef){
+    await set(mapUrlRef, url);
+  }
 };
 
 function handleMapClick(e){
-  const rect = el('mapImg').getBoundingClientRect();
-  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
-  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+  const img = el('mapImg');
+  const rect = img.getBoundingClientRect();
+
+  const xRaw = e.clientX - rect.left;
+  const yRaw = e.clientY - rect.top;
+
+  const x = ((xRaw / rect.width) * 100).toFixed(2);
+  const y = ((yRaw / rect.height) * 100).toFixed(2);
+
+  // Always show click preview
+  const preview = el('clickPreview');
+  preview.style.left = x + '%';
+  preview.style.top = y + '%';
+  preview.style.display = 'block';
+
   const mode = el('mode').value;
 
   if(mode === 'place'){
     el('loc-x').value = x;
     el('loc-y').value = y;
+    el('loc-status').textContent = `Placement set to ${x}%, ${y}%`;
   }
+
   if(mode === 'active'){
-    // Find nearest marker to click
     const nearest = findNearest(Number(x), Number(y));
-    if(nearest) setActive(nearest);
+    if(nearest){
+      setActive(nearest);
+    } else {
+      el('active-loc-display').textContent = activeLocation
+        ? `${activeLocation.name} (${activeLocation.regionId || 'no region'})`
+        : 'None set';
+      el('weather-status').textContent = 'No nearby marker found. Click closer to a location.';
+    }
   }
 }
 
 function findNearest(x, y){
-  let best=null, bestDist=Infinity;
-  Object.entries(places).forEach(([id,p])=>{
-    const d = Math.hypot(p.xPct-x, p.yPct-y);
-    if(d < bestDist){ bestDist=d; best=id; }
+  let best = null;
+  let bestDist = Infinity;
+
+  Object.entries(places).forEach(([id, p]) => {
+    const d = Math.hypot((Number(p.xPct) || 0) - x, (Number(p.yPct) || 0) - y);
+    if(d < bestDist){
+      bestDist = d;
+      best = id;
+    }
   });
-  return bestDist < 5 ? best : null; // within 5% units
+
+  return bestDist < 5 ? best : null; // 5% proximity threshold
 }
 
-// ── RENDER ─────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// MARKERS / LIST
+// ───────────────────────────────────────────────────────────────────────────────
 function renderMarkers(){
   const container = el('markers');
-  container.innerHTML='';
-  Object.entries(places).forEach(([id,p])=>{
+  container.innerHTML = '';
+
+  Object.entries(places).forEach(([id, p]) => {
     const dot = document.createElement('div');
-    dot.className='marker '+p.type+(id===selectedId?' selected':'')+(id===activeLocId?' active-loc':'');
-    dot.style.left=p.xPct+'%';
-    dot.style.top=p.yPct+'%';
-    dot.style.background=TYPE_COLORS[p.type]||'#aaa';
-    dot.title = p.name;
+    dot.className = 'marker ' + (p.type || 'city')
+      + (id === selectedId ? ' selected' : '')
+      + (id === activeLocId ? ' active-loc' : '');
+
+    dot.style.left = (Number(p.xPct) || 0) + '%';
+    dot.style.top = (Number(p.yPct) || 0) + '%';
+    dot.style.background = TYPE_COLORS[p.type] || '#aaa';
+    dot.title = p.name || 'Location';
+
+    // IMPORTANT: only marker gets clicks, overlay remains click-through
     dot.style.pointerEvents = 'auto';
-    dot.onclick = e => { e.stopPropagation(); selectLocation(id); };
+
+    dot.onclick = e => {
+      e.stopPropagation();
+      selectLocation(id);
+    };
+
     container.appendChild(dot);
+
     const lbl = document.createElement('div');
-    lbl.className='marker-label';
-    lbl.style.left=p.xPct+'%';
-    lbl.style.top=(p.yPct+1.5)+'%';
-    lbl.textContent=p.name;
+    lbl.className = 'marker-label';
+    lbl.style.left = (Number(p.xPct) || 0) + '%';
+    lbl.style.top = ((Number(p.yPct) || 0) + 1.5) + '%';
+    lbl.textContent = p.name || '';
     container.appendChild(lbl);
   });
 }
 
 function renderLocList(){
   const list = el('loc-list');
-  list.innerHTML='';
-  const sorted = Object.entries(places).sort((a,b)=>a[1].name.localeCompare(b[1].name));
-  if(!sorted.length){ list.innerHTML='<div style="font-size:12px;color:var(--muted);">No locations yet.</div>'; return; }
-  sorted.forEach(([id,p])=>{
-    const div=document.createElement('div');
-    div.className='loc-item'+(id===selectedId?' sel':'')+(id===activeLocId?' active':'');
-    div.innerHTML='<div class="loc-dot" style="background:'+TYPE_COLORS[p.type]+'"></div><span class="loc-name">'+esc(p.name)+'</span><span class="loc-region">'+esc(p.regionId||'')+'</span>';
-    div.onclick=()=>selectLocation(id);
+  list.innerHTML = '';
+
+  const sorted = Object.entries(places).sort((a,b) => (a[1].name || '').localeCompare(b[1].name || ''));
+
+  if(!sorted.length){
+    list.innerHTML = '<div style="font-size:12px;color:var(--muted);">No locations yet.</div>';
+    return;
+  }
+
+  sorted.forEach(([id, p]) => {
+    const div = document.createElement('div');
+    div.className = 'loc-item'
+      + (id === selectedId ? ' sel' : '')
+      + (id === activeLocId ? ' active' : '');
+
+    div.innerHTML =
+      '<div class="loc-dot" style="background:' + (TYPE_COLORS[p.type] || '#aaa') + '"></div>' +
+      '<span class="loc-name">' + esc(p.name || 'Unnamed') + '</span>' +
+      '<span class="loc-region">' + esc(p.regionId || '') + '</span>';
+
+    div.onclick = () => selectLocation(id);
     list.appendChild(div);
   });
 }
 
-// ── SELECTION ──────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// SELECTION
+// ───────────────────────────────────────────────────────────────────────────────
 function selectLocation(id){
-  selectedId=id;
-  const p=places[id];if(!p)return;
-  el('loc-name').value=p.name||'';
-  el('loc-type').value=p.type||'city';
-  el('loc-region').value=p.regionId||'';
-  el('loc-weather').value=p.weatherModifier??0;
-  el('loc-desc').value=p.description||'';
-  el('loc-x').value=p.xPct||0;
-  el('loc-y').value=p.yPct||0;
-  renderMarkers(); renderLocList();
+  selectedId = id;
+  const p = places[id];
+  if(!p) return;
+
+  el('loc-name').value = p.name || '';
+  el('loc-type').value = p.type || 'city';
+  el('loc-region').value = p.regionId || '';
+  el('loc-climate').value = p.climate || 'temperate';
+  el('loc-weather').value = p.weatherModifier ?? 0;
+  el('loc-desc').value = p.description || '';
+  el('loc-x').value = Number(p.xPct) || 0;
+  el('loc-y').value = Number(p.yPct) || 0;
+
+  refreshSelectedPreviewLabel();
+  previewSelectedWeather();
+
+  renderMarkers();
+  renderLocList();
 }
 
-window.clearSelection=()=>{
-  selectedId=null;
-  ['loc-name','loc-region','loc-desc'].forEach(k=>el(k).value='');
-  el('loc-type').value='city';
-  el('loc-weather').value=0;
-  el('loc-x').value=''; el('loc-y').value='';
-  renderMarkers(); renderLocList();
+window.clearSelection = () => {
+  selectedId = null;
+
+  ['loc-name','loc-region','loc-desc'].forEach(k => el(k).value = '');
+  el('loc-type').value = 'city';
+  el('loc-climate').value = 'temperate';
+  el('loc-weather').value = 0;
+  el('loc-x').value = '';
+  el('loc-y').value = '';
+  el('clickPreview').style.display = 'none';
+
+  refreshSelectedPreviewLabel();
+  el('weather-preview').textContent = 'Select a location to preview local weather.';
+
+  renderMarkers();
+  renderLocList();
 };
 
-// ── SAVE / DELETE ──────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// SAVE / DELETE LOCATIONS
+// ───────────────────────────────────────────────────────────────────────────────
 window.saveLocation = async () => {
-  if(!locRef){ el('loc-status').textContent='Connect first.'; return; }
-  const name=el('loc-name').value.trim();
-  if(!name){ el('loc-status').textContent='Name required.'; return; }
+  if(!locRef){
+    el('loc-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const name = el('loc-name').value.trim();
+  if(!name){
+    el('loc-status').textContent = 'Name required.';
+    return;
+  }
+
   const id = selectedId || push(locRef).key;
-  const payload={
-    id, name,
+
+  const payload = {
+    id,
+    name,
     type: el('loc-type').value,
     regionId: el('loc-region').value.trim(),
-    weatherModifier: Number(el('loc-weather').value)||0,
+    climate: el('loc-climate').value,
+    weatherModifier: clamp(Number(el('loc-weather').value) || 0, -3, 3),
     description: el('loc-desc').value.trim(),
-    xPct: Number(el('loc-x').value)||0,
-    yPct: Number(el('loc-y').value)||0,
+    xPct: Number(el('loc-x').value) || 0,
+    yPct: Number(el('loc-y').value) || 0,
     ts: Date.now()
   };
-  await set(ref(db,`world/${sid}/locations/${id}`), payload);
-  selectedId=id;
-  el('loc-status').textContent=`${name} saved.`;
+
+  await set(ref(db, `world/${sid}/locations/${id}`), payload);
+  selectedId = id;
+
+  el('loc-status').textContent = `${name} saved.`;
 };
 
 window.deleteLocation = async () => {
-  if(!selectedId||!locRef){ el('loc-status').textContent='Select a location first.'; return; }
-  const p=places[selectedId];
-  if(!confirm(`Delete ${p?.name}?`)) return;
-  await remove(ref(db,`world/${sid}/locations/${selectedId}`));
-  if(activeLocId===selectedId) await remove(activeLocRef);
+  if(!selectedId || !locRef){
+    el('loc-status').textContent = 'Select a location first.';
+    return;
+  }
+
+  const p = places[selectedId];
+  if(!confirm(`Delete ${p?.name || 'this location'}?`)) return;
+
+  await remove(ref(db, `world/${sid}/locations/${selectedId}`));
+
+  if(activeLocId === selectedId){
+    await remove(activeLocRef);
+  }
+
   clearSelection();
-  el('loc-status').textContent='Deleted.';
+  el('loc-status').textContent = 'Deleted.';
 };
 
-// ── ACTIVE LOCATION ────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// ACTIVE LOCATION
+// ───────────────────────────────────────────────────────────────────────────────
 async function setActive(id){
-  const p=places[id];if(!p||!activeLocRef) return;
-  await set(activeLocRef,{
-    id, name:p.name, regionId:p.regionId||'', weatherModifier:p.weatherModifier??0,
-    description:p.description||'', ts:Date.now()
+  const p = places[id];
+  if(!p || !activeLocRef) return;
+
+  await set(activeLocRef, {
+    id,
+    name: p.name,
+    regionId: p.regionId || '',
+    climate: p.climate || 'temperate',
+    weatherModifier: p.weatherModifier ?? 0,
+    description: p.description || '',
+    ts: Date.now()
   });
-  el('active-status').textContent=`Active location set to ${p.name}.`;
+
+  el('weather-status').textContent = `Active location set to ${p.name}.`;
 }
 
-window.setActiveFromSelected=()=>{
-  if(!selectedId){ el('active-status').textContent='Select a location first.'; return; }
+window.setActiveFromSelected = () => {
+  if(!selectedId){
+    el('weather-status').textContent = 'Select a location first.';
+    return;
+  }
   setActive(selectedId);
 };
 
-// Init map click once img loads
+// ───────────────────────────────────────────────────────────────────────────────
+// CALENDAR
+// ───────────────────────────────────────────────────────────────────────────────
+function populateMonthSelect(){
+  const sel = el('cal-month');
+  sel.innerHTML = '';
+  DEFAULT_CALENDAR.months.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = m.name;
+    sel.appendChild(opt);
+  });
+}
+
+function syncCalendarInputs(){
+  const cal = calendarData || DEFAULT_CALENDAR;
+  el('cal-year').value = cal.year;
+  el('cal-month').value = cal.monthIndex;
+  el('cal-day').value = cal.day;
+}
+
+function renderCalendar(){
+  if(!calendarData?.initialized){
+    el('date-display').textContent = 'Not initialized';
+    el('season-display').textContent = '—';
+    el('weekday-display').textContent = '—';
+    return;
+  }
+
+  const month = calendarData.months[calendarData.monthIndex];
+  const weekday = getWeekday(calendarData);
+
+  el('date-display').textContent = `${calendarData.day} ${month.name}, ${calendarData.year}`;
+  el('season-display').textContent = capitalize(month.season);
+  el('weekday-display').textContent = weekday;
+}
+
+window.initCalendar = async () => {
+  if(!calendarRef){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  const monthIndex = Number(el('cal-month').value) || 0;
+  const months = DEFAULT_CALENDAR.months.map(m => ({...m}));
+
+  const maxDays = months[monthIndex]?.days || 30;
+  const day = clamp(Number(el('cal-day').value) || 1, 1, maxDays);
+
+  calendarData = {
+    initialized: true,
+    year: Number(el('cal-year').value) || 1492,
+    monthIndex,
+    day,
+    weekdays: [...DEFAULT_CALENDAR.weekdays],
+    months,
+    ts: Date.now()
+  };
+
+  await set(calendarRef, calendarData);
+  el('cal-status').textContent = 'Calendar saved.';
+};
+
+window.resetCalendar = async () => {
+  if(!calendarRef){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  if(!confirm('Reset calendar to default and clear today weather?')) return;
+
+  const fresh = structuredClone(DEFAULT_CALENDAR);
+  fresh.ts = Date.now();
+
+  await set(calendarRef, fresh);
+  await remove(weatherTodayRef);
+
+  el('cal-status').textContent = 'Calendar reset.';
+};
+
+window.advanceDay = async (n = 1) => {
+  if(!calendarRef){
+    el('cal-status').textContent = 'Connect first.';
+    return;
+  }
+
+  if(!calendarData?.initialized){
+    // auto-create default if missing
+    calendarData = structuredClone(DEFAULT_CALENDAR);
+  }
+
+  for(let i = 0; i < n; i++){
+    incrementCalendar(calendarData);
+  }
+
+  calendarData.ts = Date.now();
+
+  await set(calendarRef, calendarData);
+  el('cal-status').textContent = `Advanced ${n} day${n === 1 ? '' : 's'}.`;
+
+  // Generate actual weather for ACTIVE location after advancing time
+  await rollWeather();
+};
+
+function incrementCalendar(cal){
+  const month = cal.months[cal.monthIndex];
+  cal.day++;
+
+  if(cal.day > month.days){
+    cal.day = 1;
+    cal.monthIndex++;
+
+    if(cal.monthIndex >= cal.months.length){
+      cal.monthIndex = 0;
+      cal.year++;
+    }
+  }
+}
+
+function getWeekday(cal){
+  const totalDays = countDaysSinceEpoch(cal);
+  const weekdays = cal.weekdays || DEFAULT_CALENDAR.weekdays;
+  return weekdays[totalDays % weekdays.length];
+}
+
+function countDaysSinceEpoch(cal){
+  let total = 0;
+
+  const daysPerYear = cal.months.reduce((sum, m) => sum + m.days, 0);
+  total += (cal.year - 1) * daysPerYear;
+
+  for(let i = 0; i < cal.monthIndex; i++){
+    total += cal.months[i].days;
+  }
+
+  total += (cal.day - 1);
+  return total;
+}
+
+function getDateKey(cal = calendarData){
+  if(!cal?.initialized) return 'unknown-date';
+  const mm = String(cal.monthIndex + 1).padStart(2, '0');
+  const dd = String(cal.day).padStart(2, '0');
+  return `${cal.year}-${mm}-${dd}`;
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// WEATHER
+// ───────────────────────────────────────────────────────────────────────────────
+window.rollWeather = async () => {
+  if(!weatherTodayRef){
+    el('weather-status').textContent = 'Connect first.';
+    return;
+  }
+
+  if(!calendarData?.initialized){
+    el('weather-status').textContent = 'Create a calendar first.';
+    return;
+  }
+
+  const weather = generateWeatherForLocation(activeLocation, true);
+
+  await set(weatherTodayRef, weather);
+  await set(ref(db, `world/${sid}/weatherHistory/${weather.dateKey}`), weather);
+
+  el('weather-status').textContent = activeLocation
+    ? `Weather rolled for ${activeLocation.name}.`
+    : 'Weather rolled for generic wilderness (no active location set).';
+};
+
+window.previewSelectedWeather = () => {
+  if(!calendarData?.initialized){
+    el('weather-preview').textContent = 'Create a calendar first.';
+    return;
+  }
+
+  const loc = selectedId ? places[selectedId] : null;
+  const preview = generateWeatherForLocation(loc, false);
+
+  if(!loc){
+    el('weather-preview').textContent = 'Select a location to preview local weather.';
+    return;
+  }
+
+  el('weather-preview').innerHTML =
+    `<strong>${esc(preview.locationName)}</strong> — ${esc(preview.summary)}<br>` +
+    `<span class="small">${esc(preview.detail)}</span>`;
+};
+
+function renderWeatherContext(){
+  if(!activeLocation){
+    el('weather-context').textContent =
+      'No active party location set. Advancing the day will generate generic seasonal wilderness weather.';
+    return;
+  }
+
+  const mod = Number(activeLocation.weatherModifier || 0);
+  const modStr = `${mod >= 0 ? '+' : ''}${mod}`;
+
+  el('weather-context').textContent =
+    `Active location is ${activeLocation.name} (${activeLocation.regionId || 'no region'}) | ` +
+    `Climate: ${activeLocation.climate || 'temperate'} | Weather mod: ${modStr}. ` +
+    `Advancing the day rolls actual weather here. Clicking another location only previews weather.`;
+}
+
+function renderWeatherToday(){
+  if(!weatherToday){
+    el('weather-today').textContent = 'No weather rolled yet.';
+    return;
+  }
+
+  const badge = weatherBadgeClass(weatherToday);
+  el('weather-today').innerHTML =
+    `<div class="pill ${badge}">${esc(weatherToday.summary)}</div>` +
+    `<div style="margin-top:8px;">` +
+    `<strong>${esc(weatherToday.locationName || 'Wilderness')}</strong>` +
+    ` • ${esc(weatherToday.season || '—')} • ${esc(weatherToday.dateKey || '')}` +
+    `</div>` +
+    `<div class="small" style="margin-top:4px;">${esc(weatherToday.detail || '')}</div>`;
+}
+
+function renderWeatherHistory(){
+  const box = el('weather-history-list');
+  box.innerHTML = '';
+
+  const rows = Object.values(weatherHistory || {})
+    .sort((a,b) => String(b.dateKey || '').localeCompare(String(a.dateKey || '')))
+    .slice(0, 12);
+
+  if(!rows.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--muted);">No weather history yet.</div>';
+    return;
+  }
+
+  rows.forEach(w => {
+    const div = document.createElement('div');
+    div.className = 'hist-item';
+    div.innerHTML =
+      `<div><strong>${esc(w.dateKey || 'unknown')}</strong> — ${esc(w.summary || '—')}</div>` +
+      `<div class="small">${esc(w.locationName || 'Wilderness')} • ${esc(w.season || '')}</div>`;
+    box.appendChild(div);
+  });
+}
+
+function refreshSelectedPreviewLabel(){
+  if(!selectedId || !places[selectedId]){
+    el('selected-preview-label').textContent = 'No location selected';
+    return;
+  }
+
+  const p = places[selectedId];
+  el('selected-preview-label').textContent =
+    `${p.name} (${p.regionId || 'no region'})`;
+}
+
+function generateWeatherForLocation(loc, saveMode = false){
+  const season = getCurrentSeason();
+  const locName = loc?.name || 'Wilderness';
+  const locId = loc?.id || null;
+  const regionId = loc?.regionId || '';
+  const climate = loc?.climate || 'temperate';
+  const weatherModifier = clamp(Number(loc?.weatherModifier || 0), -3, 3);
+
+  // seasonal baselines
+  let tempScore = 0;
+  let precipScore = 0;
+  let windScore = 0;
+
+  switch(season){
+    case 'winter':
+      tempScore -= 4; precipScore += 1; windScore += 1; break;
+    case 'spring':
+      tempScore += 0; precipScore += 2; windScore += 1; break;
+    case 'summer':
+      tempScore += 4; precipScore -= 1; windScore += 0; break;
+    case 'autumn':
+      tempScore -= 1; precipScore += 1; windScore += 1; break;
+  }
+
+  // climate adjustments
+  switch(climate){
+    case 'coastal':
+      precipScore += 1; windScore += 2; break;
+    case 'forest':
+      precipScore += 1; break;
+    case 'plains':
+      windScore += 1; break;
+    case 'mountain':
+      tempScore -= 3; windScore += 2; break;
+    case 'swamp':
+      precipScore += 2; tempScore += 1; break;
+    case 'desert':
+      tempScore += 3; precipScore -= 4; break;
+    case 'tundra':
+      tempScore -= 5; precipScore += 0; windScore += 2; break;
+    case 'volcanic':
+      tempScore += 5; precipScore -= 1; break;
+    case 'cursed':
+      tempScore += roll(-2,2); precipScore += roll(-2,2); windScore += roll(-1,2); break;
+  }
+
+  // location modifier affects overall harshness / favorability
+  tempScore += weatherModifier;
+  precipScore += weatherModifier;
+
+  // randomness (saveMode = actual weather; preview = slightly softer random)
+  tempScore += saveMode ? roll(-2, 2) : roll(-1, 1);
+  precipScore += saveMode ? roll(-2, 2) : roll(-1, 1);
+  windScore += saveMode ? roll(-1, 2) : roll(0, 1);
+
+  const tempBand = getTempBand(tempScore);
+  const precipBand = getPrecipBand(precipScore);
+  const windBand = getWindBand(windScore);
+
+  const summary = buildWeatherSummary(tempBand, precipBand, windBand);
+  const detail = buildWeatherDetail(tempBand, precipBand, windBand, climate);
+
+  return {
+    dateKey: getDateKey(),
+    locationId: locId,
+    locationName: locName,
+    regionId,
+    climate,
+    weatherModifier,
+    season,
+    tempScore,
+    precipScore,
+    windScore,
+    tempBand,
+    precipBand,
+    windBand,
+    summary,
+    detail,
+    ts: Date.now()
+  };
+}
+
+function getCurrentSeason(){
+  if(!calendarData?.initialized) return 'spring';
+  const month = calendarData.months[calendarData.monthIndex];
+  return month?.season || 'spring';
+}
+
+function getTempBand(score){
+  if(score <= -7) return 'bitter cold';
+  if(score <= -4) return 'cold';
+  if(score <= -1) return 'cool';
+  if(score <= 2) return 'mild';
+  if(score <= 5) return 'warm';
+  return 'hot';
+}
+
+function getPrecipBand(score){
+  if(score <= -4) return 'dry';
+  if(score <= -1) return 'clear';
+  if(score <= 2) return 'overcast';
+  if(score <= 5) return 'rain';
+  return 'storm';
+}
+
+function getWindBand(score){
+  if(score <= 0) return 'still';
+  if(score <= 2) return 'breezy';
+  if(score <= 4) return 'windy';
+  return 'gale';
+}
+
+function buildWeatherSummary(temp, precip, wind){
+  // special combos first
+  if((temp === 'bitter cold' || temp === 'cold') && precip === 'storm') return 'Snowstorm';
+  if((temp === 'bitter cold' || temp === 'cold') && precip === 'rain') return 'Sleet / freezing rain';
+  if(temp === 'hot' && precip === 'dry') return 'Scorching dry heat';
+  if(precip === 'storm' && (wind === 'windy' || wind === 'gale')) return 'Violent storm';
+  if(precip === 'rain' && wind === 'still') return 'Steady rain';
+  if(precip === 'overcast' && temp === 'cool') return 'Cool gray skies';
+
+  return `${capitalize(temp)}, ${precip}${wind !== 'still' ? ', ' + wind : ''}`;
+}
+
+function buildWeatherDetail(temp, precip, wind, climate){
+  const parts = [];
+
+  parts.push(`Temperature feels ${temp}.`);
+
+  if(precip === 'dry') parts.push('Air is dry with little to no precipitation.');
+  else if(precip === 'clear') parts.push('Skies are mostly clear.');
+  else if(precip === 'overcast') parts.push('Cloud cover is heavy with uncertain skies.');
+  else if(precip === 'rain') parts.push('Rainfall is likely or ongoing.');
+  else if(precip === 'storm') parts.push('Storm conditions are likely.');
+
+  if(wind === 'breezy') parts.push('A light breeze moves through the area.');
+  else if(wind === 'windy') parts.push('Winds are noticeable and persistent.');
+  else if(wind === 'gale') parts.push('Strong winds may hinder travel.');
+
+  if(climate === 'swamp') parts.push('Humidity and mist are especially common here.');
+  if(climate === 'mountain') parts.push('Elevation makes conditions harsher than the lowlands.');
+  if(climate === 'coastal') parts.push('Coastal air can shift quickly.');
+  if(climate === 'desert') parts.push('Shade and water become more important.');
+  if(climate === 'cursed') parts.push('The air feels wrong, as if the land itself resists comfort.');
+
+  return parts.join(' ');
+}
+
+function weatherBadgeClass(w){
+  const p = w?.precipBand;
+  if(p === 'storm') return 'bad';
+  if(p === 'rain' || p === 'overcast') return 'warn';
+  return 'good';
+}
+
+// ───────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ───────────────────────────────────────────────────────────────────────────────
+function roll(min, max){
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function clamp(n, min, max){
+  return Math.max(min, Math.min(max, n));
+}
+
+function capitalize(s){
+  s = String(s || '');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// Ensure click handler exists if image already loaded later
 el('mapImg').onclick = handleMapClick;
 </script>
 </body>
