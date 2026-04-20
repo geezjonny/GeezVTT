@@ -348,6 +348,7 @@ let mapUrlRef = null;
 let calendarRef = null;
 let weatherTodayRef = null;
 let weatherHistRef = null;
+let weatherActiveRef = null;
 
 let places = {};
 let selectedId = null;
@@ -379,6 +380,7 @@ window.connect = async () => {
   calendarRef    = ref(db, `world/${sid}/calendar`);
   weatherTodayRef= ref(db, `world/${sid}/weatherToday`);
   weatherHistRef = ref(db, `world/${sid}/weatherHistory`);
+  weatherActiveRef = ref(db, `world/${sid}/weatherActive`);
 
   el('sdot').classList.add('ok');
   el('conn-label').textContent = sid;
@@ -437,9 +439,15 @@ window.connect = async () => {
 
   // Today's weather
   onValue(weatherTodayRef, snap => {
-    weatherToday = snap.val() || null;
-    renderWeatherToday();
-  });
+  weatherTodayMap = snap.val() || {};
+  renderWeatherToday();
+  previewSelectedWeather(); // so selected preview shows actual today's weather if available
+});
+
+onValue(weatherActiveRef, snap => {
+  activeWeather = snap.val() || null;
+  renderWeatherToday();
+});
 
   // History
   onValue(weatherHistRef, snap => {
@@ -882,14 +890,40 @@ window.rollWeather = async () => {
     return;
   }
 
-  const weather = generateWeatherForLocation(activeLocation, true);
+  const dateKey = getDateKey();
+  const todayMap = {};
 
-  await set(weatherTodayRef, weather);
-  await set(ref(db, `world/${sid}/weatherHistory/${weather.dateKey}`), weather);
+  // Generate weather for every saved location
+  Object.entries(places).forEach(([id, loc]) => {
+    const weather = generateWeatherForLocation(loc, true);
+    todayMap[id] = weather;
+  });
 
-  el('weather-status').textContent = activeLocation
-    ? `Weather rolled for ${activeLocation.name}.`
-    : 'Weather rolled for generic wilderness (no active location set).';
+  // Optional fallback if no locations exist
+  if(!Object.keys(todayMap).length){
+    todayMap['_wilderness'] = generateWeatherForLocation(null, true);
+  }
+
+  // Save today's full map
+  await set(weatherTodayRef, todayMap);
+
+  // Save dated history snapshot
+  await set(ref(db, `world/${sid}/weatherHistory/${dateKey}`), todayMap);
+
+  // Save active location's weather separately for easy UI
+  let activeWeather = null;
+  if(activeLocId && todayMap[activeLocId]){
+    activeWeather = todayMap[activeLocId];
+  } else if(todayMap['_wilderness']) {
+    activeWeather = todayMap['_wilderness'];
+  }
+
+  if(activeWeather){
+    await set(ref(db, `world/${sid}/weatherActive`), activeWeather);
+  }
+
+  el('weather-status').textContent =
+    `Weather rolled for ${Object.keys(todayMap).length} location(s).`;
 };
 
 window.previewSelectedWeather = () => {
@@ -899,15 +933,22 @@ window.previewSelectedWeather = () => {
   }
 
   const loc = selectedId ? places[selectedId] : null;
-  const preview = generateWeatherForLocation(loc, false);
 
   if(!loc){
     el('weather-preview').textContent = 'Select a location to preview local weather.';
     return;
   }
 
+  // If today's real weather already exists, show that
+  const today = weatherTodayMap[selectedId];
+
+  const preview = today || generateWeatherForLocation(loc, false);
+
+  const label = today ? 'Today' : 'Preview';
+
   el('weather-preview').innerHTML =
-    `<strong>${esc(preview.locationName)}</strong> — ${esc(preview.summary)}<br>` +
+    `<strong>${esc(loc.name)}</strong> — ${esc(preview.summary)} ` +
+    `<span class="small">(${label})</span><br>` +
     `<span class="small">${esc(preview.detail)}</span>`;
 };
 
@@ -928,9 +969,27 @@ function renderWeatherContext(){
 }
 
 function renderWeatherToday(){
-  if(!weatherToday){
+  const weather = activeWeather || (
+    activeLocId && weatherTodayMap[activeLocId]
+      ? weatherTodayMap[activeLocId]
+      : weatherTodayMap['_wilderness'] || null
+  );
+
+  if(!weather){
     el('weather-today').textContent = 'No weather rolled yet.';
     return;
+  }
+
+  const badge = weatherBadgeClass(weather);
+
+  el('weather-today').innerHTML =
+    `<div class="pill ${badge}">${esc(weather.summary)}</div>` +
+    `<div style="margin-top:8px;">` +
+    `<strong>${esc(weather.locationName || 'Wilderness')}</strong>` +
+    ` • ${esc(weather.season || '—')} • ${esc(weather.dateKey || '')}` +
+    `</div>` +
+    `<div class="small" style="margin-top:4px;">${esc(weather.detail || '')}</div>`;
+}
   }
 
   const badge = weatherBadgeClass(weatherToday);
