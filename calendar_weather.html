@@ -3,754 +3,300 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Campaign Calendar + Weather v0.1</title>
+  <title>Campaign Calendar + Weather</title>
   <style>
     :root {
-      --bg: #0f1115;
-      --panel: #171a21;
-      --panel-2: #1e2430;
-      --text: #e9edf5;
-      --muted: #9aa6bf;
-      --accent: #6ea8fe;
-      --accent-2: #8b5cf6;
-      --good: #22c55e;
-      --warn: #f59e0b;
-      --bad: #ef4444;
-      --border: #2b3445;
+      --bg:#0f1115;--panel:#171a21;--panel-2:#1e2430;--text:#e9edf5;--muted:#9aa6bf;
+      --accent:#6ea8fe;--accent-2:#8b5cf6;--good:#22c55e;--warn:#f59e0b;--bad:#ef4444;--border:#2b3445;
     }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: linear-gradient(180deg, #0d1016 0%, #111623 100%);
-      color: var(--text);
-    }
-
-    .wrap {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-
-    h1, h2, h3 { margin: 0 0 10px; }
-    p { margin: 0; }
-
-    .topbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
-      gap: 16px;
-    }
-
-    .card {
-      background: rgba(23, 26, 33, 0.95);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 16px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-    }
-
-    .card h2 {
-      font-size: 18px;
-      margin-bottom: 12px;
-    }
-
-    .span-7 { grid-column: span 7; }
-    .span-5 { grid-column: span 5; }
-    .span-12 { grid-column: span 12; }
-
-    @media (max-width: 900px) {
-      .span-7, .span-5, .span-12 { grid-column: span 12; }
-    }
-
-    .big-date {
-      font-size: clamp(28px, 5vw, 42px);
-      font-weight: 800;
-      letter-spacing: 0.02em;
-      margin-bottom: 6px;
-    }
-
-    .sub {
-      color: var(--muted);
-      font-size: 14px;
-      margin-bottom: 14px;
-    }
-
-    .row {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    @media (max-width: 680px) {
-      .row { grid-template-columns: 1fr; }
-    }
-
-    .stat {
-      padding: 12px;
-      border-radius: 14px;
-      background: var(--panel-2);
-      border: 1px solid var(--border);
-    }
-
-    .label {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .value {
-      font-size: 18px;
-      font-weight: 700;
-    }
-
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 16px;
-    }
-
-    button {
-      border: 1px solid var(--border);
-      background: #20283a;
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 14px;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: 0.15s ease;
-    }
-
-    button:hover { transform: translateY(-1px); }
-    button.primary {
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
-      border-color: transparent;
-    }
-
-    input[type="number"], input[type="text"] {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: #101522;
-      color: var(--text);
-      font-size: 14px;
-      outline: none;
-    }
-
-    .field {
-      margin-bottom: 12px;
-    }
-
-    .field label {
-      display: block;
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-
-    .weather-score {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 120px;
-      height: 120px;
-      border-radius: 999px;
-      margin: 8px auto 12px;
-      background: radial-gradient(circle at 30% 30%, rgba(110,168,254,0.28), rgba(139,92,246,0.14));
-      border: 2px solid rgba(110,168,254,0.35);
-      font-size: 42px;
-      font-weight: 900;
-    }
-
-    .weather-desc {
-      text-align: center;
-      font-size: 20px;
-      font-weight: 800;
-      margin-bottom: 6px;
-    }
-
-    .weather-note {
-      text-align: center;
-      color: var(--muted);
-      font-size: 14px;
-      margin-bottom: 14px;
-    }
-
-    .mini-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-
-    @media (max-width: 680px) {
-      .mini-grid { grid-template-columns: 1fr; }
-    }
-
-    .hint {
-      font-size: 12px;
-      color: var(--muted);
-      line-height: 1.5;
-      margin-top: 10px;
-    }
-
-    .muted-box {
-      margin-top: 14px;
-      padding: 12px;
-      border-radius: 14px;
-      border: 1px dashed var(--border);
-      color: var(--muted);
-      background: rgba(255,255,255,0.02);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .footer-note {
-      margin-top: 18px;
-      font-size: 12px;
-      color: var(--muted);
-      opacity: 0.9;
-    }
-
-    .status {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 10px;
-      min-height: 18px;
-    }
+    *{box-sizing:border-box;}
+    body{margin:0;font-family:Inter,system-ui,sans-serif;background:linear-gradient(180deg,#0d1016,#111623);color:var(--text);}
+    .wrap{max-width:1100px;margin:0 auto;padding:20px;}
+    h1,h2,h3{margin:0 0 10px;}p{margin:0;}
+    .topbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:18px;}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-size:14px;}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px;}
+    .card{background:rgba(23,26,33,.95);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:0 8px 30px rgba(0,0,0,.25);}
+    .card h2{font-size:18px;margin-bottom:12px;}
+    .span-7{grid-column:span 7;}.span-5{grid-column:span 5;}.span-12{grid-column:span 12;}
+    @media(max-width:900px){.span-7,.span-5,.span-12{grid-column:span 12;}}
+    .big-date{font-size:clamp(28px,5vw,42px);font-weight:800;letter-spacing:.02em;margin-bottom:6px;}
+    .sub{color:var(--muted);font-size:14px;margin-bottom:14px;}
+    .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+    .stat{padding:12px;border-radius:14px;background:var(--panel-2);border:1px solid var(--border);}
+    .label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px;}
+    .value{font-size:18px;font-weight:700;}
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px;}
+    button{border:1px solid var(--border);background:#20283a;color:var(--text);border-radius:12px;padding:10px 14px;font-size:14px;font-weight:700;cursor:pointer;transition:.15s ease;}
+    button:hover{transform:translateY(-1px);}
+    button.primary{background:linear-gradient(135deg,var(--accent),var(--accent-2));border-color:transparent;}
+    input[type="number"],input[type="text"]{width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--border);background:#101522;color:var(--text);font-size:14px;outline:none;}
+    .field{margin-bottom:12px;}.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;}
+    .weather-score{display:flex;align-items:center;justify-content:center;width:120px;height:120px;border-radius:999px;margin:8px auto 12px;background:radial-gradient(circle at 30% 30%,rgba(110,168,254,.28),rgba(139,92,246,.14));border:2px solid rgba(110,168,254,.35);font-size:42px;font-weight:900;}
+    .weather-desc{text-align:center;font-size:20px;font-weight:800;margin-bottom:6px;}
+    .weather-note{text-align:center;color:var(--muted);font-size:14px;margin-bottom:14px;}
+    .mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+    .status{font-size:13px;color:var(--muted);margin-top:10px;min-height:18px;}
+    .session-row{display:flex;gap:8px;align-items:center;margin-bottom:12px;}
+    .session-row label{font-size:13px;color:var(--muted);white-space:nowrap;}
+    .sdot{width:8px;height:8px;border-radius:50%;background:#333;flex-shrink:0;transition:all .3s;}
+    .sdot.ok{background:var(--good);box-shadow:0 0 5px var(--good);}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="topbar">
-      <div>
-        <h1>Campaign Calendar + Weather v0.1</h1>
-        <p class="sub">Start state: 1 Eleint, 370 A.U. • Weather = Base + Season + Fate (+ Region later)</p>
-      </div>
-      <div class="pill">Firebase-ready • Region modifier stubbed for future world map</div>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>Campaign Calendar + Weather</h1>
+      <p class="sub">Harptos calendar · Weather = Base + Season + Fate + Region</p>
     </div>
-
-    <div class="grid">
-      <section class="card span-7">
-        <h2>Calendar</h2>
-        <div class="big-date" id="dateDisplay">Not initialized</div>
-        <div class="sub" id="dateMeta">Initialize to begin.</div>
-
-        <div class="row">
-          <div class="stat">
-            <div class="label">Month</div>
-            <div class="value" id="monthName">—</div>
-          </div>
-          <div class="stat">
-            <div class="label">Season Tag</div>
-            <div class="value" id="seasonTag">—</div>
-          </div>
-          <div class="stat">
-            <div class="label">Seasonal Bias</div>
-            <div class="value" id="seasonalBias">—</div>
-          </div>
-          <div class="stat">
-            <div class="label">Tenday</div>
-            <div class="value" id="tendayInfo">—</div>
-          </div>
-        </div>
-
-        <div class="controls">
-          <button class="primary" id="initBtn">Initialize Calendar</button>
-          <button id="advance1Btn">Advance 1 Day</button>
-          <button id="advance2Btn">Advance 2 Days</button>
-          <button id="advance7Btn">Advance 7 Days</button>
-        </div>
-
-        <div class="status" id="calendarStatus"></div>
-      </section>
-
-      <section class="card span-5">
-        <h2>Weather</h2>
-        <div class="weather-score" id="weatherScore">—</div>
-        <div class="weather-desc" id="weatherDesc">No weather rolled</div>
-        <div class="weather-note" id="weatherFlavor">Enter a d20 result, then roll weather.</div>
-
-        <div class="field">
-          <label for="d20Input">Manual d20 Roll (you roll physically, enter result)</label>
-          <input id="d20Input" type="number" min="1" max="20" placeholder="e.g. 14" />
-        </div>
-
-        <div class="mini-grid">
-          <div class="stat">
-            <div class="label">Base</div>
-            <div class="value" id="baseWeatherValue">4</div>
-          </div>
-          <div class="stat">
-            <div class="label">Season</div>
-            <div class="value" id="weatherSeasonBias">—</div>
-          </div>
-          <div class="stat">
-            <div class="label">Fate</div>
-            <div class="value" id="fateModifier">—</div>
-          </div>
-        </div>
-
-        <div class="controls">
-          <button class="primary" id="rollWeatherBtn">Roll Weather</button>
-        </div>
-
-        <div class="muted-box">
-          <strong>Future hook:</strong><br />
-          Region modifier is intentionally stubbed to <code>0</code> for v0.1.<br />
-          Later this page can pull <code>currentRegion.weatherModifier</code> from your world map data.
-        </div>
-
-        <div class="status" id="weatherStatus"></div>
-      </section>
-
-      <section class="card span-12">
-        <h2>Firebase Paths (used by this file)</h2>
-        <div class="row">
-          <div class="stat">
-            <div class="label">Calendar</div>
-            <div class="value">campaigns/{campaignId}/world/calendar</div>
-          </div>
-          <div class="stat">
-            <div class="label">Weather Today</div>
-            <div class="value">campaigns/{campaignId}/world/weatherToday</div>
-          </div>
-        </div>
-        <div class="footer-note">
-          Set your <code>campaignId</code> and Firebase config below. If Firebase is not configured, the page will still run in local demo mode.
-        </div>
-      </section>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div class="sdot" id="sdot"></div>
+      <div class="pill" id="conn-label">Not connected</div>
     </div>
   </div>
 
-  <script type="module">
-    // =========================================================
-    // CAMPAIGN CALENDAR + WEATHER v0.1
-    // ---------------------------------------------------------
-    // v0.1 formula:
-    //   weatherScore = clamp( BASE_WEATHER + seasonalBias + regionModifier + fateModifier, 0, 10 )
-    //
-    // Region modifier is intentionally stubbed for now.
-    // Later hook from world map / current region data:
-    //   const regionModifier = currentRegion?.weatherModifier ?? 0;
-    // =========================================================
+  <!-- Session setup -->
+  <div class="card span-12" style="margin-bottom:16px;">
+    <h2>Session</h2>
+    <div class="session-row">
+      <label>Session ID</label>
+      <input id="inp-sid" type="text" placeholder="avernus-2024" style="max-width:240px;">
+      <button class="primary" onclick="connect()">Connect</button>
+    </div>
+  </div>
 
-    const CAMPAIGN_ID = "default_campaign"; // TODO: replace or hook to your session/campaign selector
-    const BASE_WEATHER = 4;
+  <div class="grid">
+    <section class="card span-7">
+      <h2>Calendar</h2>
+      <div class="big-date" id="dateDisplay">Not initialized</div>
+      <div class="sub" id="dateMeta">Connect and initialize to begin.</div>
+      <div class="row">
+        <div class="stat"><div class="label">Month</div><div class="value" id="monthName">—</div></div>
+        <div class="stat"><div class="label">Season</div><div class="value" id="seasonTag">—</div></div>
+        <div class="stat"><div class="label">Seasonal Bias</div><div class="value" id="seasonalBias">—</div></div>
+        <div class="stat"><div class="label">Tenday</div><div class="value" id="tendayInfo">—</div></div>
+      </div>
+      <div class="controls">
+        <button class="primary" id="initBtn" onclick="initializeCalendar()">Initialize Calendar</button>
+        <button onclick="advanceCalendar(1)">+1 Day</button>
+        <button onclick="advanceCalendar(2)">+2 Days</button>
+        <button onclick="advanceCalendar(7)">+7 Days</button>
+      </div>
+      <div class="status" id="calendarStatus"></div>
+    </section>
 
-    const MONTHS = [
-      { name: "Hammer", season: "Winter", bias: 2 },
-      { name: "Alturiak", season: "Winter", bias: 2 },
-      { name: "Ches", season: "Late Winter", bias: 1 },
-      { name: "Tarsakh", season: "Spring", bias: 0 },
-      { name: "Mirtul", season: "Spring", bias: 0 },
-      { name: "Kythorn", season: "Spring", bias: 0 },
-      { name: "Flamerule", season: "Summer", bias: -1 },
-      { name: "Eleasis", season: "High Summer", bias: -1 },
-      { name: "Eleint", season: "The Fading", bias: 1 },
-      { name: "Marpenoth", season: "Autumn", bias: 1 },
-      { name: "Uktar", season: "Late Autumn", bias: 1 },
-      { name: "Nightal", season: "Deep Autumn", bias: 2 },
-    ];
+    <section class="card span-5">
+      <h2>Weather</h2>
+      <div class="weather-score" id="weatherScore">—</div>
+      <div class="weather-desc" id="weatherDesc">No weather rolled</div>
+      <div class="weather-note" id="weatherFlavor">Connect and initialize calendar first.</div>
+      <div class="field">
+        <label>d20 Roll (roll physically, enter result)</label>
+        <input id="d20Input" type="number" min="1" max="20" placeholder="e.g. 14" />
+      </div>
+      <div class="mini-grid">
+        <div class="stat"><div class="label">Base</div><div class="value" id="baseWeatherValue">4</div></div>
+        <div class="stat"><div class="label">Season</div><div class="value" id="weatherSeasonBias">—</div></div>
+        <div class="stat"><div class="label">Fate</div><div class="value" id="fateModifier">—</div></div>
+      </div>
+      <div class="controls">
+        <button class="primary" onclick="rollWeather()">Roll Weather</button>
+      </div>
+      <div class="status" id="weatherStatus"></div>
+    </section>
 
-    const DEFAULT_CALENDAR = {
-      year: 370,
-      era: "A.U.",
-      monthIndex: 8, // Eleint
-      day: 1,
-    };
+    <section class="card span-12">
+      <h2>Firebase Paths</h2>
+      <div class="row">
+        <div class="stat"><div class="label">Calendar</div><div class="value" id="path-calendar" style="font-size:13px;word-break:break-all;">—</div></div>
+        <div class="stat"><div class="label">Weather Today</div><div class="value" id="path-weather" style="font-size:13px;word-break:break-all;">—</div></div>
+      </div>
+    </section>
+  </div>
+</div>
 
-    // ----------------------------
-    // Firebase setup (optional)
-    // ----------------------------
-    // Replace with your Firebase config from your existing project.
-    // If left blank / invalid, page falls back to local demo mode.
-    const firebaseConfig = {
-      // apiKey: "",
-      // authDomain: "",
-      // projectId: "",
-      // storageBucket: "",
-      // messagingSenderId: "",
-      // appId: ""
-    };
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, onValue } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-    let db = null;
-    let firebaseReady = false;
-    let unsubCalendar = null;
-    let unsubWeather = null;
+// ── CONFIG ─────────────────────────────────────────────────────────────────────
+const CFG = {
+  apiKey:'AIzaSyBxhgU7Ef039EywGNuIWwjuxz1Vsn_ekrE',
+  authDomain:'disney-vtt.firebaseapp.com',
+  databaseURL:'https://disney-vtt-default-rtdb.firebaseio.com',
+  projectId:'disney-vtt'
+};
 
-    async function setupFirebase() {
-      const hasConfig = firebaseConfig && firebaseConfig.apiKey;
-      if (!hasConfig) {
-        console.warn("Firebase config not set. Running in local demo mode.");
-        return;
-      }
+// ── CALENDAR DATA ─────────────────────────────────────────────────────────────
+const BASE_WEATHER = 4;
+const MONTHS = [
+  {name:'Hammer',    season:'Winter',      bias:2},
+  {name:'Alturiak',  season:'Winter',      bias:2},
+  {name:'Ches',      season:'Late Winter', bias:1},
+  {name:'Tarsakh',   season:'Spring',      bias:0},
+  {name:'Mirtul',    season:'Spring',      bias:0},
+  {name:'Kythorn',   season:'Spring',      bias:0},
+  {name:'Flamerule', season:'Summer',      bias:-1},
+  {name:'Eleasis',   season:'High Summer', bias:-1},
+  {name:'Eleint',    season:'The Fading',  bias:1},
+  {name:'Marpenoth', season:'Autumn',      bias:1},
+  {name:'Uktar',     season:'Late Autumn', bias:1},
+  {name:'Nightal',   season:'Deep Autumn', bias:2},
+];
+const DEFAULT_CALENDAR = {year:370, era:'A.U.', monthIndex:8, day:1};
 
-      try {
-        const [{ initializeApp }, firestore] = await Promise.all([
-          import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
-          import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
-        ]);
+const WEATHER_TABLE = {
+  0:['Unnaturally Still',   'The air feels wrong. Sound carries too clearly.'],
+  1:['Calm & Clear',        'Stable skies, light air, easy travel.'],
+  2:['Mild',                'Gentle conditions, manageable and fair.'],
+  3:['Light Breeze',        'A slight chill or breeze rides the day.'],
+  4:['Seasonal Normal',     'Typical weather for the season.'],
+  5:['Overcast / Damp',     'Gray skies, damp air, ordinary roughness.'],
+  6:['Windy / Uncomfortable','Cold gusts, wet air, minor travel irritation.'],
+  7:['Stormy',              'Heavy rain or biting wind. Visibility worsens.'],
+  8:['Severe Storm',        'Dangerous exposure, rough roads, hard travel.'],
+  9:['Violent Weather',     'Harsh squalls, near-hazard conditions.'],
+  10:['Extreme / Supernatural','Travel becomes nearly impossible.'],
+};
 
-        const app = initializeApp(firebaseConfig);
-        db = firestore.getFirestore(app);
-        firebaseReady = true;
+// ── STATE ──────────────────────────────────────────────────────────────────────
+let db = null, sid = '', calendarRef = null, weatherRef = null;
+let currentCalendar = null, currentWeather = null;
 
-        window._fb = firestore; // handy for debugging in console
-        console.log("Firebase ready.");
-      } catch (err) {
-        console.error("Firebase failed to initialize. Falling back to local demo mode.", err);
-      }
-    }
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const el = id => document.getElementById(id);
+const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+const fmt = n => n > 0 ? `+${n}` : `${n}`;
+const getMonth = i => MONTHS[i] || MONTHS[0];
+const tenday = d => Math.ceil(d/10);
+const dayOfTenday = d => ((d-1)%10)+1;
 
-    // ----------------------------
-    // Local demo fallback storage
-    // ----------------------------
-    const localKeys = {
-      calendar: `cw:${CAMPAIGN_ID}:calendar`,
-      weather: `cw:${CAMPAIGN_ID}:weatherToday`,
-    };
+function formatDate(c){
+  const m = getMonth(c.monthIndex);
+  return `${c.day} ${m.name}, ${c.year} ${c.era}`;
+}
 
-    function getLocal(key, fallback = null) {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    }
+function advanceOneDay(c){
+  const n = {...c, day: c.day + 1};
+  if(n.day > 30){n.day=1; n.monthIndex++;}
+  if(n.monthIndex > 11){n.monthIndex=0; n.year++;}
+  return n;
+}
 
-    function setLocal(key, value) {
-      localStorage.setItem(key, JSON.stringify(value));
-    }
+function fateModifier(roll){
+  if(roll<=4) return -2;
+  if(roll<=8) return -1;
+  if(roll<=12) return 0;
+  if(roll<=16) return 1;
+  return 2;
+}
 
-    // ----------------------------
-    // Paths / refs
-    // ----------------------------
-    function calendarPath() {
-      return `campaigns/${CAMPAIGN_ID}/world/calendar`;
-    }
+// ── RENDER ────────────────────────────────────────────────────────────────────
+function renderCalendar(c){
+  if(!c){
+    el('dateDisplay').textContent='Not initialized';
+    el('dateMeta').textContent='Initialize to begin.';
+    ['monthName','seasonTag','seasonalBias','tendayInfo','weatherSeasonBias'].forEach(id=>el(id).textContent='—');
+    return;
+  }
+  const m = getMonth(c.monthIndex);
+  el('dateDisplay').textContent = formatDate(c);
+  el('dateMeta').textContent = `${m.name} · ${m.season} · Tenday ${tenday(c.day)}, Day ${dayOfTenday(c.day)}`;
+  el('monthName').textContent = m.name;
+  el('seasonTag').textContent = m.season;
+  el('seasonalBias').textContent = fmt(m.bias);
+  el('tendayInfo').textContent = `${tenday(c.day)} / Day ${dayOfTenday(c.day)}`;
+  el('weatherSeasonBias').textContent = fmt(m.bias);
+}
 
-    function weatherPath() {
-      return `campaigns/${CAMPAIGN_ID}/world/weatherToday`;
-    }
+function renderWeather(w){
+  if(!w){
+    el('weatherScore').textContent='—';
+    el('weatherDesc').textContent='No weather rolled';
+    el('weatherFlavor').textContent='Enter a d20 result, then roll weather.';
+    el('fateModifier').textContent='—';
+    return;
+  }
+  const [desc,flavor] = WEATHER_TABLE[w.result] || ['Unknown',''];
+  el('weatherScore').textContent = w.result;
+  el('weatherDesc').textContent = desc;
+  el('weatherFlavor').textContent = flavor;
+  el('fateModifier').textContent = fmt(w.fateModifier);
+}
 
-    // ----------------------------
-    // Data helpers
-    // ----------------------------
-    function clamp(n, min, max) {
-      return Math.max(min, Math.min(max, n));
-    }
+// ── CONNECT ───────────────────────────────────────────────────────────────────
+window.connect = () => {
+  sid = el('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-') || 'default';
+  if(!db){
+    const app = initializeApp(CFG,'calendar-'+sid);
+    db = getDatabase(app);
+  }
+  calendarRef = ref(db, `world/${sid}/calendar`);
+  weatherRef  = ref(db, `world/${sid}/weatherToday`);
 
-    function getMonthData(monthIndex) {
-      return MONTHS[monthIndex] || MONTHS[0];
-    }
+  el('path-calendar').textContent = `world/${sid}/calendar`;
+  el('path-weather').textContent  = `world/${sid}/weatherToday`;
+  el('sdot').classList.add('ok');
+  el('conn-label').textContent = sid;
 
-    function getTenday(day) {
-      return Math.ceil(day / 10);
-    }
+  onValue(calendarRef, s => {
+    currentCalendar = s.val();
+    renderCalendar(currentCalendar);
+  });
+  onValue(weatherRef, s => {
+    currentWeather = s.val();
+    renderWeather(currentWeather);
+  });
+};
 
-    function getDayOfTenday(day) {
-      return ((day - 1) % 10) + 1;
-    }
+// ── ACTIONS ───────────────────────────────────────────────────────────────────
+window.initializeCalendar = async () => {
+  if(!calendarRef){el('calendarStatus').textContent='Connect first.';return;}
+  await set(calendarRef, {...DEFAULT_CALENDAR, ts:Date.now()});
+  el('calendarStatus').textContent='Calendar initialized to 1 Eleint, 370 A.U.';
+};
 
-    function formatSigned(n) {
-      return n > 0 ? `+${n}` : `${n}`;
-    }
+window.advanceCalendar = async days => {
+  if(!currentCalendar){el('calendarStatus').textContent='Initialize the calendar first.';return;}
+  let next = {...currentCalendar};
+  for(let i=0;i<days;i++) next = advanceOneDay(next);
+  next.ts = Date.now();
+  await set(calendarRef, next);
+  el('calendarStatus').textContent = `Advanced ${days} day${days>1?'s':''}.`;
+};
 
-    function formatDate(calendar) {
-      const month = getMonthData(calendar.monthIndex);
-      return `${calendar.day} ${month.name}, ${calendar.year} ${calendar.era}`;
-    }
+window.rollWeather = async () => {
+  if(!currentCalendar){el('weatherStatus').textContent='Initialize the calendar first.';return;}
+  const raw = Number(el('d20Input').value);
+  if(!Number.isInteger(raw)||raw<1||raw>20){el('weatherStatus').textContent='Enter a valid d20 roll (1–20).';return;}
 
-    function advanceOneDay(calendar) {
-      const next = { ...calendar };
-      next.day += 1;
-      if (next.day > 30) {
-        next.day = 1;
-        next.monthIndex += 1;
-        if (next.monthIndex > 11) {
-          next.monthIndex = 0;
-          next.year += 1;
-        }
-      }
-      return next;
-    }
+  const m = getMonth(currentCalendar.monthIndex);
+  const seasonalBias = m.bias;
+  const fate = fateModifier(raw);
 
-    function advanceDays(calendar, days) {
-      let next = { ...calendar };
-      for (let i = 0; i < days; i++) next = advanceOneDay(next);
-      return next;
-    }
+  // Region modifier — pulled from world/${sid}/activeLocation if set
+  // Falls back to 0 until worldmap hooks in
+  let regionModifier = 0;
+  try {
+    const locSnap = await new Promise(res => {
+      const locRef = ref(db, `world/${sid}/activeLocation`);
+      onValue(locRef, s => res(s), {onlyOnce:true});
+    });
+    regionModifier = locSnap.val()?.weatherModifier ?? 0;
+  } catch {}
 
-    function d20ToFateModifier(roll) {
-      if (roll >= 1 && roll <= 4) return -2;
-      if (roll >= 5 && roll <= 8) return -1;
-      if (roll >= 9 && roll <= 12) return 0;
-      if (roll >= 13 && roll <= 16) return 1;
-      if (roll >= 17 && roll <= 20) return 2;
-      return null;
-    }
+  const result = clamp(BASE_WEATHER + seasonalBias + regionModifier + fate, 0, 10);
+  const payload = {
+    dateKey:`${currentCalendar.year}-${currentCalendar.monthIndex+1}-${currentCalendar.day}`,
+    d20Roll:raw, baseWeather:BASE_WEATHER, seasonalBias, regionModifier, fateModifier:fate, result,
+    ts:Date.now()
+  };
+  await set(weatherRef, payload);
+  el('weatherStatus').textContent = `Weather rolled: ${WEATHER_TABLE[result]?.[0] || result}`;
+};
 
-    function weatherDescription(score) {
-      const table = {
-        0: ["Unnaturally Still", "The air feels wrong. Sound carries too clearly."],
-        1: ["Calm & Clear", "Stable skies, light air, easy travel."],
-        2: ["Mild", "Gentle conditions, manageable and fair."],
-        3: ["Light Breeze", "A slight chill or breeze rides the day."],
-        4: ["Seasonal Normal", "Typical weather for the season."],
-        5: ["Overcast / Damp", "Gray skies, damp air, ordinary roughness."],
-        6: ["Windy / Uncomfortable", "Cold gusts, wet air, minor travel irritation."],
-        7: ["Stormy", "Heavy rain or biting wind. Visibility worsens."],
-        8: ["Severe Storm", "Dangerous exposure, rough roads, hard travel."],
-        9: ["Violent Weather", "Harsh squalls, near-hazard conditions."],
-        10: ["Extreme / Supernatural", "Travel becomes nearly impossible. Something is wrong in the sky."],
-      };
-      return table[score] || ["Unknown", "No description."];
-    }
-
-    // ----------------------------
-    // UI refs
-    // ----------------------------
-    const dateDisplay = document.getElementById('dateDisplay');
-    const dateMeta = document.getElementById('dateMeta');
-    const monthName = document.getElementById('monthName');
-    const seasonTag = document.getElementById('seasonTag');
-    const seasonalBiasEl = document.getElementById('seasonalBias');
-    const tendayInfo = document.getElementById('tendayInfo');
-    const calendarStatus = document.getElementById('calendarStatus');
-
-    const weatherScoreEl = document.getElementById('weatherScore');
-    const weatherDescEl = document.getElementById('weatherDesc');
-    const weatherFlavorEl = document.getElementById('weatherFlavor');
-    const weatherSeasonBiasEl = document.getElementById('weatherSeasonBias');
-    const fateModifierEl = document.getElementById('fateModifier');
-    const weatherStatus = document.getElementById('weatherStatus');
-    const d20Input = document.getElementById('d20Input');
-    const baseWeatherValue = document.getElementById('baseWeatherValue');
-
-    const initBtn = document.getElementById('initBtn');
-    const advance1Btn = document.getElementById('advance1Btn');
-    const advance2Btn = document.getElementById('advance2Btn');
-    const advance7Btn = document.getElementById('advance7Btn');
-    const rollWeatherBtn = document.getElementById('rollWeatherBtn');
-
-    let currentCalendar = null;
-    let currentWeather = null;
-
-    // ----------------------------
-    // Render
-    // ----------------------------
-    function renderCalendar(calendar) {
-      if (!calendar) {
-        dateDisplay.textContent = 'Not initialized';
-        dateMeta.textContent = 'Initialize to begin.';
-        monthName.textContent = '—';
-        seasonTag.textContent = '—';
-        seasonalBiasEl.textContent = '—';
-        tendayInfo.textContent = '—';
-        weatherSeasonBiasEl.textContent = '—';
-        return;
-      }
-
-      const month = getMonthData(calendar.monthIndex);
-      const tenday = getTenday(calendar.day);
-      const dayOfTenday = getDayOfTenday(calendar.day);
-
-      dateDisplay.textContent = formatDate(calendar);
-      dateMeta.textContent = `${month.name} • ${month.season} • Tenday ${tenday}, Day ${dayOfTenday}`;
-      monthName.textContent = month.name;
-      seasonTag.textContent = month.season;
-      seasonalBiasEl.textContent = formatSigned(month.bias);
-      tendayInfo.textContent = `${tenday} / Day ${dayOfTenday}`;
-      weatherSeasonBiasEl.textContent = formatSigned(month.bias);
-    }
-
-    function renderWeather(weather) {
-      if (!weather) {
-        weatherScoreEl.textContent = '—';
-        weatherDescEl.textContent = 'No weather rolled';
-        weatherFlavorEl.textContent = 'Enter a d20 result, then roll weather.';
-        fateModifierEl.textContent = '—';
-        return;
-      }
-
-      weatherScoreEl.textContent = weather.result;
-      const [desc, flavor] = weatherDescription(weather.result);
-      weatherDescEl.textContent = desc;
-      weatherFlavorEl.textContent = flavor;
-      fateModifierEl.textContent = formatSigned(weather.fateModifier);
-    }
-
-    // ----------------------------
-    // Data access
-    // ----------------------------
-    async function getCalendar() {
-      if (firebaseReady) {
-        const fb = window._fb;
-        const ref = fb.doc(db, calendarPath());
-        const snap = await fb.getDoc(ref);
-        return snap.exists() ? snap.data() : null;
-      }
-      return getLocal(localKeys.calendar, null);
-    }
-
-    async function setCalendar(data) {
-      if (firebaseReady) {
-        const fb = window._fb;
-        const ref = fb.doc(db, calendarPath());
-        await fb.setDoc(ref, data, { merge: true });
-      } else {
-        setLocal(localKeys.calendar, data);
-      }
-      currentCalendar = data;
-      renderCalendar(currentCalendar);
-    }
-
-    async function getWeather() {
-      if (firebaseReady) {
-        const fb = window._fb;
-        const ref = fb.doc(db, weatherPath());
-        const snap = await fb.getDoc(ref);
-        return snap.exists() ? snap.data() : null;
-      }
-      return getLocal(localKeys.weather, null);
-    }
-
-    async function setWeather(data) {
-      if (firebaseReady) {
-        const fb = window._fb;
-        const ref = fb.doc(db, weatherPath());
-        await fb.setDoc(ref, data, { merge: true });
-      } else {
-        setLocal(localKeys.weather, data);
-      }
-      currentWeather = data;
-      renderWeather(currentWeather);
-    }
-
-    function subscribeLive() {
-      if (!firebaseReady) return;
-      const fb = window._fb;
-
-      unsubCalendar = fb.onSnapshot(fb.doc(db, calendarPath()), (snap) => {
-        if (snap.exists()) {
-          currentCalendar = snap.data();
-          renderCalendar(currentCalendar);
-        }
-      });
-
-      unsubWeather = fb.onSnapshot(fb.doc(db, weatherPath()), (snap) => {
-        if (snap.exists()) {
-          currentWeather = snap.data();
-          renderWeather(currentWeather);
-        }
-      });
-    }
-
-    // ----------------------------
-    // Actions
-    // ----------------------------
-    async function initializeCalendar() {
-      await setCalendar({ ...DEFAULT_CALENDAR });
-      calendarStatus.textContent = 'Calendar initialized to 1 Eleint, 370 A.U.';
-    }
-
-    async function advanceCalendar(days) {
-      if (!currentCalendar) {
-        calendarStatus.textContent = 'Initialize the calendar first.';
-        return;
-      }
-      const next = advanceDays(currentCalendar, days);
-      await setCalendar(next);
-      calendarStatus.textContent = `Advanced ${days} day${days > 1 ? 's' : ''}.`;
-    }
-
-    async function rollWeather() {
-      if (!currentCalendar) {
-        weatherStatus.textContent = 'Initialize the calendar first.';
-        return;
-      }
-
-      const raw = Number(d20Input.value);
-      if (!Number.isInteger(raw) || raw < 1 || raw > 20) {
-        weatherStatus.textContent = 'Enter a valid d20 roll (1–20).';
-        return;
-      }
-
-      const month = getMonthData(currentCalendar.monthIndex);
-      const seasonalBias = month.bias;
-      const fateModifier = d20ToFateModifier(raw);
-
-      // Future hook:
-      // const regionModifier = currentRegion?.weatherModifier ?? 0;
-      const regionModifier = 0; // v0.1 placeholder until world_map hooks in
-
-      const result = clamp(BASE_WEATHER + seasonalBias + regionModifier + fateModifier, 0, 10);
-
-      const payload = {
-        dateKey: `${currentCalendar.year}-${currentCalendar.monthIndex + 1}-${currentCalendar.day}`,
-        rolledAt: new Date().toISOString(),
-        d20Roll: raw,
-        baseWeather: BASE_WEATHER,
-        seasonalBias,
-        regionModifier,
-        fateModifier,
-        result,
-      };
-
-      await setWeather(payload);
-      weatherStatus.textContent = `Weather rolled from d20 ${raw}.`;
-    }
-
-    // ----------------------------
-    // Init
-    // ----------------------------
-    async function boot() {
-      baseWeatherValue.textContent = String(BASE_WEATHER);
-      await setupFirebase();
-
-      const [calendar, weather] = await Promise.all([
-        getCalendar(),
-        getWeather(),
-      ]);
-
-      currentCalendar = calendar;
-      currentWeather = weather;
-      renderCalendar(currentCalendar);
-      renderWeather(currentWeather);
-
-      subscribeLive();
-    }
-
-    initBtn.addEventListener('click', initializeCalendar);
-    advance1Btn.addEventListener('click', () => advanceCalendar(1));
-    advance2Btn.addEventListener('click', () => advanceCalendar(2));
-    advance7Btn.addEventListener('click', () => advanceCalendar(7));
-    rollWeatherBtn.addEventListener('click', rollWeather);
-
-    boot();
-  </script>
+el('baseWeatherValue').textContent = String(BASE_WEATHER);
+</script>
 </body>
 </html>
