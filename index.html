@@ -2594,14 +2594,16 @@ function startCalibrationFlow(){
   calibMode=true;
   calibStep=0;calibSamples=[];calibGridOrigin={x:0,y:0};
   cleanCalib();
-  el('calib-overlay').style.display='block';
-  el('calib-overlay').style.pointerEvents='all';
+  const overlay=el('calib-overlay');
+  overlay.style.display='block';
+  // Overlay itself is pointer-events:none so clicks pass through to board
+  // Only the HUD div intercepts clicks (it has pointer-events:all inline)
+  overlay.style.pointerEvents='none';
   updateCalibHud();
 }
 
 function cancelCalibration(){
   el('calib-overlay').style.display='none';
-  el('calib-overlay').style.pointerEvents='none';
   cleanCalib();
   calibMode=false;
   el('btn-calib').classList.remove('active');
