@@ -3,190 +3,328 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>World Map Editor v0.2 (Blended Region Weather)</title>
+<title>World Map</title>
 <style>
-body{margin:0;font-family:sans-serif;background:#0f1115;color:#e9edf5}
-.wrap{padding:16px}
-.grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
-.card{background:#171a21;border:1px solid #2b3445;border-radius:12px;padding:12px}
-button{padding:8px 12px;border-radius:8px;border:1px solid #2b3445;background:#20283a;color:white;cursor:pointer}
-.primary{background:#6ea8fe}
-.map{position:relative;overflow:auto;border:1px solid #2b3445}
-.marker{position:absolute;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid white}
-.marker.region_anchor{background:#f472b6}
-.marker.other{background:#60a5fa}
-.selected{outline:2px solid yellow}
+  :root{--bg:#0f1115;--panel:#171a21;--border:#2b3445;--text:#e9edf5;--muted:#9aa6bf;--accent:#6ea8fe;--good:#22c55e;--gold:#f5c542;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{padding:16px;max-width:1400px;margin:0 auto;}
+  h1{font-size:1.3rem;font-weight:700;margin-bottom:4px;}
+  .sub{font-size:13px;color:var(--muted);margin-bottom:16px;}
+  .layout{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;}
+  .card h3{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:10px;letter-spacing:.04em;text-transform:uppercase;}
+  .field{margin-bottom:10px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  input,select,textarea{width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:#101522;color:var(--text);font-size:13px;outline:none;}
+  input:focus,select:focus{border-color:var(--accent);}
+  select option{background:#101522;}
+  button{padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#20283a;color:var(--text);cursor:pointer;font-size:13px;font-weight:600;transition:all .12s;}
+  button:hover{transform:translateY(-1px);}
+  button.primary{background:linear-gradient(135deg,var(--accent),#8b5cf6);border-color:transparent;}
+  button.active-loc{background:rgba(245,197,66,.15);border-color:var(--gold);color:var(--gold);}
+  button.danger{border-color:rgba(239,68,68,.4);color:#ef4444;}
+  button.danger:hover{background:rgba(239,68,68,.1);}
+  .btn-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
+  .map-wrap{position:relative;overflow:auto;border:1px solid var(--border);border-radius:12px;background:#080a0f;min-height:400px;}
+  #mapStage{position:relative;display:inline-block;}
+  #mapImg{display:block;max-width:100%;}
+  .marker{position:absolute;width:14px;height:14px;border-radius:50%;transform:translate(-50%,-50%);border:2px solid white;cursor:pointer;transition:all .12s;}
+  .marker:hover{transform:translate(-50%,-50%) scale(1.3);}
+  .marker.region_anchor{background:#f472b6;}
+  .marker.city{background:#60a5fa;}
+  .marker.town{background:#86efac;}
+  .marker.poi{background:#fbbf24;}
+  .marker.selected{outline:3px solid var(--gold);outline-offset:2px;}
+  .marker.active-loc{outline:3px solid var(--good);outline-offset:2px;}
+  .marker-label{position:absolute;transform:translateX(-50%);top:10px;font-size:10px;color:white;text-shadow:0 1px 3px #000;white-space:nowrap;pointer-events:none;}
+  .loc-list{display:flex;flex-direction:column;gap:4px;max-height:240px;overflow-y:auto;margin-top:8px;}
+  .loc-item{display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:6px;border:1px solid transparent;cursor:pointer;font-size:12px;transition:all .1s;}
+  .loc-item:hover{background:rgba(255,255,255,.04);border-color:var(--border);}
+  .loc-item.sel{border-color:var(--accent);background:rgba(79,142,247,.07);}
+  .loc-item.active{border-color:var(--good);background:rgba(34,197,94,.07);}
+  .loc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+  .loc-name{flex:1;font-weight:600;}
+  .loc-region{color:var(--muted);font-size:11px;}
+  .blend-box{margin-top:10px;padding:10px;border-radius:8px;background:rgba(255,255,255,.03);border:1px dashed var(--border);font-size:13px;line-height:1.55;color:var(--muted);}
+  .sdot{width:8px;height:8px;border-radius:50%;background:#333;display:inline-block;transition:all .3s;}
+  .sdot.ok{background:var(--good);box-shadow:0 0 5px var(--good);}
+  .conn-bar{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:var(--muted);}
+  .status{font-size:12px;color:var(--muted);margin-top:6px;min-height:16px;}
+  .type-colors{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;}
+  .tc{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted);}
+  .tc-dot{width:8px;height:8px;border-radius:50%;}
 </style>
 </head>
 <body>
 <div class="wrap">
-<h1>World Map v0.2 – Blended Region Weather</h1>
-<div class="grid">
+  <h1>World Map</h1>
+  <p class="sub">Place locations, set region anchors, establish active party location</p>
 
-<div class="card">
-<h3>Controls</h3>
-<input id="mapUrl" placeholder="map image url" />
-<button class="primary" id="loadMap">Load Map</button>
-<hr/>
-<label>Mode:</label>
-<select id="mode">
-<option value="place">Place Point</option>
-<option value="position">Set Current Position</option>
-</select>
-<hr/>
-<h4>Selected / New</h4>
-<input id="name" placeholder="name" />
-<select id="type">
-<option value="region_anchor">Region Anchor</option>
-<option value="city">City</option>
-<option value="town">Town</option>
-<option value="poi">POI</option>
-</select>
-<input id="region" placeholder="regionId" />
-<input id="weather" type="number" value="0" />
-<input id="x" placeholder="x%" />
-<input id="y" placeholder="y%" />
-<button id="save">Save</button>
-<button id="clear">Clear</button>
-<hr/>
-<h4>Blended Result</h4>
-<div id="blendResult">—</div>
-<div id="blendSources"></div>
+  <div class="conn-bar">
+    <div class="sdot" id="sdot"></div>
+    <span id="conn-label">Not connected</span>
+    <input id="inp-sid" type="text" placeholder="session-id" style="max-width:180px;">
+    <button class="primary" onclick="connect()">Connect</button>
+    <input id="inp-mapurl" type="text" placeholder="Map image URL" style="max-width:300px;">
+    <button onclick="loadMap()">Load Map</button>
+  </div>
+
+  <div class="layout">
+    <!-- LEFT PANEL -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+
+      <div class="card">
+        <h3>Mode</h3>
+        <div class="field">
+          <select id="mode">
+            <option value="place">Place / Edit Location</option>
+            <option value="active">Set Active Party Location</option>
+          </select>
+        </div>
+        <div class="type-colors">
+          <div class="tc"><div class="tc-dot" style="background:#f472b6"></div>Region Anchor</div>
+          <div class="tc"><div class="tc-dot" style="background:#60a5fa"></div>City</div>
+          <div class="tc"><div class="tc-dot" style="background:#86efac"></div>Town</div>
+          <div class="tc"><div class="tc-dot" style="background:#fbbf24"></div>POI</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Location</h3>
+        <div class="field"><label>Name</label><input id="loc-name" type="text" placeholder="Baldur's Gate"></div>
+        <div class="field"><label>Type</label>
+          <select id="loc-type">
+            <option value="region_anchor">Region Anchor</option>
+            <option value="city">City</option>
+            <option value="town">Town</option>
+            <option value="poi">POI</option>
+          </select>
+        </div>
+        <div class="field"><label>Region ID</label><input id="loc-region" type="text" placeholder="sword-coast"></div>
+        <div class="field"><label>Weather Modifier (-3 to +3)</label><input id="loc-weather" type="number" value="0" min="-3" max="3"></div>
+        <div class="field"><label>Description</label><textarea id="loc-desc" rows="2" placeholder="Brief description..."></textarea></div>
+        <div class="field" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><label>X %</label><input id="loc-x" type="number" step="0.01"></div>
+          <div><label>Y %</label><input id="loc-y" type="number" step="0.01"></div>
+        </div>
+        <div class="btn-row">
+          <button class="primary" onclick="saveLocation()">Save Location</button>
+          <button onclick="clearSelection()">Clear</button>
+          <button class="danger" onclick="deleteLocation()">Delete</button>
+        </div>
+        <div class="status" id="loc-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>Active Party Location</h3>
+        <div id="active-loc-display" style="font-size:13px;color:var(--muted);">None set</div>
+        <div class="blend-box" id="blend-box">
+          Set active location by switching mode to "Set Active Party Location" and clicking a marker — or select from list and click Set Active.
+        </div>
+        <button class="btn-row active-loc" style="margin-top:8px;" onclick="setActiveFromSelected()">Set Selected as Active</button>
+        <div class="status" id="active-status"></div>
+      </div>
+
+      <div class="card">
+        <h3>All Locations</h3>
+        <div class="loc-list" id="loc-list"></div>
+      </div>
+
+    </div>
+
+    <!-- MAP -->
+    <div class="map-wrap" id="mapWrap">
+      <div id="mapStage">
+        <img id="mapImg" alt="Load a map URL above">
+        <div id="markers" style="position:absolute;inset:0;pointer-events:none;"></div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div class="card">
-<div class="map" id="mapWrap">
-<div id="mapStage" style="position:relative;display:inline-block">
-<img id="mapImg" />
-<div id="markers" style="position:absolute;inset:0"></div>
-</div>
-</div>
-</div>
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, set, onValue, remove, push } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-</div>
-</div>
-
-<script>
-let places=[];
-let selected=null;
-let currentPos=null;
-
-const mapImg=document.getElementById('mapImg');
-const markers=document.getElementById('markers');
-
-function clamp(n,min,max){return Math.max(min,Math.min(max,n))}
-
-function distance(a,b){
-return Math.hypot(a.x-b.x,a.y-b.y)
-}
-
-function getAnchors(){
-return places.filter(p=>p.type==='region_anchor')
-}
-
-function weightedBlend(pos){
-const anchors=getAnchors();
-if(anchors.length===0)return null;
-
-const withDist=anchors.map(a=>{
-const d=distance(pos,{x:a.xPct,y:a.yPct})
-return {...a,dist:Math.max(d,0.001)}
-})
-
-withDist.sort((a,b)=>a.dist-b.dist);
-const nearest=withDist.slice(0,3);
-
-let totalWeight=0;
-let sum=0;
-
-nearest.forEach(a=>{
-const w=1/a.dist;
-sum+=a.weatherModifier*w;
- totalWeight+=w;
-})
-
-const result=sum/totalWeight;
-return {value:result, sources:nearest}
-}
-
-function render(){
-markers.innerHTML='';
-places.forEach(p=>{
-const el=document.createElement('div');
-el.className='marker '+(p.type==='region_anchor'?'region_anchor':'other')+(p.id===selected?' selected':'');
-el.style.left=p.xPct+'%';
-el.style.top=p.yPct+'%';
-el.onclick=(e)=>{e.stopPropagation();select(p.id)};
-markers.appendChild(el);
-})
-}
-
-function select(id){
-selected=id;
-const p=places.find(p=>p.id===id);
-if(!p)return;
-document.getElementById('name').value=p.name;
-document.getElementById('type').value=p.type;
-document.getElementById('region').value=p.regionId;
-document.getElementById('weather').value=p.weatherModifier;
-document.getElementById('x').value=p.xPct;
-document.getElementById('y').value=p.yPct;
-render();
-}
-
-function save(){
-const id=selected||Date.now().toString();
-const p={
-id,
-name:document.getElementById('name').value,
-type:document.getElementById('type').value,
-regionId:document.getElementById('region').value,
-weatherModifier:Number(document.getElementById('weather').value),
-xPct:Number(document.getElementById('x').value),
-yPct:Number(document.getElementById('y').value)
+const CFG = {
+  apiKey:'AIzaSyBxhgU7Ef039EywGNuIWwjuxz1Vsn_ekrE',
+  authDomain:'disney-vtt.firebaseapp.com',
+  databaseURL:'https://disney-vtt-default-rtdb.firebaseio.com',
+  projectId:'disney-vtt'
 };
 
-const existingIndex=places.findIndex(x=>x.id===id);
-if(existingIndex>=0)places[existingIndex]=p;
-else places.push(p);
+const TYPE_COLORS = {region_anchor:'#f472b6',city:'#60a5fa',town:'#86efac',poi:'#fbbf24'};
 
-selected=id;
-render();
+let db=null, sid='', locRef=null, activeLocRef=null;
+let places={}, selectedId=null, activeLocId=null;
+
+const el = id => document.getElementById(id);
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ── CONNECT ────────────────────────────────────────────────────────────────────
+window.connect = () => {
+  sid = el('inp-sid').value.trim().toLowerCase().replace(/[^a-z0-9-]/g,'-') || 'default';
+  if(!db){ const app=initializeApp(CFG,'worldmap-'+sid); db=getDatabase(app); }
+  locRef       = ref(db, `world/${sid}/locations`);
+  activeLocRef = ref(db, `world/${sid}/activeLocation`);
+  el('sdot').classList.add('ok');
+  el('conn-label').textContent = sid;
+
+  onValue(locRef, s => { places=s.val()||{}; renderMarkers(); renderLocList(); });
+  onValue(activeLocRef, s => {
+    const d = s.val();
+    activeLocId = d?.id || null;
+    el('active-loc-display').textContent = d ? `${d.name} (${d.regionId||'no region'})` : 'None set';
+    if(d) el('blend-box').textContent = `Weather modifier: ${d.weatherModifier>=0?'+':''}${d.weatherModifier??0}. Region: ${d.regionId||'—'}. ${d.description||''}`;
+    renderMarkers();
+  });
+};
+
+// ── MAP ────────────────────────────────────────────────────────────────────────
+window.loadMap = () => {
+  const url = el('inp-mapurl').value.trim();
+  if(!url) return;
+  const img = el('mapImg');
+  img.src = url;
+  img.onclick = handleMapClick;
+};
+
+function handleMapClick(e){
+  const rect = el('mapImg').getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(2);
+  const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(2);
+  const mode = el('mode').value;
+
+  if(mode === 'place'){
+    el('loc-x').value = x;
+    el('loc-y').value = y;
+  }
+  if(mode === 'active'){
+    // Find nearest marker to click
+    const nearest = findNearest(Number(x), Number(y));
+    if(nearest) setActive(nearest);
+  }
 }
 
-function clearSel(){selected=null;}
-
-function handleClick(e){
-const rect=mapImg.getBoundingClientRect();
-const x=((e.clientX-rect.left)/rect.width)*100;
-const y=((e.clientY-rect.top)/rect.height)*100;
-
-const mode=document.getElementById('mode').value;
-
-if(mode==='place'){
-document.getElementById('x').value=x.toFixed(2);
-document.getElementById('y').value=y.toFixed(2);
+function findNearest(x, y){
+  let best=null, bestDist=Infinity;
+  Object.entries(places).forEach(([id,p])=>{
+    const d = Math.hypot(p.xPct-x, p.yPct-y);
+    if(d < bestDist){ bestDist=d; best=id; }
+  });
+  return bestDist < 5 ? best : null; // within 5% units
 }
 
-if(mode==='position'){
-currentPos={x:x,y:y};
-const result=weightedBlend(currentPos);
-if(result){
-document.getElementById('blendResult').innerText='Blended Modifier: '+result.value.toFixed(2);
-document.getElementById('blendSources').innerText=result.sources.map(s=>s.name+" ("+s.weatherModifier+")").join(', ');
-}
-}
+// ── RENDER ─────────────────────────────────────────────────────────────────────
+function renderMarkers(){
+  const container = el('markers');
+  container.innerHTML='';
+  container.style.pointerEvents='all';
+  Object.entries(places).forEach(([id,p])=>{
+    const dot = document.createElement('div');
+    dot.className='marker '+p.type+(id===selectedId?' selected':'')+(id===activeLocId?' active-loc':'');
+    dot.style.left=p.xPct+'%';
+    dot.style.top=p.yPct+'%';
+    dot.style.background=TYPE_COLORS[p.type]||'#aaa';
+    dot.title = p.name;
+    dot.onclick = e => { e.stopPropagation(); selectLocation(id); };
+    container.appendChild(dot);
+    const lbl = document.createElement('div');
+    lbl.className='marker-label';
+    lbl.style.left=p.xPct+'%';
+    lbl.style.top=(p.yPct+1.5)+'%';
+    lbl.textContent=p.name;
+    container.appendChild(lbl);
+  });
 }
 
-mapImg.onclick=handleClick;
-
-document.getElementById('loadMap').onclick=()=>{
-mapImg.src=document.getElementById('mapUrl').value;
+function renderLocList(){
+  const list = el('loc-list');
+  list.innerHTML='';
+  const sorted = Object.entries(places).sort((a,b)=>a[1].name.localeCompare(b[1].name));
+  if(!sorted.length){ list.innerHTML='<div style="font-size:12px;color:var(--muted);">No locations yet.</div>'; return; }
+  sorted.forEach(([id,p])=>{
+    const div=document.createElement('div');
+    div.className='loc-item'+(id===selectedId?' sel':'')+(id===activeLocId?' active':'');
+    div.innerHTML='<div class="loc-dot" style="background:'+TYPE_COLORS[p.type]+'"></div><span class="loc-name">'+esc(p.name)+'</span><span class="loc-region">'+esc(p.regionId||'')+'</span>';
+    div.onclick=()=>selectLocation(id);
+    list.appendChild(div);
+  });
 }
 
-document.getElementById('save').onclick=save;
-document.getElementById('clear').onclick=clearSel;
+// ── SELECTION ──────────────────────────────────────────────────────────────────
+function selectLocation(id){
+  selectedId=id;
+  const p=places[id];if(!p)return;
+  el('loc-name').value=p.name||'';
+  el('loc-type').value=p.type||'city';
+  el('loc-region').value=p.regionId||'';
+  el('loc-weather').value=p.weatherModifier??0;
+  el('loc-desc').value=p.description||'';
+  el('loc-x').value=p.xPct||0;
+  el('loc-y').value=p.yPct||0;
+  renderMarkers(); renderLocList();
+}
 
+window.clearSelection=()=>{
+  selectedId=null;
+  ['loc-name','loc-region','loc-desc'].forEach(k=>el(k).value='');
+  el('loc-type').value='city';
+  el('loc-weather').value=0;
+  el('loc-x').value=''; el('loc-y').value='';
+  renderMarkers(); renderLocList();
+};
+
+// ── SAVE / DELETE ──────────────────────────────────────────────────────────────
+window.saveLocation = async () => {
+  if(!locRef){ el('loc-status').textContent='Connect first.'; return; }
+  const name=el('loc-name').value.trim();
+  if(!name){ el('loc-status').textContent='Name required.'; return; }
+  const id = selectedId || push(locRef).key;
+  const payload={
+    id, name,
+    type: el('loc-type').value,
+    regionId: el('loc-region').value.trim(),
+    weatherModifier: Number(el('loc-weather').value)||0,
+    description: el('loc-desc').value.trim(),
+    xPct: Number(el('loc-x').value)||0,
+    yPct: Number(el('loc-y').value)||0,
+    ts: Date.now()
+  };
+  await set(ref(db,`world/${sid}/locations/${id}`), payload);
+  selectedId=id;
+  el('loc-status').textContent=`${name} saved.`;
+};
+
+window.deleteLocation = async () => {
+  if(!selectedId||!locRef){ el('loc-status').textContent='Select a location first.'; return; }
+  const p=places[selectedId];
+  if(!confirm(`Delete ${p?.name}?`)) return;
+  await remove(ref(db,`world/${sid}/locations/${selectedId}`));
+  if(activeLocId===selectedId) await remove(activeLocRef);
+  clearSelection();
+  el('loc-status').textContent='Deleted.';
+};
+
+// ── ACTIVE LOCATION ────────────────────────────────────────────────────────────
+async function setActive(id){
+  const p=places[id];if(!p||!activeLocRef) return;
+  await set(activeLocRef,{
+    id, name:p.name, regionId:p.regionId||'', weatherModifier:p.weatherModifier??0,
+    description:p.description||'', ts:Date.now()
+  });
+  el('active-status').textContent=`Active location set to ${p.name}.`;
+}
+
+window.setActiveFromSelected=()=>{
+  if(!selectedId){ el('active-status').textContent='Select a location first.'; return; }
+  setActive(selectedId);
+};
+
+// Init map click once img loads
+el('mapImg').onclick = handleMapClick;
 </script>
 </body>
 </html>
