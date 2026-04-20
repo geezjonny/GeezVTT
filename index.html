@@ -1636,36 +1636,67 @@ window.enter=async()=>{
   // GM goes straight to app
   launchApp();
 };
+function canSeeCharacter(id, c){
+  if(!c) return false;
+  if(isGM) return true;
 
+  // Player can always see their own claimed character
+  if(c.ownerUserId && c.ownerUserId === myId) return true;
+
+  // Otherwise only if explicitly visible to players
+  return !!c.visibleToPlayers;
+}
+  
 function renderCharPicker(){
-  const grid=el('cp-grid');grid.innerHTML='';
-  const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
+  const grid = el('cp-grid');
+  grid.innerHTML = '';
+
+  const pcs = Object.entries(chars)
+    .filter(([id,c]) => c.type === 'pc' && canSeeCharacter(id,c))
+    .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
 
   // If player already has a character claimed, go straight in
-  const alreadyMine=pcs.find(([id,c])=>c.ownerUserId===myId);
+  const alreadyMine = Object.entries(chars).find(([id,c]) => c.type === 'pc' && c.ownerUserId === myId);
   if(alreadyMine){
-    claimAndLaunch(alreadyMine[0],alreadyMine[1]);
+    claimAndLaunch(alreadyMine[0], alreadyMine[1]);
     return;
   }
 
   if(!pcs.length){
-    grid.innerHTML='<div class="cp-none">No characters have been created yet.<br>Ask your GM to set up the session first.</div>';
+    grid.innerHTML = `<div class="cp-none">No player-visible characters available.</div>`;
     return;
   }
 
-  pcs.forEach(([id,c])=>{
-    const isTaken=!!c.ownerUserId;
-    const div=document.createElement('div');
-    div.className='cp-card'+(isTaken?' taken':'');
-    div.innerHTML=
-      '<img class="cp-avatar" src="'+esc(c.imageUrl||'')+'" alt="">'+
-      '<div class="cp-name">'+esc(c.name)+'</div>'+
-      '<div class="cp-class">'+esc([c.race,c.charClass].filter(Boolean).join(' '))+'</div>'+
-      '<div class="cp-status '+(isTaken?'taken':'available')+'">'+(isTaken?'Taken by '+esc(c.ownerName||'someone'):'Available')+'</div>';
-    if(!isTaken){
-      div.addEventListener('click',()=>claimAndLaunch(id,c));
+  pcs.forEach(([id,c]) => {
+    const takenBySomeoneElse = !!c.ownerUserId && c.ownerUserId !== myId;
+    const mine = c.ownerUserId === myId;
+
+    const card = document.createElement('div');
+    card.className = 'cp-card' + (takenBySomeoneElse ? ' taken' : '') + (mine ? ' mine' : '');
+
+    let statusClass = 'available';
+    let statusText = 'Available';
+
+    if(mine){
+      statusClass = 'mine';
+      statusText = 'Yours';
+    } else if(takenBySomeoneElse){
+      statusClass = 'taken';
+      statusText = 'Taken';
     }
-    grid.appendChild(div);
+
+    card.innerHTML = `
+      <img class="cp-avatar" src="${esc(c.imageUrl||'')}">
+      <div class="cp-name">${esc(c.name || 'Unnamed')}</div>
+      <div class="cp-class">${esc([c.race, c.class, c.level ? `Lv ${c.level}` : ''].filter(Boolean).join(' • '))}</div>
+      <div class="cp-status ${statusClass}">${statusText}</div>
+    `;
+
+    if(!takenBySomeoneElse){
+      card.addEventListener('click', () => claimAndLaunch(id, c));
+    }
+
+    grid.appendChild(card);
   });
 }
 
@@ -1946,18 +1977,37 @@ function mkMenuRow(label,fn,danger=false){
 }
 function renderParty(){
   // Don't render until app is live
-  if(el('app').style.display==='none')return;
-  const strip=el('party-strip');strip.innerHTML='';
-  const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
-  pcs.forEach(([id,c])=>{
-    const live=liveData[id];
-    const hpCur=live?.hp?.current??c.hp?.current??0;
-    const hpMax=live?.hp?.max??c.hp?.max??1;
-    const pct=Math.max(0,Math.min(100,Math.round(hpCur/Math.max(1,hpMax)*100)));
-    const div=document.createElement('div');
-    div.className='party-unit'+(activeCardId===id?' selected':'');
-    div.innerHTML=`<img class="pu-avatar" src="${esc(c.imageUrl||'')}"><div class="pu-info"><div class="pu-name">${esc(c.name)}</div><div class="pu-hp-bar"><div class="pu-hp-fill" style="width:${pct}%"></div></div></div><div class="pu-hp-txt">${hpCur}/${hpMax}</div>`;
-    div.addEventListener('click',()=>openCard(id));
+  if(el('app').style.display==='none') return;
+
+  const strip = el('party-strip');
+  strip.innerHTML = '';
+
+  const pcs = Object.entries(chars)
+    .filter(([id,c]) => c.type === 'pc' && canSeeCharacter(id,c))
+    .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
+
+  pcs.forEach(([id,c]) => {
+    const live = liveData[id];
+    const hpCur = live?.hp?.current ?? c.hp?.current ?? 0;
+    const hpMax = live?.hp?.max ?? c.hp?.max ?? 1;
+    const pct = Math.max(0, Math.min(100, Math.round(hpCur / Math.max(1,hpMax) * 100)));
+
+    const ac = live?.ac ?? c.ac ?? c.armorClass ?? null;
+
+    const div = document.createElement('div');
+    div.className = 'party-unit' + (activeCardId === id ? ' selected' : '');
+    div.innerHTML = `
+      <img class="pu-avatar" src="${esc(c.imageUrl||'')}">
+      <div class="pu-info">
+        <div class="pu-name">${esc(c.name || 'Unnamed')}</div>
+        <div class="pu-hp-bar">
+          <div class="pu-hp-fill" style="width:${pct}%"></div>
+        </div>
+        ${ac!==null ? `<div style="font-size:0.52rem;color:var(--text3);margin-top:2px;">AC ${ac}</div>` : ''}
+      </div>
+      <div class="pu-hp-txt">${hpCur}/${hpMax}</div>
+    `;
+    div.addEventListener('click', () => openCard(id));
     strip.appendChild(div);
   });
 }
