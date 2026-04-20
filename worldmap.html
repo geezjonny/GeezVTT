@@ -418,6 +418,8 @@ window.connect = async () => {
   onValue(calendarRef, snap => {
     const d = snap.val();
     calendarData = d || null;
+    
+    populateMonthSelect(calendarData || DEFAULT_CALENDAR);
 
     if(calendarData?.initialized){
       renderCalendar();
@@ -449,6 +451,7 @@ window.connect = async () => {
   const calSnap = await get(calendarRef);
   if(!calSnap.exists()){
     calendarData = structuredClone(DEFAULT_CALENDAR);
+    populateMonthSelect(calendarData);
     syncCalendarInputs();
     renderCalendar();
   }
@@ -720,17 +723,22 @@ window.setActiveFromSelected = () => {
 // ───────────────────────────────────────────────────────────────────────────────
 // CALENDAR
 // ───────────────────────────────────────────────────────────────────────────────
-function populateMonthSelect(){
+function populateMonthSelect(sourceCal = null){
   const sel = el('cal-month');
   sel.innerHTML = '';
-  DEFAULT_CALENDAR.months.forEach((m, i) => {
+
+  const months = (sourceCal?.months && sourceCal.months.length)
+    ? sourceCal.months
+    : DEFAULT_CALENDAR.months;
+
+  months.forEach((m, i) => {
     const opt = document.createElement('option');
     opt.value = i;
     opt.textContent = m.name;
     sel.appendChild(opt);
   });
 }
-
+  
 function syncCalendarInputs(){
   const cal = calendarData || DEFAULT_CALENDAR;
   el('cal-year').value = cal.year;
