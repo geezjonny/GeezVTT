@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>World Map Editor v0.1</title>
+  <style>
+    :root {
+      --bg: #0d1016;
+      --panel: #171a21;
+      --panel-2: #1f2633;
+      --text: #e9edf5;
+      --muted: #9aa6bf;
+      --accent: #6ea8fe;
+      --accent-2: #8b5cf6;
+      --border: #2b3445;
+      --danger: #ef4444;
+      --good: #22c55e;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #0b0f17 0%, #101827 100%);
+      color: var(--text);
+    }
+
+    .wrap {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    h1, h2, h3 { margin: 0 0 8px; }
+    .sub {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: rgba(23, 26, 33, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+    }
+
+    .stack > * + * { margin-top: 12px; }
+
+    .field label {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input[type="text"], input[type="number"], select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #101522;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+    }
+
+    button {
+      border: 1px solid var(--border);
+      background: #20283a;
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: 0.15s ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      border-color: transparent;
+    }
+    button.danger {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #fecaca;
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .map-shell {
+      position: relative;
+      overflow: hidden;
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      background: #0a0f18;
+      min-height: 500px;
+    }
+
+    .map-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .map-stage-wrap {
+      position: relative;
+      width: 100%;
+      overflow: auto;
+      max-height: calc(100vh - 220px);
+      background: #0a0f18;
+    }
+
+    .map-stage {
+      position: relative;
+      display: inline-block;
+      user-select: none;
+    }
+
+    .map-stage img {
+      display: block;
+      max-width: none;
+      width: auto;
+      height: auto;
+    }
+
+    .marker-layer {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .marker {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+      border: 2px solid rgba(255,255,255,0.85);
+      box-shadow: 0 0 0 2px rgba(0,0,0,0.25);
+      pointer-events: auto;
+      cursor: pointer;
+    }
+
+    .marker.city { background: #60a5fa; }
+    .marker.town { background: #34d399; }
+    .marker.poi { background: #f59e0b; }
+    .marker.road { background: #a78bfa; }
+    .marker.region_anchor { background: #f472b6; }
+
+    .marker.selected {
+      width: 20px;
+      height: 20px;
+      box-shadow: 0 0 0 3px rgba(110,168,254,0.35);
+    }
+
+    .coords {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+    }
+
+    .list {
+      max-height: 300px;
+      overflow: auto;
+      display: grid;
+      gap: 8px;
+    }
+
+    .item {
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--panel-2);
+      cursor: pointer;
+    }
+
+    .item.active {
+      border-color: rgba(110,168,254,0.45);
+      background: rgba(110,168,254,0.08);
+    }
+
+    .item-title {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .item-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .status {
+      font-size: 13px;
+      color: var(--muted);
+      min-height: 18px;
+    }
+
+    code {
+      background: rgba(255,255,255,0.05);
+      padding: 2px 5px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>World Map Editor v0.1</h1>
+        <div class="sub">Load a PNG map, click to place points, and save world locations + region weather hooks to Firebase.</div>
+      </div>
+      <div class="sub">Great next step after <code>calendar_weather.html</code></div>
+    </div>
+
+    <div class="grid">
+      <aside class="card stack">
+        <div>
+          <h2>Map Setup</h2>
+          <div class="field">
+            <label for="campaignIdInput">Campaign ID</label>
+            <input id="campaignIdInput" type="text" value="default_campaign" />
+          </div>
+          <div class="field">
+            <label for="mapImageUrl">Map PNG URL (GitHub Pages / raw / hosted image)</label>
+            <input id="mapImageUrl" type="text" placeholder="https://.../your-map.png" />
+          </div>
+          <div class="btn-row">
+            <button class="primary" id="loadMapBtn">Load Map</button>
+            <button id="reloadDataBtn">Reload Saved Data</button>
+          </div>
+          <div class="hint">Tip: put your map PNG in the same repo and use something like <code>assets/worldmap.png</code>.</div>
+        </div>
+
+        <div>
+          <h2>Placement Mode</h2>
+          <div class="field">
+            <label for="placeType">Place Type</label>
+            <select id="placeType">
+              <option value="city">City</option>
+              <option value="town">Town</option>
+              <option value="poi">Point of Interest</option>
+              <option value="road">Road Marker</option>
+              <option value="region_anchor">Region Anchor</option>
+            </select>
+          </div>
+          <div class="hint">Click anywhere on the map to drop a point. If a marker is selected, fields below will edit that marker.</div>
+        </div>
+
+        <div>
+          <h2>Selected / New Point</h2>
+          <div class="field">
+            <label for="placeId">Place ID (auto-generated if blank)</label>
+            <input id="placeId" type="text" placeholder="e.g. hollowmere" />
+          </div>
+          <div class="field">
+            <label for="placeName">Name</label>
+            <input id="placeName" type="text" placeholder="e.g. Hollowmere" />
+          </div>
+          <div class="field">
+            <label for="placeRegionId">Region ID</label>
+            <input id="placeRegionId" type="text" placeholder="e.g. hollowmere_region" />
+          </div>
+          <div class="field">
+            <label for="weatherModifier">Region Weather Modifier (future hook)</label>
+            <input id="weatherModifier" type="number" step="1" value="0" />
+          </div>
+          <div class="field">
+            <label for="xCoord">X %</label>
+            <input id="xCoord" type="number" step="0.01" />
+          </div>
+          <div class="field">
+            <label for="yCoord">Y %</label>
+            <input id="yCoord" type="number" step="0.01" />
+          </div>
+          <div class="btn-row">
+            <button class="primary" id="savePointBtn">Save Point</button>
+            <button id="clearSelectionBtn">Clear Selection</button>
+            <button class="danger" id="deletePointBtn">Delete Point</button>
+          </div>
+          <div class="status" id="editorStatus"></div>
+        </div>
+
+        <div>
+          <h2>Saved Points</h2>
+          <div class="list" id="pointsList"></div>
+        </div>
+      </aside>
+
+      <main class="card">
+        <h2>Map Canvas</h2>
+        <div class="coords" id="coordReadout">Load a map, then click to place points.</div>
+
+        <div class="map-shell" style="margin-top: 12px;">
+          <div class="map-toolbar">
+            <button id="zoomOutBtn">- Zoom</button>
+            <button id="zoomResetBtn">Reset</button>
+            <button id="zoomInBtn">+ Zoom</button>
+            <div class="sub" id="zoomLabel">100%</div>
+          </div>
+          <div class="map-stage-wrap" id="mapStageWrap">
+            <div class="map-stage" id="mapStage">
+              <img id="mapImage" alt="World Map" />
+              <div class="marker-layer" id="markerLayer"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="hint" style="margin-top: 12px;">
+          <strong>What this writes:</strong><br />
+          <code>campaigns/{campaignId}/world/places/{placeId}</code> for cities / towns / POIs / roads / anchors.<br />
+          Later, your VTT can read <code>currentLocationId</code> → load the place → read <code>regionId</code> → use <code>weatherModifier</code>.
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module">
+    // =========================================================
+    // WORLD MAP EDITOR v0.1
+    // ---------------------------------------------------------
+    // Click a PNG map to place points and save them to Firebase.
+    // Each point stores normalized X/Y (percent), type, name, regionId,
+    // and a weatherModifier hook for later calendar_weather integration.
+    // =========================================================
+
+    // ---------------------------------
+    // Firebase config (paste yours here)
+    // ---------------------------------
+    const firebaseConfig = {
+      // apiKey: "",
+      // authDomain: "",
+      // projectId: "",
+      // storageBucket: "",
+      // messagingSenderId: "",
+      // appId: ""
+    };
+
+    let db = null;
+    let firebaseReady = false;
+    let fb = null;
+    let unsubscribePlaces = null;
+
+    async function setupFirebase() {
+      const hasConfig = firebaseConfig && firebaseConfig.apiKey;
+      if (!hasConfig) {
+        console.warn('Firebase config not set. Running in local demo mode.');
+        return;
+      }
+      try {
+        const [{ initializeApp }, firestore] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+        ]);
+
+        const app = initializeApp(firebaseConfig);
+        fb = firestore;
+        db = firestore.getFirestore(app);
+        firebaseReady = true;
+      } catch (err) {
+        console.error('Firebase init failed. Falling back to local demo mode.', err);
+      }
+    }
+
+    // ---------------------------------
+    // DOM refs
+    // ---------------------------------
+    const campaignIdInput = document.getElementById('campaignIdInput');
+    const mapImageUrl = document.getElementById('mapImageUrl');
+    const loadMapBtn = document.getElementById('loadMapBtn');
+    const reloadDataBtn = document.getElementById('reloadDataBtn');
+
+    const placeType = document.getElementById('placeType');
+    const placeId = document.getElementById('placeId');
+    const placeName = document.getElementById('placeName');
+    const placeRegionId = document.getElementById('placeRegionId');
+    const weatherModifier = document.getElementById('weatherModifier');
+    const xCoord = document.getElementById('xCoord');
+    const yCoord = document.getElementById('yCoord');
+
+    const savePointBtn = document.getElementById('savePointBtn');
+    const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+    const deletePointBtn = document.getElementById('deletePointBtn');
+    const editorStatus = document.getElementById('editorStatus');
+
+    const pointsList = document.getElementById('pointsList');
+
+    const mapStageWrap = document.getElementById('mapStageWrap');
+    const mapStage = document.getElementById('mapStage');
+    const mapImage = document.getElementById('mapImage');
+    const markerLayer = document.getElementById('markerLayer');
+    const coordReadout = document.getElementById('coordReadout');
+
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const zoomResetBtn = document.getElementById('zoomResetBtn');
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomLabel = document.getElementById('zoomLabel');
+
+    // ---------------------------------
+    // State
+    // ---------------------------------
+    let zoom = 1;
+    let places = [];
+    let selectedId = null;
+
+    function getCampaignId() {
+      return (campaignIdInput.value || 'default_campaign').trim();
+    }
+
+    function placesPath() {
+      return `campaigns/${getCampaignId()}/world/places`;
+    }
+
+    function localKey() {
+      return `wm:${getCampaignId()}:places`;
+    }
+
+    function slugify(str) {
+      return String(str || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || `place_${Date.now()}`;
+    }
+
+    function clamp(n, min, max) {
+      return Math.max(min, Math.min(max, n));
+    }
+
+    function setStatus(msg) {
+      editorStatus.textContent = msg;
+    }
+
+    // ---------------------------------
+    // Local fallback storage
+    // ---------------------------------
+    function getLocalPlaces() {
+      const raw = localStorage.getItem(localKey());
+      const obj = raw ? JSON.parse(raw) : {};
+      return Object.entries(obj).map(([id, data]) => ({ id, ...data }));
+    }
+
+    function setLocalPlacesObject(obj) {
+      localStorage.setItem(localKey(), JSON.stringify(obj));
+    }
+
+    // ---------------------------------
+    // Data layer
+    // ---------------------------------
+    async function loadPlaces() {
+      if (firebaseReady) {
+        const col = fb.collection(db, placesPath());
+        const snap = await fb.getDocs(col);
+        places = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } else {
+        places = getLocalPlaces();
+      }
+      renderPlaces();
+    }
+
+    function subscribePlaces() {
+      if (!firebaseReady) return;
+      if (unsubscribePlaces) unsubscribePlaces();
+      unsubscribePlaces = fb.onSnapshot(fb.collection(db, placesPath()), (snap) => {
+        places = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        renderPlaces();
+      });
+    }
+
+    async function savePlace(data) {
+      if (firebaseReady) {
+        const ref = fb.doc(db, `${placesPath()}/${data.id}`);
+        await fb.setDoc(ref, data, { merge: true });
+      } else {
+        const current = Object.fromEntries(getLocalPlaces().map(p => [p.id, { ...p, id: undefined }]));
+        current[data.id] = {
+          name: data.name,
+          type: data.type,
+          regionId: data.regionId,
+          weatherModifier: data.weatherModifier,
+          xPct: data.xPct,
+          yPct: data.yPct,
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+        };
+        setLocalPlacesObject(current);
+      }
+      await loadPlaces();
+    }
+
+    async function deletePlace(id) {
+      if (!id) return;
+      if (firebaseReady) {
+        const ref = fb.doc(db, `${placesPath()}/${id}`);
+        await fb.deleteDoc(ref);
+      } else {
+        const current = Object.fromEntries(getLocalPlaces().map(p => [p.id, { ...p, id: undefined }]));
+        delete current[id];
+        setLocalPlacesObject(current);
+      }
+      await loadPlaces();
+    }
+
+    // ---------------------------------
+    // Map interactions
+    // ---------------------------------
+    function applyZoom() {
+      mapStage.style.transform = `scale(${zoom})`;
+      mapStage.style.transformOrigin = 'top left';
+      zoomLabel.textContent = `${Math.round(zoom * 100)}%`;
+      markerLayer.style.width = `${mapImage.naturalWidth}px`;
+      markerLayer.style.height = `${mapImage.naturalHeight}px`;
+    }
+
+    function loadMap() {
+      const url = mapImageUrl.value.trim();
+      if (!url) {
+        setStatus('Enter a map image URL first.');
+        return;
+      }
+      mapImage.src = url;
+      mapImage.onload = () => {
+        markerLayer.style.width = `${mapImage.naturalWidth}px`;
+        markerLayer.style.height = `${mapImage.naturalHeight}px`;
+        applyZoom();
+        setStatus('Map loaded. Click on it to place points.');
+      };
+      mapImage.onerror = () => {
+        setStatus('Failed to load map image. Check the URL/path.');
+      };
+    }
+
+    function handleMapClick(event) {
+      if (!mapImage.src) return;
+      const rect = mapImage.getBoundingClientRect();
+      const x = ((event.clientX - rect.left) / rect.width) * 100;
+      const y = ((event.clientY - rect.top) / rect.height) * 100;
+      const xPct = clamp(Number(x.toFixed(2)), 0, 100);
+      const yPct = clamp(Number(y.toFixed(2)), 0, 100);
+
+      xCoord.value = xPct;
+      yCoord.value = yPct;
+      coordReadout.textContent = `Cursor / click: X ${xPct}% • Y ${yPct}%`;
+
+      if (!selectedId) {
+        placeType.value = placeType.value || 'city';
+      }
+    }
+
+    // ---------------------------------
+    // Render
+    // ---------------------------------
+    function renderPlaces() {
+      markerLayer.innerHTML = '';
+      pointsList.innerHTML = '';
+
+      const sorted = [...places].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+
+      for (const place of sorted) {
+        // Marker
+        const marker = document.createElement('button');
+        marker.className = `marker ${place.type || 'poi'} ${place.id === selectedId ? 'selected' : ''}`;
+        marker.style.left = `${place.xPct}%`;
+        marker.style.top = `${place.yPct}%`;
+        marker.title = `${place.name || place.id} (${place.type || 'poi'})`;
+        marker.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectPlace(place.id);
+        });
+        markerLayer.appendChild(marker);
+
+        // List item
+        const item = document.createElement('div');
+        item.className = `item ${place.id === selectedId ? 'active' : ''}`;
+        item.innerHTML = `
+          <div class="item-title">${escapeHtml(place.name || place.id)}</div>
+          <div class="item-meta">${escapeHtml(place.type || 'poi')} • ${escapeHtml(place.regionId || 'no region')} • (${place.xPct}%, ${place.yPct}%) • weather ${place.weatherModifier ?? 0}</div>
+        `;
+        item.addEventListener('click', () => selectPlace(place.id));
+        pointsList.appendChild(item);
+      }
+    }
+
+    function selectPlace(id) {
+      const place = places.find(p => p.id === id);
+      if (!place) return;
+      selectedId = id;
+      placeId.value = place.id;
+      placeName.value = place.name || '';
+      placeType.value = place.type || 'poi';
+      placeRegionId.value = place.regionId || '';
+      weatherModifier.value = Number(place.weatherModifier ?? 0);
+      xCoord.value = place.xPct;
+      yCoord.value = place.yPct;
+      renderPlaces();
+      setStatus(`Selected ${place.name || place.id}.`);
+    }
+
+    function clearSelection() {
+      selectedId = null;
+      placeId.value = '';
+      placeName.value = '';
+      placeRegionId.value = '';
+      weatherModifier.value = 0;
+      xCoord.value = '';
+      yCoord.value = '';
+      renderPlaces();
+      setStatus('Selection cleared. Click map to set coordinates for a new point.');
+    }
+
+    async function handleSavePoint() {
+      const xPct = Number(xCoord.value);
+      const yPct = Number(yCoord.value);
+      if (Number.isNaN(xPct) || Number.isNaN(yPct)) {
+        setStatus('Click the map first to set coordinates.');
+        return;
+      }
+
+      const name = placeName.value.trim();
+      const type = placeType.value;
+      const regionId = placeRegionId.value.trim();
+      const id = (placeId.value || slugify(name || `${type}_${Date.now()}`)).trim();
+      const now = new Date().toISOString();
+
+      const payload = {
+        id,
+        name: name || id,
+        type,
+        regionId: regionId || `${id}_region`,
+        weatherModifier: Number(weatherModifier.value || 0),
+        xPct: clamp(Number(xPct.toFixed(2)), 0, 100),
+        yPct: clamp(Number(yPct.toFixed(2)), 0, 100),
+        createdAt: places.find(p => p.id === id)?.createdAt || now,
+        updatedAt: now,
+      };
+
+      await savePlace(payload);
+      selectedId = id;
+      renderPlaces();
+      setStatus(`Saved ${payload.name}.`);
+    }
+
+    async function handleDeletePoint() {
+      if (!selectedId) {
+        setStatus('Select a point first.');
+        return;
+      }
+      const doomed = selectedId;
+      await deletePlace(doomed);
+      clearSelection();
+      setStatus(`Deleted ${doomed}.`);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    // ---------------------------------
+    // Events
+    // ---------------------------------
+    loadMapBtn.addEventListener('click', loadMap);
+    reloadDataBtn.addEventListener('click', async () => {
+      await loadPlaces();
+      subscribePlaces();
+      setStatus('Reloaded saved point data.');
+    });
+
+    mapImage.addEventListener('click', handleMapClick);
+
+    savePointBtn.addEventListener('click', handleSavePoint);
+    clearSelectionBtn.addEventListener('click', clearSelection);
+    deletePointBtn.addEventListener('click', handleDeletePoint);
+
+    zoomOutBtn.addEventListener('click', () => {
+      zoom = Math.max(0.5, Number((zoom - 0.1).toFixed(2)));
+      applyZoom();
+    });
+    zoomResetBtn.addEventListener('click', () => {
+      zoom = 1;
+      applyZoom();
+    });
+    zoomInBtn.addEventListener('click', () => {
+      zoom = Math.min(3, Number((zoom + 0.1).toFixed(2)));
+      applyZoom();
+    });
+
+    campaignIdInput.addEventListener('change', async () => {
+      await loadPlaces();
+      subscribePlaces();
+      clearSelection();
+    });
+
+    // ---------------------------------
+    // Boot
+    // ---------------------------------
+    async function boot() {
+      await setupFirebase();
+      await loadPlaces();
+      subscribePlaces();
+      setStatus(firebaseReady
+        ? 'Firebase connected. Load a map PNG to begin.'
+        : 'Firebase not configured. Running in local demo mode.'
+      );
+    }
+
+    boot();
+  </script>
+</body>
+</html>
