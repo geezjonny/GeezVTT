@@ -1505,28 +1505,28 @@ body.is-gm .gm-b{display:block!important;}
 
 <!-- CALIBRATION OVERLAY -->
 <div id="calib-overlay" style="display:none;position:fixed;inset:0;z-index:600;pointer-events:none;">
-  <!-- Corner quadrant guides -->
+  <!-- Corner quadrant guides — pointer-events:none inherited, just visual -->
   <div id="calib-q0" class="calib-quad" style="top:0;left:0;"></div>
   <div id="calib-q1" class="calib-quad" style="top:0;right:0;"></div>
   <div id="calib-q2" class="calib-quad" style="bottom:0;left:0;"></div>
   <div id="calib-q3" class="calib-quad" style="bottom:0;right:0;"></div>
-  <!-- Step indicator -->
-  <div id="calib-hud" style="
-    position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:rgba(17,24,39,0.97);border:1px solid var(--gold);
-    border-radius:var(--radius-lg);padding:1rem 1.4rem;
-    font-family:var(--font-head);text-align:center;
-    box-shadow:var(--shadow-lg);min-width:280px;
-    pointer-events:all;
-  ">
-    <div id="calib-hud-title" style="font-size:0.8rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;letter-spacing:0.06em;">CALIBRATE GRID</div>
-    <div id="calib-hud-step" style="font-size:0.72rem;color:var(--text2);margin-bottom:0.8rem;line-height:1.5;"></div>
-    <div id="calib-hud-samples" style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.8rem;flex-wrap:wrap;"></div>
-    <div style="display:flex;gap:0.5rem;justify-content:center;">
-      <button id="calib-skip-btn" onclick="cancelCalibration()" style="padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Skip</button>
-      <button id="calib-commit-btn" onclick="commitCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--gold);background:rgba(245,197,66,0.12);color:var(--gold);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;font-weight:600;">Apply</button>
-      <button id="calib-redo-btn" onclick="redoCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Redo</button>
-    </div>
+</div>
+<!-- Calib HUD is separate from overlay so pointer-events work independently -->
+<div id="calib-hud" style="
+  display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(17,24,39,0.97);border:1px solid var(--gold);
+  border-radius:var(--radius-lg);padding:1rem 1.4rem;
+  font-family:var(--font-head);text-align:center;
+  box-shadow:var(--shadow-lg);min-width:280px;
+  z-index:601;pointer-events:all;
+">
+  <div id="calib-hud-title" style="font-size:0.8rem;font-weight:700;color:var(--gold);margin-bottom:0.3rem;letter-spacing:0.06em;">CALIBRATE GRID</div>
+  <div id="calib-hud-step" style="font-size:0.72rem;color:var(--text2);margin-bottom:0.8rem;line-height:1.5;"></div>
+  <div id="calib-hud-samples" style="display:flex;gap:0.5rem;justify-content:center;margin-bottom:0.8rem;flex-wrap:wrap;"></div>
+  <div style="display:flex;gap:0.5rem;justify-content:center;">
+    <button id="calib-skip-btn" onclick="cancelCalibration()" style="padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Skip</button>
+    <button id="calib-commit-btn" onclick="commitCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--gold);background:rgba(245,197,66,0.12);color:var(--gold);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;font-weight:600;">Apply</button>
+    <button id="calib-redo-btn" onclick="redoCalibration()" style="display:none;padding:0.3rem 0.8rem;border-radius:var(--radius-sm);border:1px solid var(--border);background:transparent;color:var(--text2);font-family:var(--font-head);font-size:0.65rem;cursor:pointer;">Redo</button>
   </div>
 </div>
 
@@ -2594,16 +2594,14 @@ function startCalibrationFlow(){
   calibMode=true;
   calibStep=0;calibSamples=[];calibGridOrigin={x:0,y:0};
   cleanCalib();
-  const overlay=el('calib-overlay');
-  overlay.style.display='block';
-  // Overlay itself is pointer-events:none so clicks pass through to board
-  // Only the HUD div intercepts clicks (it has pointer-events:all inline)
-  overlay.style.pointerEvents='none';
+  el('calib-overlay').style.display='block';
+  el('calib-hud').style.display='block';
   updateCalibHud();
 }
 
 function cancelCalibration(){
   el('calib-overlay').style.display='none';
+  el('calib-hud').style.display='none';
   cleanCalib();
   calibMode=false;
   el('btn-calib').classList.remove('active');
@@ -2875,8 +2873,8 @@ function initBoard(){
       if(moveMode&&!onTok){
         handleMoveClick(e.clientX,e.clientY);return;
       }
-      // Calibration overlay intercepts clicks on the board area (not HUD)
-      if(isGM&&el('calib-overlay').style.display==='block'&&!e.target.closest('#calib-hud')){
+      // Calibration — draw anywhere on the board (HUD is separate and blocks its own clicks)
+      if(isGM&&calibMode&&!e.target.closest('#calib-hud')){
         startCalibDraw(e.clientX,e.clientY);return;
       }
       if(rulerMode&&!onTok){startRuler(e.clientX,e.clientY);return;}
