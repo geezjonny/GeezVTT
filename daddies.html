@@ -2259,6 +2259,7 @@ CHARS.forEach(c => { buildCondChips(c); });
       let all = Array.from(wrap.querySelectorAll('.slot-pip-mini'));
       let flat = [];
       Object.keys(levels).sort((a,b)=>Number(a)-Number(b)).forEach(lvl => {
+        if (!Array.isArray(levels[lvl])) return; // Firebase can return null for empty slot arrays
         levels[lvl].forEach(v => flat.push(v));
       });
       all.forEach((el, i) => el.classList.toggle('spent', flat[i] === false));
