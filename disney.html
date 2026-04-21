@@ -3,856 +3,163 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Disney Campaign — Party Sheet</title>
+<title>Crystal Obelisk — Map v3 Fog Alpha</title>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#080b10;
-  --bg2:#0d1018;
-  --card:#13161f;
-  --border:#222638;
-  --border-hi:#363d58;
-  --gold:#c9a84c;
-  --gold-dim:#6a5020;
-  --blue:#7ec8e3;
-  --blue-dim:#2f6a80;
-  --green:#4ade80;
-  --green-dim:#1e5c38;
-  --red:#e05555;
-  --violet:#9b7ff4;
-  --text:#ddd5c4;
-  --text-mid:#9a9080;
-  --text-dim:#5a5448;
-
-  --wendy:#e05555;
-  --jasmine:#4ade80;
-  --esmeralda:#fbbf24;
-  --kristoff:#a78bfa;
-}
-*{box-sizing:border-box;margin:0;padding:0;}
-html,body{height:100%;}
-body{
-  background:var(--bg);
-  color:var(--text);
-  font-family:'Crimson Pro', Georgia, serif;
-  overflow:hidden;
-}
-body::before{
-  content:'';
-  position:fixed; inset:0; pointer-events:none; z-index:0;
-  background:
-    radial-gradient(ellipse 60% 50% at 10% 5%, rgba(126,200,227,.04) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 60% at 90% 95%, rgba(155,127,244,.04) 0%, transparent 60%);
-}
-.topbar{
-  height:54px;
-  display:flex;
-  align-items:center;
-  gap:.8rem;
-  padding:0 1rem;
-  background:rgba(8,11,16,.96);
-  border-bottom:1px solid var(--border);
-  position:relative;
-  z-index:10;
-  backdrop-filter:blur(8px);
-}
-.brand{
-  font-family:'Cinzel Decorative', serif;
-  font-size:.9rem;
-  color:var(--blue);
-  text-shadow:0 0 16px rgba(126,200,227,.35);
-  white-space:nowrap;
-}
-.top-actions{
-  display:flex;
-  gap:.4rem;
-  flex-wrap:wrap;
-}
-.tool-btn{
-  padding:.42rem .7rem;
-  background:none;
-  border:1px solid var(--border);
-  color:var(--text-dim);
-  font-size:.72rem;
-  cursor:pointer;
-  border-radius:4px;
-  font-family:'Cinzel', serif;
-  letter-spacing:.04em;
-  transition:all .15s;
-}
-.tool-btn:hover{
-  color:var(--text);
-  border-color:var(--border-hi);
-}
-.status{
-  margin-left:auto;
-  font-size:.68rem;
-  color:var(--text-dim);
-  font-family:'Cinzel', serif;
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-.app{
-  position:relative;
-  z-index:1;
-  display:grid;
-  grid-template-columns:280px 1fr;
-  height:calc(100% - 54px);
-}
-@media(max-width:1000px){
-  .app{ grid-template-columns:1fr; }
-  .sidebar{ display:none; }
-}
-.sidebar{
-  background:var(--bg2);
-  border-right:1px solid var(--border);
-  overflow:auto;
-  padding:.8rem;
-}
-.main{
-  overflow:auto;
-  padding:1rem;
-}
-.panel{
-  background:var(--card);
-  border:1px solid var(--border);
-  margin-bottom:.75rem;
-  overflow:hidden;
-}
-.panel-hd{
-  background:var(--bg2);
-  border-bottom:1px solid var(--border);
-  padding:.55rem .7rem;
-  font-family:'Cinzel', serif;
-  font-size:.58rem;
-  letter-spacing:.12em;
-  color:var(--blue);
-  text-transform:uppercase;
-}
-.panel-bd{
-  padding:.7rem .8rem;
-}
-.note{
-  font-size:.78rem;
-  color:var(--text-dim);
-  line-height:1.45;
-  font-style:italic;
-}
-.party-list{
-  display:flex;
-  flex-direction:column;
-  gap:.4rem;
-}
-.party-btn{
-  display:flex;
-  align-items:center;
-  gap:.55rem;
-  width:100%;
-  padding:.45rem .5rem;
-  background:var(--bg2);
-  border:1px solid var(--border);
-  color:var(--text);
-  cursor:pointer;
-  transition:all .15s;
-  text-align:left;
-}
-.party-btn:hover{ border-color:var(--border-hi); }
-.party-btn.active{
-  border-color:var(--blue);
-  background:rgba(126,200,227,.05);
-}
-.party-dot{
-  width:22px; height:22px; border-radius:50%;
-  border:2px solid;
-  flex-shrink:0;
-}
-.party-meta{
-  flex:1;
-}
-.party-name{
-  font-size:.84rem;
-}
-.party-sub{
-  font-size:.62rem;
-  color:var(--text-dim);
-  text-transform:uppercase;
-  letter-spacing:.06em;
-}
-.grid{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(320px, 1fr));
-  gap:1rem;
-}
-@media(max-width:1100px){
-  .grid{ grid-template-columns:1fr; }
-}
-.card{
-  background:var(--card);
-  border:1px solid var(--border);
-  overflow:hidden;
-}
-.card-hd{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:.75rem;
-  padding:.8rem 1rem;
-  border-bottom:1px solid var(--border);
-  background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,0));
-}
-.card-title{
-  display:flex;
-  flex-direction:column;
-  gap:.2rem;
-}
-.char-name{
-  font-family:'Cinzel', serif;
-  font-size:1rem;
-  letter-spacing:.03em;
-}
-.char-sub{
-  font-size:.72rem;
-  color:var(--text-dim);
-  text-transform:uppercase;
-  letter-spacing:.08em;
-}
-.hp-badge{
-  text-align:right;
-  min-width:120px;
-}
-.hp-line{
-  font-family:'Cinzel', serif;
-  font-size:.85rem;
-}
-.hp-bar{
-  margin-top:.35rem;
-  width:120px;
-  height:8px;
-  border:1px solid var(--border);
-  background:var(--bg);
-  position:relative;
-}
-.hp-fill{
-  position:absolute; inset:0 auto 0 0;
-  width:100%;
-  background:linear-gradient(90deg, var(--green), #84f2a8);
-}
-.card-bd{
-  padding:1rem;
-}
-.stat-row{
-  display:grid;
-  grid-template-columns:repeat(6, 1fr);
-  gap:.5rem;
-  margin-bottom:1rem;
-}
-@media(max-width:700px){
-  .stat-row{ grid-template-columns:repeat(3, 1fr); }
-}
-.stat{
-  border:1px solid var(--border);
-  background:var(--bg2);
-  padding:.55rem .4rem;
-  text-align:center;
-}
-.stat-label{
-  font-family:'Cinzel', serif;
-  font-size:.52rem;
-  color:var(--text-dim);
-  letter-spacing:.08em;
-  text-transform:uppercase;
-}
-.stat-score{
-  font-size:1.15rem;
-  font-weight:600;
-}
-.stat-mod{
-  font-size:.72rem;
-  color:var(--blue);
-}
-.mini-grid{
-  display:grid;
-  grid-template-columns:repeat(4, 1fr);
-  gap:.55rem;
-  margin-bottom:1rem;
-}
-@media(max-width:700px){
-  .mini-grid{ grid-template-columns:repeat(2, 1fr); }
-}
-.mini{
-  border:1px solid var(--border);
-  background:var(--bg2);
-  padding:.55rem;
-}
-.mini-label{
-  font-family:'Cinzel', serif;
-  font-size:.5rem;
-  color:var(--text-dim);
-  text-transform:uppercase;
-  letter-spacing:.08em;
-  margin-bottom:.2rem;
-}
-.mini-val{
-  font-size:.95rem;
-}
-.section{
-  margin-bottom:1rem;
-}
-.section:last-child{ margin-bottom:0; }
-.section-hd{
-  font-family:'Cinzel', serif;
-  font-size:.58rem;
-  color:var(--gold);
-  text-transform:uppercase;
-  letter-spacing:.12em;
-  margin-bottom:.45rem;
-}
-.tags{
-  display:flex;
-  flex-wrap:wrap;
-  gap:.35rem;
-}
-.tag{
-  border:1px solid var(--border);
-  background:var(--bg2);
-  padding:.28rem .45rem;
-  font-size:.72rem;
-  color:var(--text-mid);
-}
-.cond-list{
-  display:flex;
-  flex-wrap:wrap;
-  gap:.35rem;
-  margin-top:.35rem;
-}
-.cond-pill{
-  border:1px solid var(--border);
-  background:var(--bg2);
-  color:var(--text);
-  padding:.28rem .45rem;
-  font-size:.72rem;
-  cursor:pointer;
-}
-.cond-pill.active{
-  border-color:var(--blue);
-  color:var(--blue);
-  background:rgba(126,200,227,.06);
-}
-.form-grid{
-  display:grid;
-  grid-template-columns:repeat(3, 1fr);
-  gap:.5rem;
-}
-@media(max-width:700px){
-  .form-grid{ grid-template-columns:1fr; }
-}
-.lbl{
-  display:block;
-  font-family:'Cinzel', serif;
-  font-size:.5rem;
-  letter-spacing:.08em;
-  color:var(--text-dim);
-  text-transform:uppercase;
-  margin-bottom:.22rem;
-}
-.inp{
-  width:100%;
-  background:var(--bg);
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:.45rem .55rem;
-  font-size:.88rem;
-  outline:none;
-}
-.inp:focus{ border-color:var(--blue-dim); }
-textarea.inp{
-  min-height:84px;
-  resize:vertical;
-}
-.footer-note{
-  margin-top:1rem;
-  font-size:.76rem;
-  color:var(--text-dim);
-  font-style:italic;
-}
+:root{--fog:#080b10;--deep:#0d1018;--card:#13161f;--border:#222638;--border-hi:#363d58;--crystal:#7ec8e3;--crystal-dim:#2f6a80;--gold:#c9a84c;--void:#9b7ff4;--null:#e05555;--green:#4ade80;--text:#ddd5c4;--text-mid:#9a9080;--text-dim:#5a5448;--seris:#e05555;--liora:#4ade80;--rurik:#fbbf24;--ashara:#fb923c;--lark:#a78bfa;--kairon:#8ab4a8;}
+*{box-sizing:border-box;margin:0;padding:0} html,body{height:100%}
+body{background:var(--fog);color:var(--text);font-family:'Crimson Pro',Georgia,serif;overflow:hidden}
+.topbar{height:48px;display:flex;align-items:center;gap:.75rem;background:rgba(8,11,16,.96);border-bottom:1px solid var(--border);position:relative;z-index:80;padding:0 .8rem}
+.brand{font-family:'Cinzel Decorative',serif;font-size:.78rem;color:var(--crystal);white-space:nowrap}
+.top-actions{display:flex;align-items:center;gap:.35rem;flex-wrap:wrap}
+.tool-btn{padding:.35rem .6rem;background:none;border:1px solid var(--border);color:var(--text-dim);font-size:.72rem;cursor:pointer;border-radius:3px;font-family:'Cinzel',serif}
+.tool-btn.active{color:var(--crystal);border-color:var(--crystal);background:rgba(126,200,227,.07)}
+.status{margin-left:auto;font-size:.68rem;color:var(--text-dim);font-family:'Cinzel',serif}
+.app{display:grid;grid-template-columns:320px 1fr;height:calc(100% - 48px)}
+@media(max-width:980px){.app{grid-template-columns:1fr}.sidebar{display:none}}
+.sidebar{background:var(--deep);border-right:1px solid var(--border);overflow:auto;padding:.8rem}
+.panel{background:var(--card);border:1px solid var(--border);margin-bottom:.75rem;overflow:hidden}
+.panel-hd{background:var(--deep);border-bottom:1px solid var(--border);padding:.5rem .7rem;font-family:'Cinzel',serif;font-size:.58rem;letter-spacing:.12em;color:var(--crystal);text-transform:uppercase}
+.panel-bd{padding:.65rem .75rem}
+.lbl{display:block;font-family:'Cinzel',serif;font-size:.48rem;letter-spacing:.08em;color:var(--text-dim);text-transform:uppercase;margin-bottom:.25rem}
+.inp,.sel{width:100%;background:var(--fog);border:1px solid var(--border);color:var(--text);padding:.45rem .55rem;font-size:.85rem;outline:none;margin-bottom:.45rem}
+.row{display:flex;gap:.35rem;align-items:center}.note{font-size:.76rem;color:var(--text-dim);line-height:1.5;font-style:italic;margin-top:.35rem}
+.token-roster{display:flex;flex-direction:column;gap:.35rem}
+.token-item{display:flex;align-items:center;gap:.5rem;padding:.38rem .45rem;border:1px solid var(--border);background:var(--deep);cursor:pointer}
+.token-item.hidden{opacity:.5}
+.token-swatch{width:26px;height:26px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:.55rem;font-weight:700;flex-shrink:0;background:rgba(255,255,255,.03)}
+.token-name{flex:1;font-size:.8rem}.token-mini{font-size:.62rem;color:var(--text-dim)}
+.map-wrap{position:relative;overflow:hidden;background:#05070a}.map-stage{position:absolute;inset:0;overflow:hidden;cursor:grab}.map-stage.dragging{cursor:grabbing}
+.map-world{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none}.map-img{display:block;position:absolute;left:0;top:0;max-width:none;max-height:none;user-select:none;pointer-events:none}
+.no-map{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-dim);font-style:italic;padding:1rem;pointer-events:none}
+.grid-overlay{position:absolute;left:0;top:0;pointer-events:none;opacity:.4;background-image:linear-gradient(to right, rgba(126,200,227,.18) 1px, transparent 1px),linear-gradient(to bottom, rgba(126,200,227,.18) 1px, transparent 1px)}
+.weather-filter{position:absolute;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity .25s ease}
+.weather-filter.rain{opacity:1;background:rgba(38,76,118,.18);backdrop-filter:brightness(.85) saturate(.85)}
+.weather-filter.snow{opacity:1;background:rgba(180,210,255,.08);backdrop-filter:brightness(.95) saturate(.8)}
+.weather-filter.foggy{opacity:1;background:rgba(160,170,180,.14);backdrop-filter:blur(1px) brightness(.88)}
+.weather-filter.night{opacity:1;background:rgba(15,24,52,.28);backdrop-filter:brightness(.65) saturate(.8)}
+.weather-overlay{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.rain-drop{position:absolute;width:2px;height:22px;background:linear-gradient(to bottom, rgba(180,220,255,.05), rgba(180,220,255,.5));animation:rain-fall linear infinite}
+@keyframes rain-fall{0%{transform:translateY(-30px) rotate(18deg);opacity:0}10%{opacity:.7}100%{transform:translateY(120vh) rotate(18deg);opacity:0}}
+.snow-flake{position:absolute;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.8);animation:snow-fall linear infinite}
+@keyframes snow-fall{0%{transform:translateY(-20px) translateX(0);opacity:0}10%{opacity:.8}100%{transform:translateY(120vh) translateX(20px);opacity:0}}
+.fog-puff{position:absolute;width:160px;height:80px;border-radius:50%;background:radial-gradient(ellipse at center, rgba(220,225,235,.12) 0%, rgba(220,225,235,.02) 70%, transparent 100%);animation:fog-drift linear infinite}
+@keyframes fog-drift{0%{transform:translateX(-180px);opacity:0}15%{opacity:.6}85%{opacity:.45}100%{transform:translateX(calc(100vw + 180px));opacity:0}}
+.night-stars{position:absolute;inset:0;background-image:radial-gradient(circle at 15% 20%, rgba(255,255,255,.7) 0 1px, transparent 2px),radial-gradient(circle at 40% 35%, rgba(255,255,255,.5) 0 1px, transparent 2px),radial-gradient(circle at 65% 18%, rgba(255,255,255,.65) 0 1px, transparent 2px),radial-gradient(circle at 82% 42%, rgba(255,255,255,.45) 0 1px, transparent 2px),radial-gradient(circle at 28% 62%, rgba(255,255,255,.5) 0 1px, transparent 2px);opacity:.35;animation:star-twinkle 4s ease-in-out infinite alternate}
+@keyframes star-twinkle{from{opacity:.18}to{opacity:.4}}
+.fog-layer{position:absolute;left:0;top:0;z-index:6}.fog-rect{position:absolute;background:rgba(6,8,12,.82);border:1px solid rgba(255,255,255,.06);box-shadow:inset 0 0 18px rgba(0,0,0,.35)}
+.fog-delete{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:rgba(224,85,85,.92);color:#fff;font-family:'Cinzel',serif;font-size:.7rem;border:1px solid rgba(255,255,255,.15);cursor:pointer;z-index:2}
+.tokens-layer{position:absolute;left:0;top:0;z-index:10}
+.token{position:absolute;width:52px;height:52px;border-radius:50%;transform:translate(-50%,-50%);cursor:pointer;user-select:none;z-index:10}
+.token.hidden{display:none}.token.active{filter:drop-shadow(0 0 10px rgba(126,200,227,.25))}
+.token-ring{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--green) 0deg, var(--green) 360deg, rgba(255,255,255,.06) 360deg);padding:4px}
+.token-ring::after{content:'';position:absolute;inset:4px;border-radius:50%;background:rgba(8,11,16,.9);border:2px solid rgba(0,0,0,.4)}
+.token-core{position:absolute;inset:8px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Cinzel',serif;font-size:.72rem;font-weight:700;background:rgba(8,11,16,.92);border:2px solid;z-index:2}
+.token-temp{position:absolute;inset:0;border-radius:50%;border:2px dashed rgba(155,127,244,.65);z-index:3;pointer-events:none}
+.token-label{position:absolute;top:56px;left:50%;transform:translateX(-50%);font-size:.58rem;color:var(--text);white-space:nowrap;text-shadow:0 1px 2px #000}
+.cond-dots{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);display:flex;gap:3px;z-index:4}
+.cond-dot{width:8px;height:8px;border-radius:50%;border:1px solid rgba(0,0,0,.5);box-shadow:0 0 6px rgba(0,0,0,.35)}
+.cond-more{font-size:.48rem;color:var(--text-dim);margin-left:1px;position:relative;top:-1px}
+.ping-marker{position:absolute;width:42px;height:42px;border-radius:50%;border:2px solid var(--crystal);transform:translate(-50%,-50%);pointer-events:none;z-index:25;animation:ping-ripple .9s ease-out forwards}
+@keyframes ping-ripple{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(3.25);opacity:0}}
+.map-footer{position:absolute;left:50%;bottom:.8rem;transform:translateX(-50%);background:rgba(13,16,24,.92);border:1px solid var(--border);display:flex;gap:.65rem;align-items:center;padding:.45rem .7rem;z-index:30;font-size:.72rem;color:var(--text-dim)}
+.map-footer input[type=range]{width:100px;accent-color:var(--crystal)}
 </style>
 </head>
 <body>
-<div class="topbar">
-  <div class="brand">Disney Campaign — Party Sheet</div>
-  <div class="top-actions">
-    <button class="tool-btn" onclick="resetParty()">Reset Party</button>
-    <button class="tool-btn" onclick="syncNow()">Force Sync</button>
-    <button class="tool-btn" onclick="openMap()">Open Map</button>
-  </div>
-  <div class="status" id="save-status">LOCAL</div>
-</div>
-
+<div class="topbar"><div class="brand">Crystal Obelisk — Map v3 Fog Alpha</div><div class="top-actions">
+<button class="tool-btn active" id="tool-pan" onclick="setTool('pan')">Pan</button>
+<button class="tool-btn" id="tool-move" onclick="setTool('move')">Move Tokens</button>
+<button class="tool-btn" id="tool-ping" onclick="setTool('ping')">Ping</button>
+<button class="tool-btn" id="tool-fog" onclick="setTool('fog')">Add Fog Rect</button>
+<button class="tool-btn" onclick="resetView()">Reset View</button>
+<button class="tool-btn" onclick="openSheet()">Open Sheet</button>
+</div><div class="status" id="save-status">LOCAL</div></div>
 <div class="app">
-  <aside class="sidebar">
-    <div class="panel">
-      <div class="panel-hd">Campaign</div>
-      <div class="panel-bd">
-        <div class="note">
-          Disney campaign branch using the same Firebase project.<br><br>
-          <strong>Campaign ID:</strong> <span id="campaign-id-label">disneyCampaign</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-hd">Party Roster</div>
-      <div class="panel-bd">
-        <div class="party-list" id="party-list"></div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <div class="panel-hd">Conditions</div>
-      <div class="panel-bd">
-        <div class="note">
-          Toggle conditions on the active character. These sync to Firebase and are ready for map token condition dots later.
-        </div>
-        <div class="cond-list" id="sidebar-conditions" style="margin-top:.6rem;"></div>
-      </div>
-    </div>
-  </aside>
-
-  <main class="main">
-    <div class="grid" id="cards"></div>
-    <div class="footer-note">
-      Disney campaign party sheet. Same Firebase config, separate campaign namespace.
-    </div>
-  </main>
+<aside class="sidebar">
+<div class="panel"><div class="panel-hd">Map Source</div><div class="panel-bd">
+<label class="lbl">Map Image URL</label><input class="inp" id="map-url" type="text" placeholder="https://... or Firebase Storage URL">
+<div class="row" style="margin-bottom:.45rem;"><button class="tool-btn" style="flex:1" onclick="applyMapUrl()">Use URL</button><button class="tool-btn" style="flex:1" onclick="document.getElementById('map-file').click()">Upload</button></div>
+<input id="map-file" type="file" accept="image/*" style="display:none" onchange="loadLocalMap(event)">
+<div class="note">Best practice: use Firebase Storage for maps, then paste the download URL here.</div></div></div>
+<div class="panel"><div class="panel-hd">Grid & View</div><div class="panel-bd">
+<label class="lbl">Grid Size (px)</label><input class="inp" id="grid-size" type="number" min="20" max="200" value="70" onchange="setGridSize(this.value)">
+<div class="row" style="margin-top:.2rem;"><button class="tool-btn" style="flex:1" onclick="toggleGrid()">Toggle Grid</button><button class="tool-btn" style="flex:1" onclick="toggleSnap()">Snap</button></div>
+<div class="note">Mouse wheel zooms. Drag background in Pan mode.</div></div></div>
+<div class="panel"><div class="panel-hd">Fog Controls</div><div class="panel-bd">
+<div class="row"><button class="tool-btn" style="flex:1" onclick="setTool('fog')">Add Fog Rect</button><button class="tool-btn" style="flex:1" onclick="clearAllFog()">Clear All</button></div>
+<div class="note">In <strong>Add Fog Rect</strong> mode, click the map to place a rectangle. Click the red <strong>X</strong> in the middle of any fog block to delete it.</div></div></div>
+<div class="panel"><div class="panel-hd">Weather</div><div class="panel-bd">
+<label class="lbl">Weather Preset</label>
+<select class="sel" id="weather-select" onchange="setWeather(this.value)">
+<option value="clear">Clear</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="foggy">Foggy</option><option value="night">Night</option>
+</select>
+<div class="note">Each weather preset adds a synced color filter plus a lightweight animated overlay.</div></div></div>
+<div class="panel"><div class="panel-hd">Party Tokens</div><div class="panel-bd"><div class="token-roster" id="token-roster"></div><div class="note">HP + conditions come from the shared sheet state. Click a token row to show/hide it.</div></div></div>
+</aside>
+<main class="map-wrap"><div class="map-stage" id="map-stage"><div class="map-world" id="map-world">
+<img class="map-img" id="map-img" alt="" />
+<div class="grid-overlay" id="grid-overlay"></div>
+<div class="weather-filter" id="weather-filter"></div>
+<div class="weather-overlay" id="weather-overlay"></div>
+<div class="fog-layer" id="fog-layer"></div>
+<div class="tokens-layer" id="tokens-layer"></div>
+</div><div class="no-map" id="no-map">No map loaded yet.<br>Use a URL or upload an image on the left.</div></div>
+<div class="map-footer"><label>Zoom <input type="range" id="zoom-slider" min="30" max="200" value="100" oninput="setZoomFromSlider(this.value)"></label><span id="zoom-readout">100%</span></div></main>
 </div>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, get, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-
-/* SAME FIREBASE CONFIG */
-const firebaseConfig = {
-  apiKey: "AIzaSyBJJUrF9ZKt_YGImKUUWwL2hQNbvWl_Ozo",
-  authDomain: "sheets-e5838.firebaseapp.com",
-  databaseURL: "https://sheets-e5838-default-rtdb.firebaseio.com/",
-  projectId: "sheets-e5838",
-  storageBucket: "sheets-e5838.firebasestorage.app",
-  messagingSenderId: "999250720572",
-  appId: "1:999250720572:web:3ae8bf492d8ef0378e9039"
-};
-
-const CAMPAIGN_ID = "disneyCampaign";
-
-const CONDITIONS = [
-  "Blinded","Charmed","Deafened","Frightened","Grappled","Incapacitated","Invisible",
-  "Paralyzed","Petrified","Poisoned","Prone","Restrained","Stunned","Unconscious","Exhaustion"
-];
-
-const PARTY_COLORS = {
-  wendy: "var(--wendy)",
-  jasmine: "var(--jasmine)",
-  esmeralda: "var(--esmeralda)",
-  kristoff: "var(--kristoff)"
-};
-
-const DEFAULT_CHARACTERS = {
-  wendy: {
-    id: "wendy",
-    name: "Wendy",
-    class: "Cleric (War Domain)",
-    level: 3,
-    str: 13, dex: 10, con: 15, int: 8, wis: 17, cha: 12,
-    ac: 18, initBonus: 0, speed: 30, passPerc: 13,
-    maxHp: 24, hp: 24, tempHp: 0,
-    profBonus: 2,
-    hitDice: "3d8",
-    saves: ["WIS", "CHA"],
-    skillProfs: ["Insight", "Medicine", "Religion", "Perception"],
-    actions: [
-      "War Priest (bonus action weapon attack, limited uses)",
-      "Guiding Bolt / Inflict Wounds burst",
-      "Bless for party support",
-      "Spiritual Weapon spike"
-    ],
-    conditions: [],
-    notes: "Level 3 War Cleric. Standard array. Assumed +2 WIS, +1 CON. Chain mail + shield."
-  },
-
-  jasmine: {
-    id: "jasmine",
-    name: "Jasmine",
-    class: "Ranger (Gloom Stalker)",
-    level: 3,
-    str: 10, dex: 17, con: 14, int: 12, wis: 14, cha: 8,
-    ac: 15, initBonus: 3, speed: 30, passPerc: 14,
-    maxHp: 28, hp: 28, tempHp: 0,
-    profBonus: 2,
-    hitDice: "3d10",
-    saves: ["STR", "DEX"],
-    skillProfs: ["Stealth", "Perception", "Survival", "Investigation"],
-    actions: [
-      "Dread Ambusher opening-round spike",
-      "Longbow pressure / stealth opener",
-      "Hunter's Mark",
-      "Strong scout / darkvision ambush role"
-    ],
-    conditions: [],
-    notes: "Level 3 Gloom Stalker Ranger. Standard array. Assumed +2 DEX, +1 WIS. Studded leather."
-  },
-
-  esmeralda: {
-    id: "esmeralda",
-    name: "Esmeralda",
-    class: "Bard (College of Dance)",
-    level: 3,
-    str: 8, dex: 16, con: 13, int: 10, wis: 12, cha: 16,
-    ac: 15, initBonus: 3, speed: 30, passPerc: 11,
-    maxHp: 21, hp: 21, tempHp: 0,
-    profBonus: 2,
-    hitDice: "3d8",
-    saves: ["DEX", "CHA"],
-    skillProfs: ["Acrobatics", "Performance", "Persuasion", "Insight"],
-    actions: [
-      "Bardic Inspiration support",
-      "Control / charm / utility casting",
-      "Dance-themed mobile skirmish play",
-      "Social face + battlefield support"
-    ],
-    conditions: [],
-    notes: "Level 3 Bard (College of Dance). Standard array. Assumed +2 CHA, +1 DEX. Studded leather."
-  },
-
-  kristoff: {
-    id: "kristoff",
-    name: "Kristoff",
-    class: "Fighter (Champion)",
-    level: 3,
-    str: 17, dex: 12, con: 15, int: 8, wis: 13, cha: 10,
-    ac: 18, initBonus: 1, speed: 30, passPerc: 11,
-    maxHp: 31, hp: 31, tempHp: 0,
-    profBonus: 2,
-    hitDice: "3d10",
-    saves: ["STR", "CON"],
-    skillProfs: ["Athletics", "Perception", "Intimidation", "Survival"],
-    actions: [
-      "Improved Critical (19–20)",
-      "Reliable front-line pressure",
-      "Action Surge spike round",
-      "Durable martial anchor"
-    ],
-    conditions: [],
-    notes: "Level 3 Champion Fighter. Standard array. Assumed +2 STR, +1 CON. Chain mail + shield."
-  }
-};
-
-let app, auth, db;
-let dbReady = false;
-let activeCharId = "wendy";
-let saveTimer = null;
-
-const ui = {
-  saveStatus: document.getElementById('save-status'),
-  partyList: document.getElementById('party-list'),
-  cards: document.getElementById('cards'),
-  sidebarConditions: document.getElementById('sidebar-conditions')
-};
-
-let characters = structuredClone(DEFAULT_CHARACTERS);
-
-function mod(score){
-  return Math.floor((Number(score || 10) - 10) / 2);
-}
-function modStr(score){
-  const m = mod(score);
-  return m >= 0 ? `+${m}` : `${m}`;
-}
-function hpPct(c){
-  const max = Math.max(1, Number(c.maxHp || 1));
-  const hp = Math.max(0, Number(c.hp ?? max));
-  return Math.max(0, Math.min(100, (hp / max) * 100));
-}
-function hpColor(c){
-  const pct = hpPct(c);
-  if (pct <= 25) return 'var(--red)';
-  if (pct <= 60) return 'var(--gold)';
-  return 'var(--green)';
-}
-function localSave(){
-  try {
-    localStorage.setItem(`sheet_${CAMPAIGN_ID}`, JSON.stringify(characters));
-  } catch(e){}
-}
-function localLoad(){
-  try {
-    const raw = localStorage.getItem(`sheet_${CAMPAIGN_ID}`);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        characters = { ...structuredClone(DEFAULT_CHARACTERS), ...parsed };
-      }
-    }
-  } catch(e){}
-}
-
-function setStatus(txt, color){
-  ui.saveStatus.textContent = txt;
-  if (color) ui.saveStatus.style.color = color;
-  else ui.saveStatus.style.color = '';
-}
-
-function scheduleSave(){
-  localSave();
-  if (!dbReady) return;
-  setStatus('SAVING…', 'var(--gold)');
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(saveNow, 120);
-}
-
-async function saveNow(){
-  if (!dbReady) return;
-  try {
-    await update(ref(db, `campaigns/${CAMPAIGN_ID}`), { characters });
-    setStatus('SYNCED', 'var(--green)');
-  } catch (err) {
-    console.error(err);
-    setStatus('LOCAL ONLY', 'var(--red)');
-  }
-}
-
-function renderPartyList(){
-  ui.partyList.innerHTML = '';
-  Object.values(characters).forEach(c => {
-    const btn = document.createElement('button');
-    btn.className = 'party-btn' + (c.id === activeCharId ? ' active' : '');
-    btn.innerHTML = `
-      <div class="party-dot" style="border-color:${PARTY_COLORS[c.id] || 'var(--blue)'}"></div>
-      <div class="party-meta">
-        <div class="party-name">${c.name}</div>
-        <div class="party-sub">Lvl ${c.level} ${c.class}</div>
-      </div>
-    `;
-    btn.addEventListener('click', () => {
-      activeCharId = c.id;
-      renderAll();
-    });
-    ui.partyList.appendChild(btn);
-  });
-}
-
-function renderSidebarConditions(){
-  const c = characters[activeCharId];
-  ui.sidebarConditions.innerHTML = '';
-  CONDITIONS.forEach(cond => {
-    const active = (c.conditions || []).includes(cond);
-    const pill = document.createElement('button');
-    pill.className = 'cond-pill' + (active ? ' active' : '');
-    pill.textContent = cond;
-    pill.addEventListener('click', () => {
-      const set = new Set(c.conditions || []);
-      if (set.has(cond)) set.delete(cond);
-      else set.add(cond);
-      c.conditions = [...set];
-      scheduleSave();
-      renderAll();
-    });
-    ui.sidebarConditions.appendChild(pill);
-  });
-}
-
-function makeEditableNumber(c, key){
-  return `
-    <label>
-      <span class="lbl">${key}</span>
-      <input class="inp" type="number" value="${Number(c[key] ?? 0)}"
-        onchange="updateChar('${c.id}','${key}', this.value)">
-    </label>
-  `;
-}
-function makeEditableText(c, key, label){
-  return `
-    <label>
-      <span class="lbl">${label || key}</span>
-      <input class="inp" type="text" value="${String(c[key] ?? '').replace(/"/g,'&quot;')}"
-        onchange="updateChar('${c.id}','${key}', this.value)">
-    </label>
-  `;
-}
-
-function renderCards(){
-  ui.cards.innerHTML = '';
-  Object.values(characters).forEach(c => {
-    const card = document.createElement('section');
-    card.className = 'card';
-
-    card.innerHTML = `
-      <div class="card-hd">
-        <div class="card-title">
-          <div class="char-name">${c.name}</div>
-          <div class="char-sub">Level ${c.level} ${c.class}</div>
-        </div>
-        <div class="hp-badge">
-          <div class="hp-line">HP ${c.hp} / ${c.maxHp}${Number(c.tempHp||0) > 0 ? ` + ${c.tempHp} THP` : ''}</div>
-          <div class="hp-bar">
-            <div class="hp-fill" style="width:${hpPct(c)}%; background:${hpColor(c)};"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card-bd">
-        <div class="stat-row">
-          <div class="stat"><div class="stat-label">STR</div><div class="stat-score">${c.str}</div><div class="stat-mod">${modStr(c.str)}</div></div>
-          <div class="stat"><div class="stat-label">DEX</div><div class="stat-score">${c.dex}</div><div class="stat-mod">${modStr(c.dex)}</div></div>
-          <div class="stat"><div class="stat-label">CON</div><div class="stat-score">${c.con}</div><div class="stat-mod">${modStr(c.con)}</div></div>
-          <div class="stat"><div class="stat-label">INT</div><div class="stat-score">${c.int}</div><div class="stat-mod">${modStr(c.int)}</div></div>
-          <div class="stat"><div class="stat-label">WIS</div><div class="stat-score">${c.wis}</div><div class="stat-mod">${modStr(c.wis)}</div></div>
-          <div class="stat"><div class="stat-label">CHA</div><div class="stat-score">${c.cha}</div><div class="stat-mod">${modStr(c.cha)}</div></div>
-        </div>
-
-        <div class="mini-grid">
-          <div class="mini"><div class="mini-label">AC</div><div class="mini-val">${c.ac}</div></div>
-          <div class="mini"><div class="mini-label">Init</div><div class="mini-val">${c.initBonus >= 0 ? '+' : ''}${c.initBonus}</div></div>
-          <div class="mini"><div class="mini-label">Speed</div><div class="mini-val">${c.speed} ft</div></div>
-          <div class="mini"><div class="mini-label">Passive Perception</div><div class="mini-val">${c.passPerc}</div></div>
-        </div>
-
-        <div class="section">
-          <div class="section-hd">Saving Throws</div>
-          <div class="tags">${(c.saves || []).map(s => `<span class="tag">${s}</span>`).join('')}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-hd">Skill Proficiencies</div>
-          <div class="tags">${(c.skillProfs || []).map(s => `<span class="tag">${s}</span>`).join('')}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-hd">Key Actions / Reminders</div>
-          <div class="tags">${(c.actions || []).map(a => `<span class="tag">${a}</span>`).join('')}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-hd">Conditions</div>
-          <div class="tags">${(c.conditions || []).length ? c.conditions.map(s => `<span class="tag">${s}</span>`).join('') : `<span class="tag">None</span>`}</div>
-        </div>
-
-        <div class="section">
-          <div class="section-hd">Quick Edit</div>
-          <div class="form-grid">
-            ${makeEditableNumber(c, 'hp')}
-            ${makeEditableNumber(c, 'maxHp')}
-            ${makeEditableNumber(c, 'tempHp')}
-            ${makeEditableNumber(c, 'ac')}
-            ${makeEditableNumber(c, 'initBonus')}
-            ${makeEditableNumber(c, 'speed')}
-          </div>
-          <div class="form-grid" style="margin-top:.5rem;">
-            ${makeEditableText(c, 'hitDice', 'Hit Dice')}
-            ${makeEditableNumber(c, 'passPerc')}
-            ${makeEditableNumber(c, 'profBonus')}
-          </div>
-          <div style="margin-top:.5rem;">
-            <label>
-              <span class="lbl">Notes</span>
-              <textarea class="inp" onchange="updateChar('${c.id}','notes', this.value)">${c.notes || ''}</textarea>
-            </label>
-          </div>
-        </div>
-      </div>
-    `;
-
-    ui.cards.appendChild(card);
-  });
-}
-
-function renderAll(){
-  renderPartyList();
-  renderSidebarConditions();
-  renderCards();
-}
-
-window.updateChar = function(id, key, value){
-  if (!characters[id]) return;
-  const numKeys = new Set(['hp','maxHp','tempHp','ac','initBonus','speed','passPerc','profBonus']);
-  characters[id][key] = numKeys.has(key) ? Number(value || 0) : value;
-  scheduleSave();
-  renderAll();
-};
-
-window.resetParty = function(){
-  if (!confirm('Reset Disney campaign party to default values?')) return;
-  characters = structuredClone(DEFAULT_CHARACTERS);
-  activeCharId = 'wendy';
-  localSave();
-  renderAll();
-  saveNow();
-};
-
-window.syncNow = function(){
-  saveNow();
-};
-
-window.openMap = function(){
-  window.open('disney-map.html', '_blank');
-};
-
-async function initFirebase(){
-  const hasRealConfig = Object.values(firebaseConfig).every(v => v && v !== 'REPLACE_ME');
-  if (!hasRealConfig) {
-    console.warn('Firebase config not set. Running local-only mode.');
-    setStatus('LOCAL ONLY', 'var(--gold)');
-    renderAll();
-    return;
-  }
-
-  try{
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getDatabase(app);
-
-    await signInAnonymously(auth);
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      const rootRef = ref(db, `campaigns/${CAMPAIGN_ID}`);
-      const charsRef = ref(db, `campaigns/${CAMPAIGN_ID}/characters`);
-
-      const snap = await get(rootRef);
-      if (!snap.exists()) {
-        await set(rootRef, { characters });
-      } else {
-        const data = snap.val() || {};
-        if (data.characters && typeof data.characters === 'object') {
-          characters = { ...structuredClone(DEFAULT_CHARACTERS), ...data.characters };
-          localSave();
-        }
-      }
-
-      onValue(charsRef, (snapshot) => {
-        if (!snapshot.exists()) return;
-        const incoming = snapshot.val() || {};
-        characters = { ...structuredClone(DEFAULT_CHARACTERS), ...incoming };
-        renderAll();
-      });
-
-      dbReady = true;
-      setStatus('SYNCED', 'var(--green)');
-      renderAll();
-    });
-
-  } catch(err){
-    console.error(err);
-    setStatus('LOCAL ONLY', 'var(--red)');
-    renderAll();
-  }
-}
-
-localLoad();
-renderAll();
-initFirebase();
-
-window.DISNEY_SHEET = { characters, renderAll, saveNow };
+import { getDatabase, ref, get, onValue, update, set, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+const firebaseConfig={apiKey:"REPLACE_ME",authDomain:"REPLACE_ME",databaseURL:"REPLACE_ME",projectId:"REPLACE_ME",storageBucket:"REPLACE_ME",messagingSenderId:"REPLACE_ME",appId:"REPLACE_ME"};
+const CAMPAIGN_ID="crystalObelisk", MAP_ID="default";
+const CHARS={seris:{name:"Seris",initials:"SD",color:"var(--seris)"},liora:{name:"Liora",initials:"LW",color:"var(--liora)"},rurik:{name:"Rurik",initials:"RG",color:"var(--rurik)"},ashara:{name:"Ashara",initials:"AS",color:"var(--ashara)"},lark:{name:"Lark",initials:"LT",color:"var(--lark)"},kairon:{name:"Kairon",initials:"KH",color:"var(--kairon)"}};
+const COND_COLORS={blinded:'#f87171',charmed:'#fbbf24',deafened:'#a78bfa',frightened:'#fb923c',grappled:'#60a5fa',incapacitated:'#f472b6',invisible:'#94a3b8',paralyzed:'#c084fc',petrified:'#78716c',poisoned:'#22c55e',prone:'#f59e0b',restrained:'#38bdf8',stunned:'#e879f9',unconscious:'#ef4444',exhaustion:'#64748b'};
+const DEFAULT_STATE={activeMapId:MAP_ID,maps:{[MAP_ID]:{name:"Starter Map",imageUrl:"",width:1600,height:900,grid:{enabled:true,size:70,snap:false},weather:{type:"clear"},fogRects:[],tokens:{seris:{x:120,y:120,visible:true},liora:{x:190,y:120,visible:true},rurik:{x:260,y:120,visible:true},ashara:{x:330,y:120,visible:true},lark:{x:400,y:120,visible:true},kairon:{x:470,y:120,visible:true}}}}};
+let app,auth,db,state=structuredClone(DEFAULT_STATE),currentMap=state.maps[MAP_ID],charsState={},mapReady=false,dbReady=false,saveTimer=null,pingCleanupTimer=null,lastPingRender='';
+const ui={saveStatus:document.getElementById('save-status'),mapUrl:document.getElementById('map-url'),mapImg:document.getElementById('map-img'),noMap:document.getElementById('no-map'),mapStage:document.getElementById('map-stage'),mapWorld:document.getElementById('map-world'),grid:document.getElementById('grid-overlay'),weatherFilter:document.getElementById('weather-filter'),weatherOverlay:document.getElementById('weather-overlay'),fogLayer:document.getElementById('fog-layer'),tokens:document.getElementById('tokens-layer'),tokenRoster:document.getElementById('token-roster'),gridSize:document.getElementById('grid-size'),zoomSlider:document.getElementById('zoom-slider'),zoomReadout:document.getElementById('zoom-readout'),weatherSelect:document.getElementById('weather-select')};
+const view={x:0,y:0,scale:1}; let tool='pan',isPanning=false,panStart=null,dragTokenId=null,dragOffset={x:0,y:0};
+function setStatus(t,c){ui.saveStatus.textContent=t;ui.saveStatus.style.color=c||''}
+window.setTool=function(next){tool=next;['pan','move','ping','fog'].forEach(t=>{const el=document.getElementById(`tool-${t}`);if(el)el.classList.toggle('active',t===next)})}
+window.openSheet=function(){window.open('sheet.html','_blank')}
+function localSave(){try{localStorage.setItem('crystalObeliskMapV3',JSON.stringify(state))}catch(e){}}
+function localLoad(){try{const raw=localStorage.getItem('crystalObeliskMapV3');if(raw){const parsed=JSON.parse(raw);if(parsed?.maps?.[MAP_ID])state=parsed}}catch(e){} currentMap=state.maps?.[MAP_ID]||DEFAULT_STATE.maps[MAP_ID]}
+function mergeDefaults(){if(!state.activeMapId)state.activeMapId=MAP_ID;if(!state.maps)state.maps=structuredClone(DEFAULT_STATE.maps);if(!state.maps[MAP_ID])state.maps[MAP_ID]=structuredClone(DEFAULT_STATE.maps[MAP_ID]);const m=state.maps[MAP_ID];if(!m.grid)m.grid={enabled:true,size:70,snap:false};if(m.grid.enabled==null)m.grid.enabled=true;if(!m.grid.size)m.grid.size=70;if(m.grid.snap==null)m.grid.snap=false;if(!m.tokens)m.tokens=structuredClone(DEFAULT_STATE.maps[MAP_ID].tokens);if(!m.weather)m.weather={type:'clear'};if(!Array.isArray(m.fogRects))m.fogRects=[];Object.keys(CHARS).forEach(id=>{if(!m.tokens[id])m.tokens[id]=structuredClone(DEFAULT_STATE.maps[MAP_ID].tokens[id]);if(m.tokens[id].visible==null)m.tokens[id].visible=true});currentMap=m}
+function scheduleSave(){localSave();if(!dbReady)return;setStatus('SAVING…','var(--gold)');clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,120)}
+async function saveNow(){if(!dbReady)return;try{await update(ref(db,`campaigns/${CAMPAIGN_ID}/map`),state);setStatus('SYNCED','var(--green)')}catch(err){console.error(err);setStatus('LOCAL ONLY','var(--null)')}}
+function applyWorldTransform(){ui.mapWorld.style.transform=`translate(${view.x}px, ${view.y}px) scale(${view.scale})`;ui.zoomSlider.value=String(Math.round(view.scale*100));ui.zoomReadout.textContent=`${Math.round(view.scale*100)}%`}
+window.resetView=function(){view.x=0;view.y=0;view.scale=1;applyWorldTransform()}
+window.setZoomFromSlider=function(v){view.scale=Math.max(.3,Math.min(2,Number(v)/100));applyWorldTransform()}
+function screenToWorld(cx,cy){const r=ui.mapStage.getBoundingClientRect();return{x:(cx-r.left-view.x)/view.scale,y:(cy-r.top-view.y)/view.scale}}
+function snapCoord(n){const s=Number(currentMap.grid?.size||70);return Math.round(n/s)*s}
+function getCharState(id){return charsState?.[id]||null}
+function hpPct(id){const c=getCharState(id);if(!c)return 1;const max=Math.max(1,Number(c.maxHp||1));const hp=Math.max(0,Number(c.hp??max));return Math.max(0,Math.min(1,hp/max))}
+function hpColor(p){if(p<=.25)return 'var(--null)'; if(p<=.6)return 'var(--gold)'; return 'var(--green)'}
+function condColor(n){return COND_COLORS[(n||'').toLowerCase()]||'var(--void)'}
+function renderWeather(){const type=currentMap.weather?.type||'clear';ui.weatherSelect.value=type;ui.weatherFilter.className='weather-filter'+(type==='clear'?'':` ${type}`);ui.weatherOverlay.innerHTML=''; if(type==='rain'){for(let i=0;i<50;i++){const d=document.createElement('div');d.className='rain-drop';d.style.left=`${Math.random()*100}%`;d.style.top=`${Math.random()*100}%`;d.style.animationDuration=`${0.6+Math.random()*0.5}s`;d.style.animationDelay=`${Math.random()*1.2}s`;ui.weatherOverlay.appendChild(d)}} else if(type==='snow'){for(let i=0;i<36;i++){const f=document.createElement('div');f.className='snow-flake';f.style.left=`${Math.random()*100}%`;f.style.top=`${Math.random()*100}%`;f.style.animationDuration=`${3+Math.random()*4}s`;f.style.animationDelay=`${Math.random()*2}s`;ui.weatherOverlay.appendChild(f)}} else if(type==='foggy'){for(let i=0;i<8;i++){const p=document.createElement('div');p.className='fog-puff';p.style.top=`${10+Math.random()*75}%`;p.style.animationDuration=`${10+Math.random()*8}s`;p.style.animationDelay=`${Math.random()*4}s`;ui.weatherOverlay.appendChild(p)}} else if(type==='night'){const s=document.createElement('div');s.className='night-stars';ui.weatherOverlay.appendChild(s)}}
+function renderFog(){ui.fogLayer.innerHTML=''; const w=currentMap.width||1600,h=currentMap.height||900; ui.fogLayer.style.width=`${w}px`; ui.fogLayer.style.height=`${h}px`; (currentMap.fogRects||[]).forEach(rect=>{const el=document.createElement('div');el.className='fog-rect';el.style.left=`${rect.x}px`;el.style.top=`${rect.y}px`;el.style.width=`${rect.w}px`;el.style.height=`${rect.h}px`; const del=document.createElement('div');del.className='fog-delete';del.textContent='×';del.title='Delete fog rectangle';del.addEventListener('click',e=>{e.stopPropagation();deleteFogRect(rect.id)}); el.appendChild(del); ui.fogLayer.appendChild(el)})}
+function renderMap(){mergeDefaults();ui.mapUrl.value=currentMap.imageUrl||'';ui.gridSize.value=currentMap.grid.size||70; const hasMap=!!currentMap.imageUrl; ui.mapImg.src=currentMap.imageUrl||''; ui.noMap.style.display=hasMap?'none':'flex'; const w=currentMap.width||1600,h=currentMap.height||900; ui.mapImg.style.width=`${w}px`; ui.mapImg.style.height=`${h}px`; ui.grid.style.width=`${w}px`; ui.grid.style.height=`${h}px`; ui.grid.style.backgroundSize=`${currentMap.grid.size}px ${currentMap.grid.size}px`; ui.grid.style.display=currentMap.grid.enabled?'block':'none'; renderWeather(); renderFog(); renderTokens(); renderRoster(); mapReady=true}
+function renderTokens(){ui.tokens.innerHTML=''; Object.entries(CHARS).forEach(([id,c])=>{const t=currentMap.tokens[id],cs=getCharState(id),pct=hpPct(id),ringDeg=Math.max(0,Math.min(360,pct*360)),ringCol=hpColor(pct),conds=Array.isArray(cs?.conditions)?cs.conditions:[],shownConds=conds.slice(0,3); const el=document.createElement('div'); el.className='token'+(t.visible?'':' hidden'); el.id=`token-${id}`; el.style.left=`${t.x}px`; el.style.top=`${t.y}px`; const temp=Number(cs?.tempHp||0)>0, hpTxt=cs?`${cs.hp??'?'} / ${cs.maxHp??'?'}`:'—'; el.innerHTML=`<div class="token-ring" style="background:conic-gradient(${ringCol} 0deg, ${ringCol} ${ringDeg}deg, rgba(255,255,255,.06) ${ringDeg}deg 360deg);"></div>${temp?'<div class="token-temp"></div>':''}<div class="token-core" style="border-color:${c.color}; color:${c.color};" title="${c.name} • HP ${hpTxt}">${c.initials}</div><div class="token-label">${c.name}</div><div class="cond-dots">${shownConds.map(n=>`<div class="cond-dot" title="${n}" style="background:${condColor(n)}"></div>`).join('')}${conds.length>3?`<div class="cond-more" title="${conds.length-3} more">+${conds.length-3}</div>`:''}</div>`; el.addEventListener('pointerdown',e=>{if(tool!=='move')return; e.stopPropagation(); dragTokenId=id; const world=screenToWorld(e.clientX,e.clientY); dragOffset.x=world.x-t.x; dragOffset.y=world.y-t.y; el.setPointerCapture?.(e.pointerId); el.classList.add('active')}); ui.tokens.appendChild(el)})}
+function renderRoster(){ui.tokenRoster.innerHTML=''; Object.entries(CHARS).forEach(([id,c])=>{const t=currentMap.tokens[id],cs=getCharState(id); const row=document.createElement('div'); row.className='token-item'+(t.visible?'':' hidden'); row.innerHTML=`<div class="token-swatch" style="border-color:${c.color}; color:${c.color};">${c.initials}</div><div class="token-name">${c.name}</div><div class="token-mini">${cs?`${cs.hp??'?'} / ${cs.maxHp??'?'}`:(t.visible?'ON':'OFF')}</div>`; row.addEventListener('click',()=>{t.visible=!t.visible; scheduleSave(); renderTokens(); renderRoster()}); ui.tokenRoster.appendChild(row)})}
+window.applyMapUrl=function(){const url=ui.mapUrl.value.trim(); currentMap.imageUrl=url; if(!url){currentMap.width=1600; currentMap.height=900; renderMap(); scheduleSave(); return} const img=new Image(); img.onload=()=>{currentMap.width=img.naturalWidth||1600; currentMap.height=img.naturalHeight||900; renderMap(); scheduleSave()}; img.onerror=()=>alert('Could not load that image URL.'); img.src=url}
+window.loadLocalMap=function(ev){const file=ev.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{const dataUrl=reader.result; currentMap.imageUrl=dataUrl; const img=new Image(); img.onload=()=>{currentMap.width=img.naturalWidth||1600; currentMap.height=img.naturalHeight||900; renderMap(); scheduleSave()}; img.src=dataUrl}; reader.readAsDataURL(file)}
+window.toggleGrid=function(){currentMap.grid.enabled=!currentMap.grid.enabled; renderMap(); scheduleSave()}
+window.toggleSnap=function(){currentMap.grid.snap=!currentMap.grid.snap; alert(`Snap to grid: ${currentMap.grid.snap?'ON':'OFF'}`); scheduleSave()}
+window.setGridSize=function(v){currentMap.grid.size=Math.max(20,Math.min(200,Number(v)||70)); renderMap(); scheduleSave()}
+window.setWeather=function(type){currentMap.weather.type=type||'clear'; renderWeather(); scheduleSave()}
+function addFogRect(x,y){const size=currentMap.grid?.snap?(currentMap.grid.size||70)*2:140; const rect={id:`fog_${Date.now()}_${Math.floor(Math.random()*9999)}`,x:Math.max(0,currentMap.grid?.snap?snapCoord(x):Math.round(x-size/2)),y:Math.max(0,currentMap.grid?.snap?snapCoord(y):Math.round(y-size/2)),w:size,h:size}; currentMap.fogRects.push(rect); renderFog(); scheduleSave()}
+function deleteFogRect(id){currentMap.fogRects=(currentMap.fogRects||[]).filter(r=>r.id!==id); renderFog(); scheduleSave()}
+window.clearAllFog=function(){if(!confirm('Clear all fog rectangles?'))return; currentMap.fogRects=[]; renderFog(); scheduleSave()}
+function addPingVisual(x,y){const ping=document.createElement('div'); ping.className='ping-marker'; ping.style.left=`${x}px`; ping.style.top=`${y}px`; ui.tokens.appendChild(ping); setTimeout(()=>ping.remove(),950)}
+async function pushPing(x,y){if(!dbReady){addPingVisual(x,y); return} const pingRef=push(ref(db,`campaigns/${CAMPAIGN_ID}/mapPings`)); try{await set(pingRef,{x,y,ts:Date.now()})}catch(err){console.error(err); addPingVisual(x,y)}}
+function renderPings(pingsObj){if(!pingsObj)return; const keys=Object.keys(pingsObj).sort((a,b)=>(pingsObj[a]?.ts||0)-(pingsObj[b]?.ts||0)); const sig=keys.join('|'); if(sig===lastPingRender)return; lastPingRender=sig; keys.forEach(k=>{const p=pingsObj[k]; if(p&&typeof p.x==='number'&&typeof p.y==='number') addPingVisual(p.x,p.y)})}
+function schedulePingCleanup(){if(!dbReady)return; clearTimeout(pingCleanupTimer); pingCleanupTimer=setTimeout(async()=>{try{const pingRef=ref(db,`campaigns/${CAMPAIGN_ID}/mapPings`); const snap=await get(pingRef); if(!snap.exists())return; const now=Date.now(), obj=snap.val()||{}, removals={}; Object.entries(obj).forEach(([k,v])=>{if((now-Number(v?.ts||0))>5000) removals[k]=null}); if(Object.keys(removals).length) await update(ref(db,`campaigns/${CAMPAIGN_ID}/mapPings`), removals)}catch(e){}},1200)}
+ui.mapStage.addEventListener('pointerdown',e=>{if(tool==='pan'){isPanning=true; panStart={x:e.clientX-view.x,y:e.clientY-view.y}; ui.mapStage.classList.add('dragging')} else if(tool==='ping'){const world=screenToWorld(e.clientX,e.clientY); pushPing(world.x,world.y)} else if(tool==='fog'){const world=screenToWorld(e.clientX,e.clientY); addFogRect(world.x,world.y)}})
+window.addEventListener('pointermove',e=>{if(isPanning){view.x=e.clientX-panStart.x; view.y=e.clientY-panStart.y; applyWorldTransform(); return} if(dragTokenId){const world=screenToWorld(e.clientX,e.clientY); let nx=world.x-dragOffset.x, ny=world.y-dragOffset.y; if(currentMap.grid.snap){nx=snapCoord(nx); ny=snapCoord(ny)} currentMap.tokens[dragTokenId].x=Math.max(0,nx); currentMap.tokens[dragTokenId].y=Math.max(0,ny); const el=document.getElementById(`token-${dragTokenId}`); if(el){el.style.left=`${currentMap.tokens[dragTokenId].x}px`; el.style.top=`${currentMap.tokens[dragTokenId].y}px`} if(dbReady){clearTimeout(window.__dragPushTimer); window.__dragPushTimer=setTimeout(()=>{update(ref(db,`campaigns/${CAMPAIGN_ID}/map/maps/${MAP_ID}/tokens/${dragTokenId}`),{x:currentMap.tokens[dragTokenId].x,y:currentMap.tokens[dragTokenId].y}).catch(()=>{})},80)}}})
+window.addEventListener('pointerup',()=>{if(isPanning){isPanning=false; ui.mapStage.classList.remove('dragging')} if(dragTokenId){const el=document.getElementById(`token-${dragTokenId}`); if(el)el.classList.remove('active'); const id=dragTokenId; dragTokenId=null; scheduleSave(); if(dbReady){update(ref(db,`campaigns/${CAMPAIGN_ID}/map/maps/${MAP_ID}/tokens/${id}`),{x:currentMap.tokens[id].x,y:currentMap.tokens[id].y}).catch(()=>{})}}})
+ui.mapStage.addEventListener('wheel',e=>{e.preventDefault(); const delta=e.deltaY<0?0.1:-0.1; view.scale=Math.max(0.3,Math.min(2,+(view.scale+delta).toFixed(2))); applyWorldTransform()},{passive:false})
+async function initFirebase(){const hasRealConfig=Object.values(firebaseConfig).every(v=>v&&v!=='REPLACE_ME'); if(!hasRealConfig){setStatus('LOCAL ONLY','var(--gold)'); renderMap(); return} try{app=initializeApp(firebaseConfig); auth=getAuth(app); db=getDatabase(app); await signInAnonymously(auth); onAuthStateChanged(auth, async user=>{if(!user)return; const mapRef=ref(db,`campaigns/${CAMPAIGN_ID}/map`), charRef=ref(db,`campaigns/${CAMPAIGN_ID}/characters`), pingRef=ref(db,`campaigns/${CAMPAIGN_ID}/mapPings`); const snap=await get(mapRef); if(!snap.exists()) await set(mapRef,state); else {state=snap.val(); mergeDefaults(); localSave()} onValue(mapRef,s=>{if(!s.exists())return; state=s.val(); mergeDefaults(); renderMap()}); onValue(charRef,s=>{charsState=s.exists()?(s.val()||{}):{}; if(mapReady){renderTokens(); renderRoster()}}); onValue(pingRef,s=>{const obj=s.exists()?(s.val()||{}):{}; renderPings(obj); schedulePingCleanup()}); dbReady=true; setStatus('SYNCED','var(--green)'); renderMap()})}catch(err){console.error(err); setStatus('LOCAL ONLY','var(--null)'); renderMap()}}
+localLoad(); mergeDefaults(); renderMap(); applyWorldTransform(); initFirebase();
 </script>
 </body>
 </html>
