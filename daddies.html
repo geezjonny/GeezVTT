@@ -1848,26 +1848,40 @@ CHARS.forEach(c => { buildCondChips(c); });
 
   // Fill these in with your Firebase project settings
   window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
-    apiKey: "AIzaSyCr7VndAE_yHmoxXWDQ5LOWCDfH1F3k99k",
-    authDomain: "dungeonsanddaddies-d152f.firebaseapp.com",
-    databaseURL: "https://dungeonsanddaddies-d152f-default-rtdb.firebaseio.com",
-    projectId: "dungeonsanddaddies-d152f",
-    storageBucket: "dungeonsanddaddies-d152f.firebasestorage.app",
-    messagingSenderId: "406069529434",
-    appId: "1:406069529434:web:3c421e56984def6aa60163"
+    apiKey: "AIzaSyBJJUrF9ZKt_YGImKUUWwL2hQNbvWl_Ozo",
+    authDomain: "sheets-e5838.firebaseapp.com",
+    databaseURL: "https://sheets-e5838-default-rtdb.firebaseio.com/",
+    projectId: "sheets-e5838",
+    storageBucket: "sheets-e5838.firebasestorage.app",
+    messagingSenderId: "999250720572",
+    appId: "1:999250720572:web:3ae8bf492d8ef0378e9039"
   };
 
-  const hasPlaceholder = Object.values(window.FIREBASE_CONFIG).some(v => String(v).includes('YOUR_'));
-  if (!hasPlaceholder) {
-    const app = initializeApp(window.FIREBASE_CONFIG);
-    const db = getDatabase(app);
-    const auth = getAuth(app);
-    const storage = getStorage(app);
-    try { await signInAnonymously(auth); } catch (err) { console.error('[Firebase] Anonymous auth failed', err); }
-    window.fb = { db, auth, storage, ref, set, update, get, onValue, storageRef, uploadBytes, getDownloadURL };
-    window.dispatchEvent(new CustomEvent('firebase-ready'));
+  // Can't use Firebase from file:// due to browser security restrictions — skip and stay local-only
+  if (window.location.protocol === 'file:') {
+    console.warn('[Firebase] Running from file:// — Firebase disabled. Open via a local server (e.g. VS Code Live Server) to enable sync.');
   } else {
-    console.warn('[Firebase] FIREBASE_CONFIG still has placeholders. Running local-only until configured.');
+    const hasPlaceholder = Object.values(window.FIREBASE_CONFIG).some(v => String(v).includes('YOUR_'));
+    if (!hasPlaceholder) {
+      const app = initializeApp(window.FIREBASE_CONFIG);
+      const db = getDatabase(app);
+      const storage = getStorage(app);
+      // Auth is optional — RTDB rules may allow unauthenticated reads/writes
+      // If anonymous auth fails (e.g. not enabled in console), we still try the DB
+      let auth = null;
+      try {
+        auth = getAuth(app);
+        await signInAnonymously(auth);
+      } catch (err) {
+        console.warn('[Firebase] Anonymous auth failed — continuing without auth. Make sure Anonymous sign-in is enabled in Firebase Console > Authentication > Sign-in method.', err.code);
+      }
+      window.fb = { db, auth, storage, ref, set, update, get, onValue, storageRef, uploadBytes, getDownloadURL };
+      // Use a flag so listeners that register after this event still work
+      window.__firebaseReady = true;
+      window.dispatchEvent(new CustomEvent('firebase-ready'));
+    } else {
+      console.warn('[Firebase] FIREBASE_CONFIG still has placeholders. Running local-only until configured.');
+    }
   }
 </script>
 <script>
@@ -1944,7 +1958,7 @@ CHARS.forEach(c => { buildCondChips(c); });
   window.APP_STATE = deepMerge(structuredCloneSafe(DEFAULT_STATE), loadLocal() || {});
 
   async function saveRemoteFull(){ if(!firebaseIsReady()) return; setSaveStatus('SYNCING'); const r=window.fb.ref(window.fb.db, campaignRoot()); const payload=structuredCloneSafe(window.APP_STATE); payload.updatedAt=now(); window.APP_STATE.updatedAt=payload.updatedAt; await window.fb.set(r, payload); setSaveStatus('SYNCED'); }
-  async function patchRemote(partial){ if(!firebaseIsReady()) return; setSaveStatus('SYNCING'); const r=window.fb.ref(window.fb.db, campaignRoot()); const payload={...partial, updatedAt:now()}; window.APP_STATE.updatedAt=payload.updatedAt; await window.fb.update(r,payload); setSaveStatus('SYNCED'); }
+  async function patchRemote(partial){ if(!firebaseIsReady()) return; setSaveStatus('SYNCING'); const r=window.fb.ref(window.fb.db, campaignRoot()); const nested={}; for(const [p,v] of Object.entries(partial)){ pathSet(nested,p,v); } nested.updatedAt=now(); window.APP_STATE.updatedAt=nested.updatedAt; await window.fb.update(r,nested); setSaveStatus('SYNCED'); }
   async function loadRemoteOnce(){ if(!firebaseIsReady()) return null; const r=window.fb.ref(window.fb.db, campaignRoot()); const snap=await window.fb.get(r); return snap.exists()?snap.val():null; }
   function subscribeRemote(){ if(!firebaseIsReady()||!liveSyncEnabled) return; const r=window.fb.ref(window.fb.db, campaignRoot()); window.fb.onValue(r, (snap)=>{ if(!snap.exists()) return; const remote=snap.val(); const localTs=window.APP_STATE.updatedAt||0; const remoteTs=remote.updatedAt||0; if(remoteTs<localTs) return; applyingRemoteState=true; window.APP_STATE=deepMerge(structuredCloneSafe(DEFAULT_STATE), remote); saveLocal(); hydrateUIFromState(); applyingRemoteState=false; setSaveStatus('SYNCED'); }); }
 
@@ -2016,9 +2030,28 @@ CHARS.forEach(c => { buildCondChips(c); });
     }
   };
 
-  window.ovSyncHP = function(id){ const input=document.getElementById(`ob-${id}-hp`); if(!input) return; setCharHp(id, Number(input.value||0)); };
-  window.ovSyncTmp = function(id){ const input=document.getElementById(`ob-${id}-tmp`); if(!input) return; setCharTemp(id, Number(input.value||0)); };
-  window.ovAdj = function(id,sign){ const amtInput=document.getElementById(`ob-${id}-amt`); const amt=Math.max(0, Number(amtInput?.value||0)); const delta=(Number(sign)>=0)?amt:-amt; adjustHp(id,delta); if(amtInput) amtInput.value=''; };
+  // HP button wiring: delegate to the original DOM-based functions, then forward to Firebase
+  window.ovSyncHP = function(id){
+    const input = document.getElementById('ob-'+id+'-hp');
+    if(!input) return;
+    const val = Math.max(0, Math.min(MAX_HP[id]||999, Number(input.value)||0));
+    setHP(id, val);
+    if(window.CO) window.CO.patch('characters/'+id+'/hp', val);
+  };
+  window.ovSyncTmp = function(id){
+    const input = document.getElementById('ob-'+id+'-tmp');
+    if(!input) return;
+    const val = Math.max(0, Number(input.value)||0);
+    setTmp(id, val);
+    if(window.CO) window.CO.patch('characters/'+id+'/tempHp', val);
+  };
+  window.ovAdj = function(id, sign){
+    const amtInput = document.getElementById('ob-'+id+'-amt');
+    const amt = Math.max(0, Number(amtInput?.value||0));
+    if(Number(sign) >= 0) applyHeal(id, amt); else applyDmg(id, amt);
+    if(amtInput) amtInput.value = '';
+    if(window.CO){ const p={}; p['characters/'+id+'/hp']=getHP(id); p['characters/'+id+'/tempHp']=getTmp(id); window.CO.patchMany(p); }
+  };
 
   function bindNotes(){
     const ids = Object.keys(window.APP_STATE.characters||{});
@@ -2048,7 +2081,12 @@ CHARS.forEach(c => { buildCondChips(c); });
     }
   }
 
-  document.addEventListener('DOMContentLoaded', initFirebasePatch);
+  document.addEventListener('DOMContentLoaded', () => {
+    // If firebase-ready already fired before this script registered its listener,
+    // window.__firebaseReady will be true — call init directly instead of waiting.
+    if (window.__firebaseReady && !firebaseReady) { initFirebasePatch(); }
+    else { initFirebasePatch(); }
+  });
   window.addEventListener('firebase-ready', async ()=>{ if(firebaseReady) return; await initFirebasePatch(); });
 })();
 </script>
