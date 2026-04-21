@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Disney Campaign — Party Sheet</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700&family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080b10;
+  --bg2:#0d1018;
+  --card:#13161f;
+  --border:#222638;
+  --border-hi:#363d58;
+  --gold:#c9a84c;
+  --gold-dim:#6a5020;
+  --blue:#7ec8e3;
+  --blue-dim:#2f6a80;
+  --green:#4ade80;
+  --green-dim:#1e5c38;
+  --red:#e05555;
+  --violet:#9b7ff4;
+  --text:#ddd5c4;
+  --text-mid:#9a9080;
+  --text-dim:#5a5448;
+
+  --wendy:#e05555;
+  --jasmine:#4ade80;
+  --esmeralda:#fbbf24;
+  --kristoff:#a78bfa;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Crimson Pro', Georgia, serif;
+  overflow:hidden;
+}
+body::before{
+  content:'';
+  position:fixed; inset:0; pointer-events:none; z-index:0;
+  background:
+    radial-gradient(ellipse 60% 50% at 10% 5%, rgba(126,200,227,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 50% 60% at 90% 95%, rgba(155,127,244,.04) 0%, transparent 60%);
+}
+.topbar{
+  height:54px;
+  display:flex;
+  align-items:center;
+  gap:.8rem;
+  padding:0 1rem;
+  background:rgba(8,11,16,.96);
+  border-bottom:1px solid var(--border);
+  position:relative;
+  z-index:10;
+  backdrop-filter:blur(8px);
+}
+.brand{
+  font-family:'Cinzel Decorative', serif;
+  font-size:.9rem;
+  color:var(--blue);
+  text-shadow:0 0 16px rgba(126,200,227,.35);
+  white-space:nowrap;
+}
+.top-actions{
+  display:flex;
+  gap:.4rem;
+  flex-wrap:wrap;
+}
+.tool-btn{
+  padding:.42rem .7rem;
+  background:none;
+  border:1px solid var(--border);
+  color:var(--text-dim);
+  font-size:.72rem;
+  cursor:pointer;
+  border-radius:4px;
+  font-family:'Cinzel', serif;
+  letter-spacing:.04em;
+  transition:all .15s;
+}
+.tool-btn:hover{
+  color:var(--text);
+  border-color:var(--border-hi);
+}
+.status{
+  margin-left:auto;
+  font-size:.68rem;
+  color:var(--text-dim);
+  font-family:'Cinzel', serif;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.app{
+  position:relative;
+  z-index:1;
+  display:grid;
+  grid-template-columns:280px 1fr;
+  height:calc(100% - 54px);
+}
+@media(max-width:1000px){
+  .app{ grid-template-columns:1fr; }
+  .sidebar{ display:none; }
+}
+.sidebar{
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  overflow:auto;
+  padding:.8rem;
+}
+.main{
+  overflow:auto;
+  padding:1rem;
+}
+.panel{
+  background:var(--card);
+  border:1px solid var(--border);
+  margin-bottom:.75rem;
+  overflow:hidden;
+}
+.panel-hd{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:.55rem .7rem;
+  font-family:'Cinzel', serif;
+  font-size:.58rem;
+  letter-spacing:.12em;
+  color:var(--blue);
+  text-transform:uppercase;
+}
+.panel-bd{
+  padding:.7rem .8rem;
+}
+.note{
+  font-size:.78rem;
+  color:var(--text-dim);
+  line-height:1.45;
+  font-style:italic;
+}
+.party-list{
+  display:flex;
+  flex-direction:column;
+  gap:.4rem;
+}
+.party-btn{
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  width:100%;
+  padding:.45rem .5rem;
+  background:var(--bg2);
+  border:1px solid var(--border);
+  color:var(--text);
+  cursor:pointer;
+  transition:all .15s;
+  text-align:left;
+}
+.party-btn:hover{ border-color:var(--border-hi); }
+.party-btn.active{
+  border-color:var(--blue);
+  background:rgba(126,200,227,.05);
+}
+.party-dot{
+  width:22px; height:22px; border-radius:50%;
+  border:2px solid;
+  flex-shrink:0;
+}
+.party-meta{
+  flex:1;
+}
+.party-name{
+  font-size:.84rem;
+}
+.party-sub{
+  font-size:.62rem;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:.06em;
+}
+.grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(320px, 1fr));
+  gap:1rem;
+}
+@media(max-width:1100px){
+  .grid{ grid-template-columns:1fr; }
+}
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  overflow:hidden;
+}
+.card-hd{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:.75rem;
+  padding:.8rem 1rem;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,0));
+}
+.card-title{
+  display:flex;
+  flex-direction:column;
+  gap:.2rem;
+}
+.char-name{
+  font-family:'Cinzel', serif;
+  font-size:1rem;
+  letter-spacing:.03em;
+}
+.char-sub{
+  font-size:.72rem;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.hp-badge{
+  text-align:right;
+  min-width:120px;
+}
+.hp-line{
+  font-family:'Cinzel', serif;
+  font-size:.85rem;
+}
+.hp-bar{
+  margin-top:.35rem;
+  width:120px;
+  height:8px;
+  border:1px solid var(--border);
+  background:var(--bg);
+  position:relative;
+}
+.hp-fill{
+  position:absolute; inset:0 auto 0 0;
+  width:100%;
+  background:linear-gradient(90deg, var(--green), #84f2a8);
+}
+.card-bd{
+  padding:1rem;
+}
+.stat-row{
+  display:grid;
+  grid-template-columns:repeat(6, 1fr);
+  gap:.5rem;
+  margin-bottom:1rem;
+}
+@media(max-width:700px){
+  .stat-row{ grid-template-columns:repeat(3, 1fr); }
+}
+.stat{
+  border:1px solid var(--border);
+  background:var(--bg2);
+  padding:.55rem .4rem;
+  text-align:center;
+}
+.stat-label{
+  font-family:'Cinzel', serif;
+  font-size:.52rem;
+  color:var(--text-dim);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.stat-score{
+  font-size:1.15rem;
+  font-weight:600;
+}
+.stat-mod{
+  font-size:.72rem;
+  color:var(--blue);
+}
+.mini-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:.55rem;
+  margin-bottom:1rem;
+}
+@media(max-width:700px){
+  .mini-grid{ grid-template-columns:repeat(2, 1fr); }
+}
+.mini{
+  border:1px solid var(--border);
+  background:var(--bg2);
+  padding:.55rem;
+}
+.mini-label{
+  font-family:'Cinzel', serif;
+  font-size:.5rem;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  margin-bottom:.2rem;
+}
+.mini-val{
+  font-size:.95rem;
+}
+.section{
+  margin-bottom:1rem;
+}
+.section:last-child{ margin-bottom:0; }
+.section-hd{
+  font-family:'Cinzel', serif;
+  font-size:.58rem;
+  color:var(--gold);
+  text-transform:uppercase;
+  letter-spacing:.12em;
+  margin-bottom:.45rem;
+}
+.tags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.35rem;
+}
+.tag{
+  border:1px solid var(--border);
+  background:var(--bg2);
+  padding:.28rem .45rem;
+  font-size:.72rem;
+  color:var(--text-mid);
+}
+.cond-list{
+  display:flex;
+  flex-wrap:wrap;
+  gap:.35rem;
+  margin-top:.35rem;
+}
+.cond-pill{
+  border:1px solid var(--border);
+  background:var(--bg2);
+  color:var(--text);
+  padding:.28rem .45rem;
+  font-size:.72rem;
+  cursor:pointer;
+}
+.cond-pill.active{
+  border-color:var(--blue);
+  color:var(--blue);
+  background:rgba(126,200,227,.06);
+}
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(3, 1fr);
+  gap:.5rem;
+}
+@media(max-width:700px){
+  .form-grid{ grid-template-columns:1fr; }
+}
+.lbl{
+  display:block;
+  font-family:'Cinzel', serif;
+  font-size:.5rem;
+  letter-spacing:.08em;
+  color:var(--text-dim);
+  text-transform:uppercase;
+  margin-bottom:.22rem;
+}
+.inp{
+  width:100%;
+  background:var(--bg);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:.45rem .55rem;
+  font-size:.88rem;
+  outline:none;
+}
+.inp:focus{ border-color:var(--blue-dim); }
+textarea.inp{
+  min-height:84px;
+  resize:vertical;
+}
+.footer-note{
+  margin-top:1rem;
+  font-size:.76rem;
+  color:var(--text-dim);
+  font-style:italic;
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">Disney Campaign — Party Sheet</div>
+  <div class="top-actions">
+    <button class="tool-btn" onclick="resetParty()">Reset Party</button>
+    <button class="tool-btn" onclick="syncNow()">Force Sync</button>
+    <button class="tool-btn" onclick="openMap()">Open Map</button>
+  </div>
+  <div class="status" id="save-status">LOCAL</div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="panel">
+      <div class="panel-hd">Campaign</div>
+      <div class="panel-bd">
+        <div class="note">
+          Disney campaign branch using the same Firebase project.<br><br>
+          <strong>Campaign ID:</strong> <span id="campaign-id-label">disneyCampaign</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd">Party Roster</div>
+      <div class="panel-bd">
+        <div class="party-list" id="party-list"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-hd">Conditions</div>
+      <div class="panel-bd">
+        <div class="note">
+          Toggle conditions on the active character. These sync to Firebase and are ready for map token condition dots later.
+        </div>
+        <div class="cond-list" id="sidebar-conditions" style="margin-top:.6rem;"></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="grid" id="cards"></div>
+    <div class="footer-note">
+      Disney campaign party sheet. Same Firebase config, separate campaign namespace.
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, get, onValue, update, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* SAME FIREBASE CONFIG */
+const firebaseConfig = {
+  apiKey: "AIzaSyBJJUrF9ZKt_YGImKUUWwL2hQNbvWl_Ozo",
+  authDomain: "sheets-e5838.firebaseapp.com",
+  databaseURL: "https://sheets-e5838-default-rtdb.firebaseio.com/",
+  projectId: "sheets-e5838",
+  storageBucket: "sheets-e5838.firebasestorage.app",
+  messagingSenderId: "999250720572",
+  appId: "1:999250720572:web:3ae8bf492d8ef0378e9039"
+};
+
+const CAMPAIGN_ID = "disneyCampaign";
+
+const CONDITIONS = [
+  "Blinded","Charmed","Deafened","Frightened","Grappled","Incapacitated","Invisible",
+  "Paralyzed","Petrified","Poisoned","Prone","Restrained","Stunned","Unconscious","Exhaustion"
+];
+
+const PARTY_COLORS = {
+  wendy: "var(--wendy)",
+  jasmine: "var(--jasmine)",
+  esmeralda: "var(--esmeralda)",
+  kristoff: "var(--kristoff)"
+};
+
+const DEFAULT_CHARACTERS = {
+  wendy: {
+    id: "wendy",
+    name: "Wendy",
+    class: "Cleric (War Domain)",
+    level: 3,
+    str: 13, dex: 10, con: 15, int: 8, wis: 17, cha: 12,
+    ac: 18, initBonus: 0, speed: 30, passPerc: 13,
+    maxHp: 24, hp: 24, tempHp: 0,
+    profBonus: 2,
+    hitDice: "3d8",
+    saves: ["WIS", "CHA"],
+    skillProfs: ["Insight", "Medicine", "Religion", "Perception"],
+    actions: [
+      "War Priest (bonus action weapon attack, limited uses)",
+      "Guiding Bolt / Inflict Wounds burst",
+      "Bless for party support",
+      "Spiritual Weapon spike"
+    ],
+    conditions: [],
+    notes: "Level 3 War Cleric. Standard array. Assumed +2 WIS, +1 CON. Chain mail + shield."
+  },
+
+  jasmine: {
+    id: "jasmine",
+    name: "Jasmine",
+    class: "Ranger (Gloom Stalker)",
+    level: 3,
+    str: 10, dex: 17, con: 14, int: 12, wis: 14, cha: 8,
+    ac: 15, initBonus: 3, speed: 30, passPerc: 14,
+    maxHp: 28, hp: 28, tempHp: 0,
+    profBonus: 2,
+    hitDice: "3d10",
+    saves: ["STR", "DEX"],
+    skillProfs: ["Stealth", "Perception", "Survival", "Investigation"],
+    actions: [
+      "Dread Ambusher opening-round spike",
+      "Longbow pressure / stealth opener",
+      "Hunter's Mark",
+      "Strong scout / darkvision ambush role"
+    ],
+    conditions: [],
+    notes: "Level 3 Gloom Stalker Ranger. Standard array. Assumed +2 DEX, +1 WIS. Studded leather."
+  },
+
+  esmeralda: {
+    id: "esmeralda",
+    name: "Esmeralda",
+    class: "Bard (College of Dance)",
+    level: 3,
+    str: 8, dex: 16, con: 13, int: 10, wis: 12, cha: 16,
+    ac: 15, initBonus: 3, speed: 30, passPerc: 11,
+    maxHp: 21, hp: 21, tempHp: 0,
+    profBonus: 2,
+    hitDice: "3d8",
+    saves: ["DEX", "CHA"],
+    skillProfs: ["Acrobatics", "Performance", "Persuasion", "Insight"],
+    actions: [
+      "Bardic Inspiration support",
+      "Control / charm / utility casting",
+      "Dance-themed mobile skirmish play",
+      "Social face + battlefield support"
+    ],
+    conditions: [],
+    notes: "Level 3 Bard (College of Dance). Standard array. Assumed +2 CHA, +1 DEX. Studded leather."
+  },
+
+  kristoff: {
+    id: "kristoff",
+    name: "Kristoff",
+    class: "Fighter (Champion)",
+    level: 3,
+    str: 17, dex: 12, con: 15, int: 8, wis: 13, cha: 10,
+    ac: 18, initBonus: 1, speed: 30, passPerc: 11,
+    maxHp: 31, hp: 31, tempHp: 0,
+    profBonus: 2,
+    hitDice: "3d10",
+    saves: ["STR", "CON"],
+    skillProfs: ["Athletics", "Perception", "Intimidation", "Survival"],
+    actions: [
+      "Improved Critical (19–20)",
+      "Reliable front-line pressure",
+      "Action Surge spike round",
+      "Durable martial anchor"
+    ],
+    conditions: [],
+    notes: "Level 3 Champion Fighter. Standard array. Assumed +2 STR, +1 CON. Chain mail + shield."
+  }
+};
+
+let app, auth, db;
+let dbReady = false;
+let activeCharId = "wendy";
+let saveTimer = null;
+
+const ui = {
+  saveStatus: document.getElementById('save-status'),
+  partyList: document.getElementById('party-list'),
+  cards: document.getElementById('cards'),
+  sidebarConditions: document.getElementById('sidebar-conditions')
+};
+
+let characters = structuredClone(DEFAULT_CHARACTERS);
+
+function mod(score){
+  return Math.floor((Number(score || 10) - 10) / 2);
+}
+function modStr(score){
+  const m = mod(score);
+  return m >= 0 ? `+${m}` : `${m}`;
+}
+function hpPct(c){
+  const max = Math.max(1, Number(c.maxHp || 1));
+  const hp = Math.max(0, Number(c.hp ?? max));
+  return Math.max(0, Math.min(100, (hp / max) * 100));
+}
+function hpColor(c){
+  const pct = hpPct(c);
+  if (pct <= 25) return 'var(--red)';
+  if (pct <= 60) return 'var(--gold)';
+  return 'var(--green)';
+}
+function localSave(){
+  try {
+    localStorage.setItem(`sheet_${CAMPAIGN_ID}`, JSON.stringify(characters));
+  } catch(e){}
+}
+function localLoad(){
+  try {
+    const raw = localStorage.getItem(`sheet_${CAMPAIGN_ID}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        characters = { ...structuredClone(DEFAULT_CHARACTERS), ...parsed };
+      }
+    }
+  } catch(e){}
+}
+
+function setStatus(txt, color){
+  ui.saveStatus.textContent = txt;
+  if (color) ui.saveStatus.style.color = color;
+  else ui.saveStatus.style.color = '';
+}
+
+function scheduleSave(){
+  localSave();
+  if (!dbReady) return;
+  setStatus('SAVING…', 'var(--gold)');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 120);
+}
+
+async function saveNow(){
+  if (!dbReady) return;
+  try {
+    await update(ref(db, `campaigns/${CAMPAIGN_ID}`), { characters });
+    setStatus('SYNCED', 'var(--green)');
+  } catch (err) {
+    console.error(err);
+    setStatus('LOCAL ONLY', 'var(--red)');
+  }
+}
+
+function renderPartyList(){
+  ui.partyList.innerHTML = '';
+  Object.values(characters).forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'party-btn' + (c.id === activeCharId ? ' active' : '');
+    btn.innerHTML = `
+      <div class="party-dot" style="border-color:${PARTY_COLORS[c.id] || 'var(--blue)'}"></div>
+      <div class="party-meta">
+        <div class="party-name">${c.name}</div>
+        <div class="party-sub">Lvl ${c.level} ${c.class}</div>
+      </div>
+    `;
+    btn.addEventListener('click', () => {
+      activeCharId = c.id;
+      renderAll();
+    });
+    ui.partyList.appendChild(btn);
+  });
+}
+
+function renderSidebarConditions(){
+  const c = characters[activeCharId];
+  ui.sidebarConditions.innerHTML = '';
+  CONDITIONS.forEach(cond => {
+    const active = (c.conditions || []).includes(cond);
+    const pill = document.createElement('button');
+    pill.className = 'cond-pill' + (active ? ' active' : '');
+    pill.textContent = cond;
+    pill.addEventListener('click', () => {
+      const set = new Set(c.conditions || []);
+      if (set.has(cond)) set.delete(cond);
+      else set.add(cond);
+      c.conditions = [...set];
+      scheduleSave();
+      renderAll();
+    });
+    ui.sidebarConditions.appendChild(pill);
+  });
+}
+
+function makeEditableNumber(c, key){
+  return `
+    <label>
+      <span class="lbl">${key}</span>
+      <input class="inp" type="number" value="${Number(c[key] ?? 0)}"
+        onchange="updateChar('${c.id}','${key}', this.value)">
+    </label>
+  `;
+}
+function makeEditableText(c, key, label){
+  return `
+    <label>
+      <span class="lbl">${label || key}</span>
+      <input class="inp" type="text" value="${String(c[key] ?? '').replace(/"/g,'&quot;')}"
+        onchange="updateChar('${c.id}','${key}', this.value)">
+    </label>
+  `;
+}
+
+function renderCards(){
+  ui.cards.innerHTML = '';
+  Object.values(characters).forEach(c => {
+    const card = document.createElement('section');
+    card.className = 'card';
+
+    card.innerHTML = `
+      <div class="card-hd">
+        <div class="card-title">
+          <div class="char-name">${c.name}</div>
+          <div class="char-sub">Level ${c.level} ${c.class}</div>
+        </div>
+        <div class="hp-badge">
+          <div class="hp-line">HP ${c.hp} / ${c.maxHp}${Number(c.tempHp||0) > 0 ? ` + ${c.tempHp} THP` : ''}</div>
+          <div class="hp-bar">
+            <div class="hp-fill" style="width:${hpPct(c)}%; background:${hpColor(c)};"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-bd">
+        <div class="stat-row">
+          <div class="stat"><div class="stat-label">STR</div><div class="stat-score">${c.str}</div><div class="stat-mod">${modStr(c.str)}</div></div>
+          <div class="stat"><div class="stat-label">DEX</div><div class="stat-score">${c.dex}</div><div class="stat-mod">${modStr(c.dex)}</div></div>
+          <div class="stat"><div class="stat-label">CON</div><div class="stat-score">${c.con}</div><div class="stat-mod">${modStr(c.con)}</div></div>
+          <div class="stat"><div class="stat-label">INT</div><div class="stat-score">${c.int}</div><div class="stat-mod">${modStr(c.int)}</div></div>
+          <div class="stat"><div class="stat-label">WIS</div><div class="stat-score">${c.wis}</div><div class="stat-mod">${modStr(c.wis)}</div></div>
+          <div class="stat"><div class="stat-label">CHA</div><div class="stat-score">${c.cha}</div><div class="stat-mod">${modStr(c.cha)}</div></div>
+        </div>
+
+        <div class="mini-grid">
+          <div class="mini"><div class="mini-label">AC</div><div class="mini-val">${c.ac}</div></div>
+          <div class="mini"><div class="mini-label">Init</div><div class="mini-val">${c.initBonus >= 0 ? '+' : ''}${c.initBonus}</div></div>
+          <div class="mini"><div class="mini-label">Speed</div><div class="mini-val">${c.speed} ft</div></div>
+          <div class="mini"><div class="mini-label">Passive Perception</div><div class="mini-val">${c.passPerc}</div></div>
+        </div>
+
+        <div class="section">
+          <div class="section-hd">Saving Throws</div>
+          <div class="tags">${(c.saves || []).map(s => `<span class="tag">${s}</span>`).join('')}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-hd">Skill Proficiencies</div>
+          <div class="tags">${(c.skillProfs || []).map(s => `<span class="tag">${s}</span>`).join('')}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-hd">Key Actions / Reminders</div>
+          <div class="tags">${(c.actions || []).map(a => `<span class="tag">${a}</span>`).join('')}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-hd">Conditions</div>
+          <div class="tags">${(c.conditions || []).length ? c.conditions.map(s => `<span class="tag">${s}</span>`).join('') : `<span class="tag">None</span>`}</div>
+        </div>
+
+        <div class="section">
+          <div class="section-hd">Quick Edit</div>
+          <div class="form-grid">
+            ${makeEditableNumber(c, 'hp')}
+            ${makeEditableNumber(c, 'maxHp')}
+            ${makeEditableNumber(c, 'tempHp')}
+            ${makeEditableNumber(c, 'ac')}
+            ${makeEditableNumber(c, 'initBonus')}
+            ${makeEditableNumber(c, 'speed')}
+          </div>
+          <div class="form-grid" style="margin-top:.5rem;">
+            ${makeEditableText(c, 'hitDice', 'Hit Dice')}
+            ${makeEditableNumber(c, 'passPerc')}
+            ${makeEditableNumber(c, 'profBonus')}
+          </div>
+          <div style="margin-top:.5rem;">
+            <label>
+              <span class="lbl">Notes</span>
+              <textarea class="inp" onchange="updateChar('${c.id}','notes', this.value)">${c.notes || ''}</textarea>
+            </label>
+          </div>
+        </div>
+      </div>
+    `;
+
+    ui.cards.appendChild(card);
+  });
+}
+
+function renderAll(){
+  renderPartyList();
+  renderSidebarConditions();
+  renderCards();
+}
+
+window.updateChar = function(id, key, value){
+  if (!characters[id]) return;
+  const numKeys = new Set(['hp','maxHp','tempHp','ac','initBonus','speed','passPerc','profBonus']);
+  characters[id][key] = numKeys.has(key) ? Number(value || 0) : value;
+  scheduleSave();
+  renderAll();
+};
+
+window.resetParty = function(){
+  if (!confirm('Reset Disney campaign party to default values?')) return;
+  characters = structuredClone(DEFAULT_CHARACTERS);
+  activeCharId = 'wendy';
+  localSave();
+  renderAll();
+  saveNow();
+};
+
+window.syncNow = function(){
+  saveNow();
+};
+
+window.openMap = function(){
+  window.open('disney-map.html', '_blank');
+};
+
+async function initFirebase(){
+  const hasRealConfig = Object.values(firebaseConfig).every(v => v && v !== 'REPLACE_ME');
+  if (!hasRealConfig) {
+    console.warn('Firebase config not set. Running local-only mode.');
+    setStatus('LOCAL ONLY', 'var(--gold)');
+    renderAll();
+    return;
+  }
+
+  try{
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getDatabase(app);
+
+    await signInAnonymously(auth);
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+
+      const rootRef = ref(db, `campaigns/${CAMPAIGN_ID}`);
+      const charsRef = ref(db, `campaigns/${CAMPAIGN_ID}/characters`);
+
+      const snap = await get(rootRef);
+      if (!snap.exists()) {
+        await set(rootRef, { characters });
+      } else {
+        const data = snap.val() || {};
+        if (data.characters && typeof data.characters === 'object') {
+          characters = { ...structuredClone(DEFAULT_CHARACTERS), ...data.characters };
+          localSave();
+        }
+      }
+
+      onValue(charsRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const incoming = snapshot.val() || {};
+        characters = { ...structuredClone(DEFAULT_CHARACTERS), ...incoming };
+        renderAll();
+      });
+
+      dbReady = true;
+      setStatus('SYNCED', 'var(--green)');
+      renderAll();
+    });
+
+  } catch(err){
+    console.error(err);
+    setStatus('LOCAL ONLY', 'var(--red)');
+    renderAll();
+  }
+}
+
+localLoad();
+renderAll();
+initFirebase();
+
+window.DISNEY_SHEET = { characters, renderAll, saveNow };
+</script>
+</body>
+</html>
