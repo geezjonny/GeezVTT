@@ -1407,11 +1407,6 @@ body.is-gm .gm-b{display:block!important;}
         <span class="am-label">Action</span>
         <span class="am-sub">1 available</span>
       </div>
-      <div class="am-btn" id="am-bonus" onclick="openBonusSub()">
-      <span class="am-icon">⚡</span>
-      <span class="am-label">Bonus Action</span>
-      <span class="am-sub">1 available</span>
-      </div>
       <div class="am-btn" id="am-item" onclick="openItemSub()">
         <span class="am-icon">&#x1F392;</span>
         <span class="am-label">Item</span>
@@ -1424,29 +1419,15 @@ body.is-gm .gm-b{display:block!important;}
     </div>
   </div>
 
-  <!-- ACTION SUBMENU -->
-<div id="action-sub" style="display:none;position:fixed;z-index:401;pointer-events:all;">
-  <div id="action-sub-inner">
-    <div class="am-btn" onclick="openAttackSub()">
-      <span class="am-icon">🗡</span>
-      <span class="am-label">Attack</span>
-    </div>
-
-    <div class="am-btn" onclick="openSpellSub('action')">
-      <span class="am-icon">✨</span>
-      <span class="am-label">Spells</span>
-    </div>
-
-    <div class="am-btn" onclick="openCantripSub('action')">
-      <span class="am-icon">🔹</span>
-      <span class="am-label">Cantrips</span>
-    </div>
-
-    <div class="am-btn end" onclick="closeActionSub()">
-      <span class="am-label">← Back</span>
+  <!-- ACTION SUBMENU (Attack / Spell / Skill) -->
+  <div id="action-sub" style="display:none;position:fixed;z-index:401;pointer-events:all;">
+    <div id="action-sub-inner">
+      <div class="am-btn" onclick="declareAction('Attack')"><span class="am-icon">&#x1F5E1;</span><span class="am-label">Attack</span></div>
+      <div class="am-btn" onclick="openSpellSub()"><span class="am-icon">&#x2728;</span><span class="am-label">Cast Spell</span></div>
+      <div class="am-btn" onclick="declareAction('Skill Check')"><span class="am-icon">&#x1F3B2;</span><span class="am-label">Skill Check</span></div>
+      <div class="am-btn end" onclick="closeActionSub()"><span class="am-label">&#x2190; Back</span></div>
     </div>
   </div>
-</div>
 
   <!-- ITEM SUBMENU -->
   <div id="item-sub" style="display:none;position:fixed;z-index:401;pointer-events:all;">
@@ -1586,56 +1567,7 @@ const COND_CLS={Blinded:'sb-blinded',Charmed:'sb-charmed',Deafened:'sb-blinded',
   Invisible:'sb-concentrating',Paralyzed:'sb-paralyzed',Petrified:'sb-petrified',
   Poisoned:'sb-poisoned',Prone:'sb-prone',Restrained:'sb-restrained',Stunned:'sb-stunned',
   Unconscious:'sb-unconscious',Concentrating:'sb-concentrating',Raging:'sb-raging',Dead:'sb-dead'};
-  
-function openAttackSub(){
-  const sub = document.getElementById('action-sub-inner');
-  const char = chars[activeCharId];
-  if(!char) return;
 
-  const weapons = char.weapons || [];
-
-  sub.innerHTML = weapons.map(w => `
-    <div class="am-btn">
-      <div class="am-label">${w.name || 'Weapon'}</div>
-      <div class="am-sub">
-        What to do: Roll d20 ${w.toHit || ''}<br>
-        What it does: ${w.damage || ''}
-        ${w.range ? `<br>Range: ${w.range}` : ''}
-      </div>
-    </div>
-  `).join('') + `
-    <div class="am-btn end" onclick="openActionSub()">
-      ← Back
-    </div>
-  `;
-}
-
-function openCantripSub(type='action'){
-  const sub = document.getElementById('action-sub-inner');
-  const char = chars[activeCharId];
-  if(!char) return;
-
-  const cantrips = (char.cantrips || []).filter(s => {
-    const ct = (s.castTime || '').toLowerCase();
-    return ct === '1 action' || ct === 'action';
-  });
-
-  sub.innerHTML = cantrips.map(s => `
-    <div class="am-btn">
-      <div class="am-label">${s.name}</div>
-      <div class="am-sub">
-        What to do: Roll or save<br>
-        What it does: ${s.effect || s.description || ''}<br>
-        Range: ${s.range || '—'}
-      </div>
-    </div>
-  `).join('') + `
-    <div class="am-btn end" onclick="openActionSub()">
-      ← Back
-    </div>
-  `;
-}
-  
 function defaultChar(type='pc'){
   return {
     name:'New Character',type,race:'',charClass:'',subclass:'',background:'',alignment:'',
@@ -1704,67 +1636,36 @@ window.enter=async()=>{
   // GM goes straight to app
   launchApp();
 };
-function canSeeCharacter(id, c){
-  if(!c) return false;
-  if(isGM) return true;
 
-  // Player can always see their own claimed character
-  if(c.ownerUserId && c.ownerUserId === myId) return true;
-
-  // Otherwise only if explicitly visible to players
-  return !!c.visibleToPlayers;
-}
-  
 function renderCharPicker(){
-  const grid = el('cp-grid');
-  grid.innerHTML = '';
-
-  const pcs = Object.entries(chars)
-    .filter(([id,c]) => c.type === 'pc' && canSeeCharacter(id,c))
-    .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
+  const grid=el('cp-grid');grid.innerHTML='';
+  const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
 
   // If player already has a character claimed, go straight in
-  const alreadyMine = Object.entries(chars).find(([id,c]) => c.type === 'pc' && c.ownerUserId === myId);
+  const alreadyMine=pcs.find(([id,c])=>c.ownerUserId===myId);
   if(alreadyMine){
-    claimAndLaunch(alreadyMine[0], alreadyMine[1]);
+    claimAndLaunch(alreadyMine[0],alreadyMine[1]);
     return;
   }
 
   if(!pcs.length){
-    grid.innerHTML = `<div class="cp-none">No player-visible characters available.</div>`;
+    grid.innerHTML='<div class="cp-none">No characters have been created yet.<br>Ask your GM to set up the session first.</div>';
     return;
   }
 
-  pcs.forEach(([id,c]) => {
-    const takenBySomeoneElse = !!c.ownerUserId && c.ownerUserId !== myId;
-    const mine = c.ownerUserId === myId;
-
-    const card = document.createElement('div');
-    card.className = 'cp-card' + (takenBySomeoneElse ? ' taken' : '') + (mine ? ' mine' : '');
-
-    let statusClass = 'available';
-    let statusText = 'Available';
-
-    if(mine){
-      statusClass = 'mine';
-      statusText = 'Yours';
-    } else if(takenBySomeoneElse){
-      statusClass = 'taken';
-      statusText = 'Taken';
+  pcs.forEach(([id,c])=>{
+    const isTaken=!!c.ownerUserId;
+    const div=document.createElement('div');
+    div.className='cp-card'+(isTaken?' taken':'');
+    div.innerHTML=
+      '<img class="cp-avatar" src="'+esc(c.imageUrl||'')+'" alt="">'+
+      '<div class="cp-name">'+esc(c.name)+'</div>'+
+      '<div class="cp-class">'+esc([c.race,c.charClass].filter(Boolean).join(' '))+'</div>'+
+      '<div class="cp-status '+(isTaken?'taken':'available')+'">'+(isTaken?'Taken by '+esc(c.ownerName||'someone'):'Available')+'</div>';
+    if(!isTaken){
+      div.addEventListener('click',()=>claimAndLaunch(id,c));
     }
-
-    card.innerHTML = `
-      <img class="cp-avatar" src="${esc(c.imageUrl||'')}">
-      <div class="cp-name">${esc(c.name || 'Unnamed')}</div>
-      <div class="cp-class">${esc([c.race, c.class, c.level ? `Lv ${c.level}` : ''].filter(Boolean).join(' • '))}</div>
-      <div class="cp-status ${statusClass}">${statusText}</div>
-    `;
-
-    if(!takenBySomeoneElse){
-      card.addEventListener('click', () => claimAndLaunch(id, c));
-    }
-
-    grid.appendChild(card);
+    grid.appendChild(div);
   });
 }
 
@@ -2045,37 +1946,18 @@ function mkMenuRow(label,fn,danger=false){
 }
 function renderParty(){
   // Don't render until app is live
-  if(el('app').style.display==='none') return;
-
-  const strip = el('party-strip');
-  strip.innerHTML = '';
-
-  const pcs = Object.entries(chars)
-    .filter(([id,c]) => c.type === 'pc' && canSeeCharacter(id,c))
-    .sort((a,b) => (a[1].name||'').localeCompare(b[1].name||''));
-
-  pcs.forEach(([id,c]) => {
-    const live = liveData[id];
-    const hpCur = live?.hp?.current ?? c.hp?.current ?? 0;
-    const hpMax = live?.hp?.max ?? c.hp?.max ?? 1;
-    const pct = Math.max(0, Math.min(100, Math.round(hpCur / Math.max(1,hpMax) * 100)));
-
-    const ac = live?.ac ?? c.ac ?? c.armorClass ?? null;
-
-    const div = document.createElement('div');
-    div.className = 'party-unit' + (activeCardId === id ? ' selected' : '');
-    div.innerHTML = `
-      <img class="pu-avatar" src="${esc(c.imageUrl||'')}">
-      <div class="pu-info">
-        <div class="pu-name">${esc(c.name || 'Unnamed')}</div>
-        <div class="pu-hp-bar">
-          <div class="pu-hp-fill" style="width:${pct}%"></div>
-        </div>
-        ${ac!==null ? `<div style="font-size:0.52rem;color:var(--text3);margin-top:2px;">AC ${ac}</div>` : ''}
-      </div>
-      <div class="pu-hp-txt">${hpCur}/${hpMax}</div>
-    `;
-    div.addEventListener('click', () => openCard(id));
+  if(el('app').style.display==='none')return;
+  const strip=el('party-strip');strip.innerHTML='';
+  const pcs=Object.entries(chars).filter(([,c])=>c.type==='pc').sort((a,b)=>(a[1].name||'').localeCompare(b[1].name||''));
+  pcs.forEach(([id,c])=>{
+    const live=liveData[id];
+    const hpCur=live?.hp?.current??c.hp?.current??0;
+    const hpMax=live?.hp?.max??c.hp?.max??1;
+    const pct=Math.max(0,Math.min(100,Math.round(hpCur/Math.max(1,hpMax)*100)));
+    const div=document.createElement('div');
+    div.className='party-unit'+(activeCardId===id?' selected':'');
+    div.innerHTML=`<img class="pu-avatar" src="${esc(c.imageUrl||'')}"><div class="pu-info"><div class="pu-name">${esc(c.name)}</div><div class="pu-hp-bar"><div class="pu-hp-fill" style="width:${pct}%"></div></div></div><div class="pu-hp-txt">${hpCur}/${hpMax}</div>`;
+    div.addEventListener('click',()=>openCard(id));
     strip.appendChild(div);
   });
 }
@@ -3236,81 +3118,61 @@ function getMyActiveTok(){
 }
 
 function updateActionMenu(){
-  const menu = el('action-menu');
-  if(!menu) return;
-
-  const active = getMyActiveTok();
+  const menu=el('action-menu');
+  if(!menu)return;
+  const active=getMyActiveTok();
 
   // Hide if not our turn or combat not active
-  if(!active || isGM){
-    menu.style.display = 'none';
-    drawMoveGrid();
-    return;
-  }
+  if(!active||isGM){menu.style.display='none';drawMoveGrid();return;}
 
-  const { tokId, tok } = active;
-  const as = actionState[tokId];
-  if(!as?.turnActive){
-    menu.style.display = 'none';
-    drawMoveGrid();
-    return;
-  }
+  const {tokId,tok}=active;
+  const as=actionState[tokId];
+  if(!as?.turnActive){menu.style.display='none';drawMoveGrid();return;}
 
-  const charId = tok.charId || tokId;
-  const c = chars[charId];
-  const remainFt = as.remainingMove ?? 0;
-  const speed = as.speed ?? 30;
+  const charId=tok.charId||tokId;
+  const c=chars[charId];
+  const remainFt=as.remainingMove??0;
+  const speed=as.speed??30;
 
   // Position menu near token — convert map coords to screen coords
-  const screenX = tok.x * sc + px;
-  const screenY = tok.y * sc + py;
-  const sz = (tok.gridSize ? tokenSizePx(tok.gridSize) : (tok.size || tokenSizePx(1))) * sc;
-
+  const screenX=tok.x*sc+px;
+  const screenY=tok.y*sc+py;
+  const sz=(tok.gridSize?tokenSizePx(tok.gridSize):(tok.size||tokenSizePx(1)))*sc;
   // Place to the right of token, or flip left if near right edge
-  let menuX = screenX + sz/2 + 12;
-  let menuY = screenY - 80;
-
-  menu.style.display = 'block';
-
+  let menuX=screenX+sz/2+12;
+  let menuY=screenY-80;
+  menu.style.display='block';
   // Reposition after render if off screen
   requestAnimationFrame(()=>{
-    const r = menu.getBoundingClientRect();
-    if(menuX + r.width > window.innerWidth - 10) menuX = screenX - sz/2 - r.width - 12;
-    if(menuY + r.height > window.innerHeight - 80) menuY = window.innerHeight - 80 - r.height;
-    if(menuY < 60) menuY = 60;
-    menu.style.left = menuX + 'px';
-    menu.style.top = menuY + 'px';
+    const r=menu.getBoundingClientRect();
+    if(menuX+r.width>window.innerWidth-10)menuX=screenX-sz/2-r.width-12;
+    if(menuY+r.height>window.innerHeight-80)menuY=window.innerHeight-80-r.height;
+    if(menuY<60)menuY=60;
+    menu.style.left=menuX+'px';
+    menu.style.top=menuY+'px';
   });
 
   // Update header
-  const amHeader = el('am-header');
-  if(amHeader) amHeader.textContent = (c?.name || tok.name || 'Your Turn').toUpperCase();
+  const amHeader=el('am-header');
+  if(amHeader)amHeader.textContent=(c?.name||tok.name||'Your Turn').toUpperCase();
 
   // Move button — dim if no movement left
-  const moveBtn = el('am-move');
-  const moveSub = el('am-move-sub');
-  if(moveBtn) moveBtn.classList.toggle('disabled', remainFt <= 0);
-  if(moveSub) moveSub.textContent = remainFt + 'ft / ' + speed + 'ft';
+  const moveBtn=el('am-move');
+  const moveSub=el('am-move-sub');
+  if(moveBtn)moveBtn.classList.toggle('disabled',remainFt<=0);
+  if(moveSub)moveSub.textContent=remainFt+'ft / '+speed+'ft';
 
   // Action button
-  const actionBtn = el('am-action');
-  if(actionBtn) actionBtn.classList.toggle('disabled', !as.hasAction);
-  const actionSub = actionBtn?.querySelector('.am-sub');
-  if(actionSub) actionSub.textContent = as.hasAction ? '1 available' : 'used';
-
-  // Bonus Action button
-  const bonusBtn = el('am-bonus');
-  if(bonusBtn) bonusBtn.classList.toggle('disabled', !as.hasBonusAction);
-  const bonusSub = bonusBtn?.querySelector('.am-sub');
-  if(bonusSub) bonusSub.textContent = as.hasBonusAction ? '1 available' : 'used';
+  const actionBtn=el('am-action');
+  if(actionBtn)actionBtn.classList.toggle('disabled',!as.hasAction);
+  const actionSub=actionBtn?.querySelector('.am-sub');
+  if(actionSub)actionSub.textContent=as.hasAction?'1 available':'used';
 
   // Item sub label
-  const itemSub = el('am-item-sub');
-  if(itemSub){
-    const inv = c?.inventory || [];
-    itemSub.textContent = inv.length ? inv.length + ' items' : 'empty';
-  }
+  const itemSub=el('am-item-sub');
+  if(itemSub){const inv=c?.inventory||[];itemSub.textContent=inv.length?inv.length+' items':'empty';}
 }
+
 // ── MOVE MODE ─────────────────────────────────────────────────────────────────
 
 window.startMoveMode=()=>{
@@ -3438,244 +3300,51 @@ async function handleMoveClick(cx,cy){
 // ── ACTION SUBMENU ─────────────────────────────────────────────────────────────
 
 function positionSub(subId){
-  const menu = el('action-menu');
-  const sub = el(subId);
-  if(!menu || !sub) return;
-  const r = menu.getBoundingClientRect();
-  sub.style.left = (r.right + 8) + 'px';
-  sub.style.top = r.top + 'px';
+  const menu=el('action-menu');const sub=el(subId);if(!menu||!sub)return;
+  const r=menu.getBoundingClientRect();
+  sub.style.left=(r.right+8)+'px';
+  sub.style.top=r.top+'px';
 }
 
-function getActiveCharForMenu(){
-  const active = getMyActiveTok();
-  if(!active) return null;
-  const charId = active.tok.charId || active.tokId;
-  const c = chars[charId];
-  if(!c) return null;
-  return { active, charId, c };
-}
-
-function getSpellSlotsText(c, lvl){
-  const slots = c?.spellSlots?.[lvl];
-  if(!slots) return '';
-  const cur = slots.current ?? slots.available ?? slots.left ?? 0;
-  const max = slots.max ?? slots.total ?? 0;
-  return `Slots: Lv ${lvl} — ${cur}/${max}`;
-}
-
-function renderMenuRows(rows, backFn){
-  const sub = el('item-sub');
-  const inner = el('item-sub-inner');
-  inner.innerHTML = '';
-
-  if(!rows.length){
-    const empty = document.createElement('div');
-    empty.className = 'am-btn';
-    empty.innerHTML = '<span class="am-label">Nothing available</span>';
-    inner.appendChild(empty);
-  } else {
-    rows.forEach(row => inner.appendChild(row));
-  }
-
-  const back = document.createElement('div');
-  back.className = 'am-btn end';
-  back.innerHTML = '<span class="am-label">&#x2190; Back</span>';
-  back.onclick = backFn;
-  inner.appendChild(back);
-
-  sub.style.display = 'block';
-  positionSub('item-sub');
-}
-
-window.resetActionSubMenu = ()=>{
-  const inner = el('action-sub-inner');
-  inner.innerHTML = `
-    <div class="am-btn" onclick="openAttackSub()">
-      <span class="am-icon">&#x1F5E1;</span>
-      <span class="am-label">Attack</span>
-    </div>
-
-    <div class="am-btn" onclick="openSpellSub('action')">
-      <span class="am-icon">&#x2728;</span>
-      <span class="am-label">Spells</span>
-    </div>
-
-    <div class="am-btn" onclick="openCantripSub('action')">
-      <span class="am-icon">&#x1F539;</span>
-      <span class="am-label">Cantrips</span>
-    </div>
-
-    <div class="am-btn end" onclick="closeActionSub()">
-      <span class="am-label">&#x2190; Back</span>
-    </div>
-  `;
-};
-
-window.openActionSub = ()=>{
-  const active = getMyActiveTok();
-  if(!active || !actionState[active.tokId]?.hasAction) return;
+window.openActionSub=()=>{
+  const active=getMyActiveTok();
+  if(!active||!actionState[active.tokId]?.hasAction)return;
   closeItemSub();
-  resetActionSubMenu();
-  el('action-sub').style.display = 'block';
+  el('action-sub').style.display='block';
   positionSub('action-sub');
 };
+window.closeActionSub=()=>{el('action-sub').style.display='none';};
 
-window.closeActionSub = ()=>{
-  el('action-sub').style.display = 'none';
-};
-
-window.declareAction = async(type)=>{
-  const active = getMyActiveTok();
-  if(!active) return;
-  await update(ref(db,'map/'+sid+'/actionState/'+active.tokId), { hasAction:false });
+window.declareAction=async(type)=>{
+  const active=getMyActiveTok();if(!active)return;
+  await update(ref(db,'map/'+sid+'/actionState/'+active.tokId),{hasAction:false});
   closeActionSub();
-  toast(type + ' declared — resolve in chat or dice roller');
+  toast(type+' declared — resolve in chat or dice roller');
 };
 
-window.openAttackSub = ()=>{
-  const data = getActiveCharForMenu();
-  if(!data) return;
-  const { c } = data;
-
-  const weapons = Array.isArray(c.weapons) ? c.weapons : [];
-
-  const rows = weapons.map(w => {
-    const row = document.createElement('div');
-    row.className = 'am-btn';
-    row.innerHTML = `
-      <span class="am-icon">&#x1F5E1;</span>
-      <span class="am-label">${esc(w.name || 'Weapon')}</span>
-      <span class="am-sub">
-        What to do: Roll d20 ${esc(w.toHit || '')}<br>
-        What it does: ${esc(w.damage || 'See weapon')}<br>
-        Range: ${esc(w.range || 'Melee (5 ft)')}
-      </span>
-    `;
-    return row;
+window.openSpellSub=()=>{
+  const active=getMyActiveTok();if(!active)return;
+  const charId=active.tok.charId||active.tokId;
+  const c=chars[charId];
+  const spells=(c?.spells||[]).filter(sp=>sp.prepared||sp.level===0);
+  if(!spells.length){toast('No prepared spells');return;}
+  // Show as item sub with spells
+  const sub=el('item-sub');const inner=el('item-sub-inner');
+  inner.innerHTML='';
+  spells.forEach(sp=>{
+    const row=document.createElement('div');
+    row.className='am-btn';
+    row.innerHTML='<span class="am-icon">&#x2728;</span><span class="am-label">'+esc(sp.name)+'</span><span class="am-sub">'+(sp.level===0?'Cantrip':'L'+sp.level)+'</span>';
+    row.onclick=async()=>{
+      await update(ref(db,'map/'+sid+'/actionState/'+active.tokId),{hasAction:false});
+      closeItemSub();closeActionSub();
+      toast(sp.name+' cast!');
+    };
+    inner.appendChild(row);
   });
-
-  renderMenuRows(rows, ()=>{
-    closeItemSub();
-    openActionSub();
-  });
-};
-
-window.openSpellSub = (mode='action')=>{
-  const data = getActiveCharForMenu();
-  if(!data) return;
-  const { c } = data;
-
-  const spells = Array.isArray(c.spells) ? c.spells : [];
-
-  const filtered = spells.filter(sp => {
-    if(!sp) return false;
-    if(Number(sp.level || 0) === 0) return false; // cantrips handled separately
-    if(sp.prepared === false) return false;
-
-    const ct = String(sp.castTime || '').toLowerCase().trim();
-
-    if(mode === 'action'){
-      return ct === '1 action' || ct === 'action';
-    }
-    if(mode === 'bonus'){
-      return ct === '1 bonus action' || ct === 'bonus action' || ct.includes('bonus');
-    }
-    return false;
-  });
-
-  const rows = filtered.map(sp => {
-    const lvl = Number(sp.level || 1);
-    const row = document.createElement('div');
-    row.className = 'am-btn';
-    row.innerHTML = `
-      <span class="am-icon">&#x2728;</span>
-      <span class="am-label">${esc(sp.name || 'Spell')}</span>
-      <span class="am-sub">
-        What to do: Spend 1 Lv ${lvl} spell slot${sp.attack ? '. Roll ' + esc(sp.attack) : ''}${sp.save ? '. Target makes ' + esc(sp.save) : ''}<br>
-        What it does: ${esc(sp.effect || sp.description || 'See spell description')}<br>
-        Range: ${esc(sp.range || '—')}
-        ${getSpellSlotsText(c, lvl) ? '<br>' + esc(getSpellSlotsText(c, lvl)) : ''}
-      </span>
-    `;
-    return row;
-  });
-
-  renderMenuRows(rows, ()=>{
-    closeItemSub();
-    if(mode === 'bonus') openBonusSub();
-    else openActionSub();
-  });
-};
-
-window.openCantripSub = (mode='action')=>{
-  const data = getActiveCharForMenu();
-  if(!data) return;
-  const { c } = data;
-
-  const cantrips = Array.isArray(c.cantrips) ? c.cantrips : [];
-
-  const filtered = cantrips.filter(sp => {
-    if(!sp) return false;
-    const ct = String(sp.castTime || '').toLowerCase().trim();
-
-    if(mode === 'action'){
-      return ct === '1 action' || ct === 'action';
-    }
-    if(mode === 'bonus'){
-      return ct === '1 bonus action' || ct === 'bonus action' || ct.includes('bonus');
-    }
-    return false;
-  });
-
-  const rows = filtered.map(sp => {
-    const row = document.createElement('div');
-    row.className = 'am-btn';
-    row.innerHTML = `
-      <span class="am-icon">&#x1F539;</span>
-      <span class="am-label">${esc(sp.name || 'Cantrip')}</span>
-      <span class="am-sub">
-        What to do: ${esc(sp.attack ? 'Roll ' + sp.attack : sp.save ? 'Target makes ' + sp.save : 'Roll or resolve normally')}<br>
-        What it does: ${esc(sp.effect || sp.description || 'See cantrip description')}<br>
-        Range: ${esc(sp.range || '—')}
-      </span>
-    `;
-    return row;
-  });
-
-  renderMenuRows(rows, ()=>{
-    closeItemSub();
-    if(mode === 'bonus') openBonusSub();
-    else openActionSub();
-  });
-};
-
-window.openBonusSub = ()=>{
-  const active = getMyActiveTok();
-  if(!active || !actionState[active.tokId]?.hasBonusAction){
-    toast('No bonus action available');
-    return;
-  }
-
-  closeItemSub();
-  el('action-sub').style.display = 'block';
-  positionSub('action-sub');
-
-  const inner = el('action-sub-inner');
-  inner.innerHTML = `
-    <div class="am-btn" onclick="openSpellSub('bonus')">
-      <span class="am-icon">&#x2728;</span>
-      <span class="am-label">Bonus Spells</span>
-    </div>
-
-    <div class="am-btn" onclick="openCantripSub('bonus')">
-      <span class="am-icon">&#x1F539;</span>
-      <span class="am-label">Bonus Cantrips</span>
-    </div>
-
-    <div class="am-btn end" onclick="resetActionSubMenu()">
-      <span class="am-label">&#x2190; Back</span>
-    </div>
-  `;
+  const back=document.createElement('div');back.className='am-btn end';back.innerHTML='<span class="am-label">&#x2190; Back</span>';back.onclick=closeItemSub;inner.appendChild(back);
+  sub.style.display='block';
+  positionSub('item-sub');
 };
 
 // ── ITEM SUBMENU ───────────────────────────────────────────────────────────────
