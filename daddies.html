@@ -2217,13 +2217,65 @@ CHARS.forEach(c => { buildCondChips(c); });
     });
   }
 
+  // Maps charId+level to the detail page pip-row ID
+  const DET_SLOT_IDS = {
+    liora:  { 1: 'liora-s1' },
+    rurik:  { 1: 'rurik-s1',  2: 'rurik-s2' },
+    ashara: { 1: 'ashara-s1', 2: 'ashara-s2' },
+    lark:   { 1: 'lark-s1',   2: 'lark-s2' },
+    kairon: { 1: 'kairon-s1', 2: 'kairon-s2' }
+  };
+
+  function syncDetPip(charId, level, idx, spent) {
+    const rowId = DET_SLOT_IDS[charId]?.[level];
+    if (!rowId) return;
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    const pips = Array.from(row.querySelectorAll('.pip:not(.rb)'));
+    if (pips[idx]) pips[idx].classList.toggle('spent', spent);
+  }
+
+  function syncMiniPip(charId, level, idx, spent) {
+    const wrap = document.getElementById('slot-mini-' + charId);
+    if (!wrap) return;
+    const levels = window.APP_STATE.spells[charId]?.slots || {};
+    let flatIdx = 0;
+    const sortedLevels = Object.keys(levels).map(Number).sort((a,b) => a - b);
+    for (const lvl of sortedLevels) {
+      const arr = levels[lvl];
+      if (!Array.isArray(arr)) continue;
+      for (let i = 0; i < arr.length; i++) {
+        if (lvl === level && i === idx) {
+          const all = Array.from(wrap.querySelectorAll('.slot-pip-mini'));
+          if (all[flatIdx]) all[flatIdx].classList.toggle('spent', spent);
+          return;
+        }
+        flatIdx++;
+      }
+    }
+  }
+
   window.coToggleSlot = function(charId, level, idx, el) {
     ensureV8State();
     const arr = window.APP_STATE.spells?.[charId]?.slots?.[level];
     if (!arr || arr[idx] == null) return;
     arr[idx] = !arr[idx];
-    patchState(`spells/${charId}/slots/${level}`, arr);
-    if (el) el.classList.toggle('spent', !arr[idx]);
+    patchState('spells/' + charId + '/slots/' + level, arr);
+    const spent = !arr[idx];
+    if (el) el.classList.toggle('spent', spent);
+    syncDetPip(charId, level, idx, spent);
+    saveNowMaybe();
+  };
+
+  window.coToggleSlotDet = function(charId, level, idx, el) {
+    ensureV8State();
+    const arr = window.APP_STATE.spells?.[charId]?.slots?.[level];
+    if (!arr || arr[idx] == null) return;
+    arr[idx] = !arr[idx];
+    patchState('spells/' + charId + '/slots/' + level, arr);
+    const spent = !arr[idx];
+    if (el) el.classList.toggle('spent', spent);
+    syncMiniPip(charId, level, idx, spent);
     saveNowMaybe();
   };
 
@@ -2245,22 +2297,48 @@ CHARS.forEach(c => { buildCondChips(c); });
   function hydrateSlots() {
     ensureV8State();
     Object.keys(SPELL_DEFAULTS).forEach(cid => {
-      const wrap = document.getElementById(`slot-mini-${cid}`);
-      if (!wrap) return;
+      const wrap = document.getElementById('slot-mini-' + cid);
       const levels = window.APP_STATE.spells[cid].slots || {};
-      Object.entries(levels).forEach(([lvl, arr]) => {
-        const pips = wrap.querySelectorAll(`.slot-row-mini:nth-of-type(${Number(lvl)}) .slot-pip-mini`);
+      const sortedLvls = Object.keys(levels).sort((a,b) => Number(a) - Number(b));
+
+      // Sync mini pips (flat order)
+      if (wrap) {
+        let flat = [];
+        sortedLvls.forEach(lvl => {
+          if (!Array.isArray(levels[lvl])) return;
+          levels[lvl].forEach(v => flat.push(v));
+        });
+        Array.from(wrap.querySelectorAll('.slot-pip-mini')).forEach((el, i) => {
+          el.classList.toggle('spent', flat[i] === false);
+        });
+        const conc = document.getElementById('conc-mini-' + cid);
+        if (conc) conc.style.opacity = window.APP_STATE.spells[cid].concentrating ? '1' : '.55';
+      }
+
+      // Sync detail pips
+      sortedLvls.forEach(lvl => {
+        const arr = levels[lvl];
+        if (!Array.isArray(arr)) return;
+        const rowId = DET_SLOT_IDS[cid]?.[Number(lvl)];
+        if (!rowId) return;
+        const row = document.getElementById(rowId);
+        if (!row) return;
+        const pips = Array.from(row.querySelectorAll('.pip:not(.rb)'));
+        arr.forEach((v, i) => { if (pips[i]) pips[i].classList.toggle('spent', v === false); });
       });
-      // direct map by onclick order
-      let all = Array.from(wrap.querySelectorAll('.slot-pip-mini'));
-      let flat = [];
-      Object.keys(levels).sort((a,b)=>Number(a)-Number(b)).forEach(lvl => {
-        if (!Array.isArray(levels[lvl])) return; // Firebase can return null for empty slot arrays
-        levels[lvl].forEach(v => flat.push(v));
+    });
+  }
+
+  function rewireDetailPips() {
+    Object.entries(DET_SLOT_IDS).forEach(([cid, lvlMap]) => {
+      Object.entries(lvlMap).forEach(([lvl, rowId]) => {
+        const row = document.getElementById(rowId);
+        if (!row || row.dataset.coWired === '1') return;
+        row.dataset.coWired = '1';
+        Array.from(row.querySelectorAll('.pip:not(.rb)')).forEach((pip, idx) => {
+          pip.onclick = function() { window.coToggleSlotDet(cid, Number(lvl), idx, this); };
+        });
       });
-      all.forEach((el, i) => el.classList.toggle('spent', flat[i] === false));
-      const conc = document.getElementById(`conc-mini-${cid}`);
-      if (conc) conc.style.opacity = window.APP_STATE.spells[cid].concentrating ? '1' : '.55';
     });
   }
 
@@ -2284,7 +2362,7 @@ CHARS.forEach(c => { buildCondChips(c); });
           patchState(`spells/${cid}/slots`, JSON.parse(JSON.stringify(data.slots)));
           patchState(`spells/${cid}/concentrating`, false);
         });
-        setTimeout(hydrateSlots, 20);
+        setTimeout(() => { rewireDetailPips(); hydrateSlots(); }, 20);
         saveNowMaybe();
       }, true);
     });
@@ -2293,6 +2371,7 @@ CHARS.forEach(c => { buildCondChips(c); });
   function initV8() {
     ensureV8State();
     populateAttackSelects();
+    rewireDetailPips();
     hydrateSlots();
     patchRestButtons();
   }
