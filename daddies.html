@@ -2043,7 +2043,7 @@ CHARS.forEach(c => { buildCondChips(c); });
   };
   window.ovAdj = function(id, sign){
     const amtInput = document.getElementById('ob-'+id+'-amt');
-    const amt = Math.max(0, Number(amtInput?.value||0));
+    const amt = Math.max(0, Number(amtInput?.value||1));
     if(Number(sign) >= 0) applyHeal(id, amt); else applyDmg(id, amt);
     if(amtInput) amtInput.value = '';
     if(window.CO){ const p={}; p['characters/'+id+'/hp']=getHP(id); p['characters/'+id+'/tempHp']=getTmp(id); window.CO.patchMany(p); }
