@@ -101,6 +101,14 @@
     #map-view { touch-action: none; user-select: none; }
     #edit-preview { pointer-events: none; }
     .edit-selected { filter: drop-shadow(0 0 3px #fff); stroke: #fff !important; }
+    #tokens-panel { left: 15rem; }
+    #token-properties-panel { left: 29rem; }
+    .token-fields { display: grid; gap: .4rem; font-size: .75rem; }
+    .token-fields label { display: grid; gap: .15rem; font-size: inherit; }
+    .token-fields input, .token-fields select { width: 100%; min-width: 0; }
+    .token-fields p { margin: 0; }
+    .map-token { cursor: grab; }
+    .map-token:focus-visible circle { stroke: white; }
   </style>
   <script type="importmap">
     { "imports": {
@@ -129,6 +137,7 @@
             <button type="button" data-edit-layer="walls" disabled>Walls</button>
             <button type="button" data-edit-layer="lights" disabled>Lights</button>
             <button type="button" data-edit-layer="doors" disabled>Doors</button>
+            <button id="open-tokens" type="button" data-edit-layer="tokens" aria-controls="tokens-panel" disabled>Tokens</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -155,7 +164,7 @@
       <div class="editor-body">
       <fieldset id="editor-controls" disabled>
         <legend>Object editing</legend>
-        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="lights">Lights</option><option value="doors">Doors</option></select></label>
+        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option></select></label>
         <label hidden>Tool <select id="edit-tool"><option value="select">Select</option><option value="erase">Erase</option><option value="paint">Paint</option><option value="bucket">Bucket</option><option value="replace">Replace</option></select></label>
         <div class="editor-group" role="group" aria-labelledby="tools-title">
           <span id="tools-title" class="editor-group-title">Tools:</span>
@@ -210,6 +219,33 @@
         </fieldset>
       </div>
     </section>
+    <section id="tokens-panel" class="editor-panel swatch-panel" data-swatch-layer="tokens" role="dialog" aria-modal="false" aria-labelledby="tokens-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move tokens window. Drag or use arrow keys.">
+        <h2 id="tokens-title">Tokens</h2>
+        <button class="editor-close" type="button" aria-label="Close tokens">&times;</button>
+      </div>
+      <div class="editor-body">
+        <fieldset class="token-fields" disabled>
+        <legend>Token settings</legend>
+        <label>Token <select id="token-source"><option value="">Blank Token</option></select></label>
+        <p>Use Tools to select, erase, paint, fill, or replace tokens. Right-click a token to edit its properties.</p>
+        </fieldset>
+        <p id="token-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <section id="token-properties-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="token-properties-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move token properties window. Drag or use arrow keys.">
+        <h2 id="token-properties-title">Token properties</h2>
+        <button class="editor-close" type="button" aria-label="Close token properties">&times;</button>
+      </div>
+      <form id="token-form" class="editor-body token-fields">
+        <label>Name <input id="token-name" maxlength="100" required></label>
+        <label>Size (grid squares) <input id="token-size" type="number" min="0.5" max="20" step="0.5" required></label>
+        <label>HP <input id="token-hp" type="number" min="0" max="999999" step="1" required></label>
+        <button type="submit">Apply</button>
+        <p id="token-properties-status" role="status"></p>
+      </form>
+    </section>
     <section id="floor" aria-label="Tabletop floor" aria-busy="false">
       <p id="empty">Choose a .dd2vtt file to place its map on the floor.</p>
       <svg id="map-view" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="map-title" hidden>
@@ -224,10 +260,11 @@
         <g id="lights"></g>
         <g id="walls"></g>
         <g id="doors"></g>
+        <g id="tokens"></g>
         <g id="edit-preview"></g>
       </svg>
-      <div id="view-3d" role="region" aria-label="3D map. Drag to orbit, right-drag to pan, scroll to zoom." hidden></div>
-      <p id="view-help" hidden>Drag: orbit · Right-drag: pan · Scroll: zoom · Touch: one finger orbit, two fingers pan/zoom</p>
+      <div id="view-3d" role="region" aria-label="3D map. Middle-drag to pan, scroll to zoom, right-drag to orbit." hidden></div>
+      <p id="view-help" hidden>Middle-drag: pan · Scroll: zoom · Right-drag: orbit · Right-click token: edit · Touch: one finger orbit, two fingers pan/zoom</p>
       <div id="dice-overlay" aria-hidden="true"></div>
     </section>
     <section id="dice-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="dice-title" hidden>
@@ -405,6 +442,8 @@
   <script type="module" src="js/map-view-toggle.js"></script>
   <script type="module" src="js/map-view-2d.js"></script>
   <script type="module" src="js/map-editor.js"></script>
+  <script src="js/firebase-config.js"></script>
   <script type="module" src="js/menu-bar.js"></script>
+  <script type="module" src="js/tokens.js"></script>
 </body>
 </html>

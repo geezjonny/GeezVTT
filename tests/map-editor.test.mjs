@@ -27,6 +27,13 @@ test('bucket respects walls and closed doors, and crosses open doors',()=>{
   model.doors[0].open=true;
   assert.equal(bucketCells(model,{x:.5,y:.5},1).length,16);
 });
+
+test('token box selection includes overlapping circular edges and rejects nearby corners',()=>{
+  const token={x:2,y:2,size:2};
+  assert.ok(inBox(token,{x:2.9,y:1.9},{x:4,y:2.1},'tokens'));
+  assert.ok(inBox(token,{x:4,y:2.1},{x:2.9,y:1.9},'tokens'));
+  assert.ok(!inBox(token,{x:2.9,y:2.9},{x:4,y:4},'tokens'));
+});
 test('bucket bounds partial cells and refuses excessive fills atomically',()=>{
   assert.equal(bucketCells({width:2.2,height:2.2,walls:[],doors:[]},{x:0,y:0},1).length,4);
   assert.throws(()=>bucketCells({width:100,height:100,walls:[],doors:[]},{x:0,y:0},1),/exceeds 2000/);

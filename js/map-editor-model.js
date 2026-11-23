@@ -17,6 +17,7 @@ export function inBox(object, a, b, layer) {
   const left=Math.min(a.x,b.x), right=Math.max(a.x,b.x), top=Math.min(a.y,b.y), bottom=Math.max(a.y,b.y);
   const inside = p => p.x>=left && p.x<=right && p.y>=top && p.y<=bottom;
   if (layer==='lights') return inside(object);
+  if (layer==='tokens') return Math.hypot(object.x-Math.max(left,Math.min(right,object.x)),object.y-Math.max(top,Math.min(bottom,object.y)))<=object.size/2;
   const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
   return object.points.some(inside) || segments(object.points).some(([p,q]) => corners.some((c,i)=>crosses(p,q,c,corners[(i+1)%4])));
 }

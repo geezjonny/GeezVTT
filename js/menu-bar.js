@@ -47,7 +47,7 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
     openPanel(swatches);
     input.value = button.dataset.editLayer;
     input.dispatchEvent(new Event('change'));
-    swatches.querySelector('button[data-material]:not([hidden]), input').focus();
+    swatches.querySelector('button[data-material]:not([hidden]), input, select:not([hidden])').focus();
   });
 });
 document.querySelector('#open-tools').addEventListener('click', () => {
@@ -58,7 +58,7 @@ function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-  if (disabled) panels.filter(panel => panel !== document.querySelector('#dice-panel')).forEach(panel => { panel.hidden = true; });
+  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
 new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
@@ -130,7 +130,7 @@ function positionPanel(panel, left, top, snap = false, group = [panel]) {
 function raisePanel(panel) {
   panels.forEach(other => { other.style.zIndex = other === panel ? '4' : '3'; });
 }
-function openPanel(panel) {
+export function openPanel(panel) {
   panel.hidden = false;
   positionPanel(panel, panel.offsetLeft, panel.offsetTop);
   raisePanel(panel);

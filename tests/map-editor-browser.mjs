@@ -80,8 +80,9 @@ try {
     assert.equal(await evaluate(`document.getElementById('editor-controls').disabled`),false);
   }
   // Swatches stay open together, retain separate settings, and share one tool selection.
+  await evaluate(`window.originalFetch=window.fetch;window.fetch=(url,...args)=>String(url).includes('.firebaseio.com/')?Promise.resolve(new Response(JSON.stringify(String(url).includes('characters/npcs')?{guard:{name:'Guard',size:'Large',combat:{hp_max:9}}}:{}),{status:200})):window.originalFetch(url,...args)`);
   await evaluate(`document.querySelectorAll('[data-edit-layer]').forEach(button=>button.click())`);
-  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),3);
+  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),4);
   const recentMaterials=layer=>evaluate(`[...document.querySelectorAll('[data-material-layer="${layer}"] button:not([hidden])')].map(button=>button.dataset.material)`);
   assert.deepEqual(await recentMaterials('walls'),['stone','wood','cobble','brick']);
   await evaluate(`(()=>{const select=document.querySelector('[data-material-layer="walls"] .material-more');select.value='metal';select.dispatchEvent(new Event('change'));})()`);
@@ -104,7 +105,7 @@ try {
   assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'lights');
   assert.equal(await evaluate(`document.getElementById('edit-tool').value`),'replace');
   assert.equal(await evaluate(`document.getElementById('editor-title').textContent`),'Tools — Lights');
-  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),3);
+  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),4);
   await evaluate(`document.querySelectorAll('.swatch-panel .editor-close').forEach(button=>button.click())`);
   assert.equal(await evaluate(`document.getElementById('editor-panel').hidden`),false);
   await change('edit-layer','walls');
@@ -163,21 +164,58 @@ try {
   assert.equal(await count('doors'),1);
   await change('edit-tool','replace');await change('edit-door','open');await click(2.5,2);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].open`),true);
+  // Tokens share tools, selection, movement, history, bucket barriers, and map export.
+  await wait(`document.querySelector('#token-source option[value="legacy:guard"]')!==null`);
+  await change('edit-layer','tokens');await change('edit-tool','paint');
+  await click(12,12);await click(14,12);assert.equal(await count('tokens'),2);
+  await change('edit-tool','select');await drag(11,11,15,13);
+  assert.equal(await evaluate(`document.querySelectorAll('#tokens .edit-selected').length`),2);
+  await drag(12.5,12.5,13.5,13.5);
+  assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].x`),13.5);
+  await change('token-source','legacy:guard');await change('edit-tool','replace');await click(13.5,13.5);
+  assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].name`),'Guard');
+  assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].size`),2);
+  for(const tool of ['select','erase','paint','bucket','replace']) {
+    await change('edit-tool',tool);
+    const position=await point(13.5,13.5);
+    await send('Input.dispatchMouseEvent',{type:'mousePressed',...position,button:'right',buttons:2,clickCount:1});
+    await send('Input.dispatchMouseEvent',{type:'mouseReleased',...position,button:'right',buttons:0,clickCount:1});
+    assert.equal(await evaluate(`document.getElementById('token-properties-panel').hidden`),false,`right-click edits tokens with ${tool} active`);
+    assert.equal(await count('tokens'),2,'right-click does not apply the active tool');
+    await evaluate(`document.querySelector('#token-properties-panel .editor-close').click()`);
+  }
+  await evaluate(`(()=>{const svg=document.getElementById('map-view'),p=new DOMPoint(13.5,13.5).matrixTransform(svg.getScreenCTM());svg.dispatchEvent(new MouseEvent('contextmenu',{clientX:p.x,clientY:p.y,bubbles:true,cancelable:true}));})()`);
+  assert.equal(await evaluate(`document.getElementById('token-name').value`),'Guard','right-click resolves the token when the event targets the shared map');
+  await evaluate(`document.getElementById('token-name').value='Captain';document.getElementById('token-size').value='1.5';document.getElementById('token-hp').value='4';document.getElementById('token-form').requestSubmit()`);
+  assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].hp`),4);
+  const historyKey=key=>evaluate(`document.getElementById('map-view').dispatchEvent(new KeyboardEvent('keydown',{key:${JSON.stringify(key)},ctrlKey:true,bubbles:true,cancelable:true}))`);
+  await historyKey('z');assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].hp`),9);
+  await historyKey('y');assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].hp`),4);
+  await evaluate(`document.querySelector('#token-properties-panel .editor-close').click()`);
+  await change('edit-tool','erase');await drag(11,11,18,16);assert.equal(await count('tokens'),0);
+  await historyKey('z');assert.equal(await count('tokens'),2);
+  await change('edit-tool','bucket');await change('edit-spacing','2');await click(4,4);
+  assert.equal(await count('tokens'),18);
+  await click(4,4);assert.equal(await count('tokens'),18,'token bucket skips occupied centers');
   // Capture the download and re-import it, without touching a user's download directory.
   await evaluate(`window.originalURL=URL.createObjectURL;URL.createObjectURL=b=>{window.exportBlob=b;return window.originalURL(b)};HTMLAnchorElement.prototype.click=function(){};document.getElementById('edit-export').click()`);
   const exported=await evaluate(`window.exportBlob.text().then(JSON.parse)`);
   assert.equal(exported.line_of_sight.length,4);assert.equal(exported.portals[0].closed,false);
   assert.equal(exported.geezvtt_editor.doorMaterials[0],'wood');
+  assert.equal(exported.geezvtt_editor.tokens.length,18);
+  assert.equal(exported.geezvtt_editor.tokens[0].name,'Captain');
   await evaluate(`(async()=>{const data=new DataTransfer();data.items.add(new File([await window.exportBlob.text()],'roundtrip.dd2vtt'));const input=document.getElementById('map-file');input.files=data.files;input.dispatchEvent(new Event('change'));})()`);
   await wait(`document.querySelector('#status').textContent.startsWith('roundtrip.dd2vtt ·')`);
   assert.equal(await count('lights'),16);assert.equal(await count('walls'),4);
+  assert.equal(await count('tokens'),18);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].material`),'wood');
   // Nonzero origins, invalid optional entries, and unknown exporter metadata.
   await evaluate(`(async()=>{
     const raw=JSON.parse(await window.exportBlob.text());raw.resolution={...raw.resolution,map_origin:{x:10,y:20},map_size:{x:4,y:4}};
     raw.line_of_sight=[[{x:10,y:20},{x:14,y:20}]];
     raw.portals=[{bounds:[{x:11,y:21},{x:12,y:21}],closed:true,custom:'keep-door'}];
-    raw.lights=[{position:null,range:4},{position:{x:12,y:22},range:2,intensity:.7,color:'80abcdef',shadows:false,custom:'keep-light'}];
+    raw.lights=[{position:null,range:4},{position:{x:12,y:22},range:2,intensity:.7,color:'80abcdef',shadows:false,custom:'keep-light'},
+      {position:{x:9,y:22},range:2,color:'ffffffff'},{position:{x:15,y:22},range:2,color:'ffffffff'}];
     const data=new DataTransfer();data.items.add(new File([JSON.stringify(raw)],'origin.dd2vtt'));const input=document.getElementById('map-file');input.files=data.files;input.dispatchEvent(new Event('change'));
   })()`);
   await wait(`document.querySelector('#status').textContent.startsWith('origin.dd2vtt ·')`);
@@ -190,6 +228,22 @@ try {
   assert.equal(originExport.lights[0].shadows,false);
   assert.equal(originExport.lights[0].custom,'keep-light');
   assert.equal(originExport.portals[0].custom,'keep-door');
+  // Dungeondraft lights outside either map edge remain editable after panning/zooming out.
+  await evaluate(`document.getElementById('map-view').setAttribute('viewBox','-4 -4 12 12')`);
+  await change('edit-layer','lights');await change('edit-tool','erase');
+  await click(-1,2);assert.equal(await count('lights'),2,'erase reaches a negative-coordinate light');
+  await historyKey('z');assert.equal(await count('lights'),3);
+  await change('edit-tool','select');await drag(4.5,1.5,5.5,2.5);
+  assert.equal(await evaluate(`document.querySelectorAll('#lights .edit-selected').length`),1,'box selection reaches beyond the map edge');
+  await clickButton('edit-delete');assert.equal(await count('lights'),2);
+  await historyKey('z');assert.equal(await count('lights'),3);
+  await change('edit-tool','erase');await drag(4.5,1.5,5.5,2.5);
+  assert.equal(await count('lights'),2,'box erase reaches beyond the map edge');
+  await change('edit-tool','paint');await click(-2,1);assert.equal(await count('lights'),2,'painting outside the map remains blocked');
+  await change('edit-tool','bucket');await click(-2,1);assert.equal(await count('lights'),2,'bucket fills outside the map remain blocked');
+  await clickButton('edit-export');
+  assert.deepEqual(await evaluate(`window.exportBlob.text().then(JSON.parse).then(raw=>raw.lights.map(light=>light.position))`),[{x:12,y:22},{x:9,y:22}],'export retains undeleted lights and omits the erased outside light');
+  await evaluate(`document.getElementById('map-view').setAttribute('viewBox','0 0 4 4')`);
   // Middle-button drags pan the 2D view without painting or changing zoom.
   const panStart=await evaluate(`(()=>{const svg=document.getElementById('map-view'),r=svg.getBoundingClientRect();return {x:r.right-120,y:r.bottom-120,viewBox:svg.getAttribute('viewBox'),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};})()`);
   const beforePan=await point(1,1), beforePanWalls=await count('walls');

@@ -2,6 +2,7 @@
 // One grid cell = one world unit = 5 ft; walls and doors are two units high.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { onMapRightClick } from './map-right-click.js';
 
 export function createMapView3D(host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -12,7 +13,7 @@ export function createMapView3D(host) {
   renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.domElement.tabIndex = 0;
-  renderer.domElement.setAttribute('aria-label', '3D tabletop. Drag to orbit; right-drag to pan; scroll to zoom.');
+  renderer.domElement.setAttribute('aria-label', '3D tabletop. Middle-drag to pan; scroll to zoom; right-drag to orbit. Right-click a token to edit.');
   host.prepend(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#15191f');
@@ -26,14 +27,24 @@ export function createMapView3D(host) {
   scene.add(sun, sun.target);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
   const controls = new OrbitControls(camera, renderer.domElement);
+  controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.screenSpacePanning = false;
-  const groups = { walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group() };
+  const groups = { walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group() };
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
+  const raycaster = new THREE.Raycaster();
+  const removeRightClick = onMapRightClick(renderer.domElement, event => {
+    if (!active) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
+      -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
+    const hit = raycaster.intersectObjects(groups.tokens.children)[0];
+    if (hit) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
+  });
   const invalidate = () => { dirty = true; };
   controls.addEventListener('change', invalidate);
 
@@ -141,6 +152,24 @@ export function createMapView3D(host) {
     };
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], '#a7aabb'), groups.walls));
     model.doors.forEach(door => slabs(door.points, material(door.material, door.open ? '#75b89a' : '#b47c42'), groups.doors, door.open));
+    for (const token of model.tokens || []) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 256;
+      const context = canvas.getContext('2d');
+      context.fillStyle = '#344f70';
+      context.beginPath(); context.arc(128, 128, 124, 0, Math.PI * 2); context.fill();
+      context.strokeStyle = '#a2cbff'; context.lineWidth = 8; context.stroke();
+      context.fillStyle = '#fff'; context.font = 'bold 76px system-ui'; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.fillText(token.name.split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join(''), 128, 128);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(token.size, token.size),
+        new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .1 }));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(token.x, .03, token.y);
+      mesh.userData.tokenId = token.id;
+      groups.tokens.add(mesh);
+    }
     // Dispose materials for degenerate segments which produced no mesh.
     const used = new Set();
     root.traverse(object => { if (object.material) used.add(object.material); });
@@ -198,6 +227,7 @@ export function createMapView3D(host) {
   }
   function destroy() {
     setActive(false);
+    removeRightClick();
     observer.disconnect();
     controls.dispose();
     disposeContents();

@@ -87,3 +87,33 @@ This section supersedes the earlier UI descriptions and verification status for 
 - Adds repository instructions in AGENTS.md leaving verification to the user.
 
 No tests, browser checks, visual inspections, or other validation commands were run for this UI work. Verification is left to the user. Existing browser tests may need updates for the floating editor and removed visibility controls.
+
+## Floating windows and map controls saved — 2026-11-22
+
+This section supersedes earlier descriptions of window layout, material swatches, and 2D panning.
+
+- Tools, Walls, Lights, Doors, and Dice use equal-width floating windows. Nearby edges snap within 12 pixels. Touching windows move together, including connected chains; Shift-drag detaches one window and disables snapping for that drag. Arrow keys move connected windows together, with Shift moving only the focused window. Title bars match the top menu's text size and spacing.
+- Wall and door palettes independently show the four most recent materials and a dropdown for the remaining choices. Choosing a material promotes it to the first swatch. Recent choices reset on page reload.
+- Wall painting always snaps to grid intersections. Holding Shift also allows grid-line midpoints, excluding cell centers. Preview and placement share the same snapping behavior.
+- Middle-click dragging pans the 2D map without changing zoom. Pointer capture keeps the drag active outside the map; releasing or canceling ends panning.
+- Updated browser regression coverage for wall snapping, material recency, window widths/snapping/group movement/detachment, and 2D panning.
+
+Implementation was committed as `ce43138` (Improve map snapping, panning, and floating window controls) and pushed to `origin/main`. The unrelated README deletion was left unstaged. This progress entry and the instruction to update progress on future save requests were added afterward.
+
+No tests, browser checks, visual inspections, or other validation commands were run for these changes. Verification is left to the user; exercising the updated browser coverage and checking the new interactions remain outstanding.
+
+## Tokens and standardized controls saved - 2026-11-22
+
+This section supersedes earlier token and mouse-control descriptions.
+
+- Edit > Tokens opens the shared Tools window and a floating token palette with Firebase NPCs or Blank Token. Reads current GeezSheets NPC entities and older NPC records, avoiding duplicates linked by source references. Firebase errors appear in the palette; Blank Token remains available.
+- Tokens use Select, Erase, Paint, Bucket, and Replace, including box selection, group movement, grid snapping, Apply/Delete, and the shared Undo/Redo history. Bucket fills reuse wall/closed-door barriers, spacing, duplicate-center avoidance, and the 2,000-object limit.
+- Right-click a token to edit its name, size in grid squares, and HP. These property changes also participate in Undo/Redo. Tokens display in both 2D and 3D and survive Save Map/export and re-import through the DD2VTT `geezvtt_editor.tokens` extension.
+- Token creation and movement use the 2D editor. NPC records are read only; token edits remain local until exported and do not update Firebase NPCs or synchronize a shared scene.
+- Mouse controls are middle-drag to pan and scroll to zoom in both views, plus right-drag to orbit in 3D. Left-drag no longer orbits the 3D camera. Right-click token editing waits for release and ignores drags, preserving orbit gestures. Touch camera controls remain available.
+- Select, Erase, and Replace use unclamped coordinates and accept gestures outside the map image, allowing imported Dungeondraft lights beyond its bounds to be selected or deleted. Paint and Bucket still require an on-map starting point. Pan or zoom out to reach outside objects.
+- Added token data and right-click gesture tests; expanded browser coverage for shared token tools, property edits, Undo/Redo, exports, right-clicking with different tools, and editing outside map bounds. Added a token box-selection geometry case.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run for this work. Outstanding verification includes Firebase access and NPC loading, token tools and export/re-import, stationary right-click versus orbit dragging, 2D/3D camera controls, and deleting outside-map lights. Earlier lighting and floating-window verification remains outstanding as recorded above.
+
+Save requested with commit and push to `origin/main`. Include the pending save-workflow instruction in AGENTS.md and previous progress notes. Leave the unrelated README.md deletion unstaged.
