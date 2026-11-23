@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeezVTT — Map import</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #15191f; color: #e6ebf1; }
+    main { height: 100dvh; display: flex; flex-direction: column; }
+    header { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.25rem; background: #202731; border-bottom: 1px solid #364151; }
+    h1 { font-size: 1.15rem; margin: 0; }
+    label { font-size: 0.9rem; }
+    input { max-width: 100%; font: inherit; }
+    input::file-selector-button { border: 1px solid #61758f; border-radius: 0.35rem; background: #34465f; color: white; padding: 0.5rem 0.75rem; margin-right: 0.75rem; cursor: pointer; }
+    input:focus-visible { outline: 2px solid #a2cbff; outline-offset: 4px; }
+    #floor { flex: 1; min-height: 0; position: relative; padding: 1rem; display: grid; place-items: center; overflow: hidden; }
+    #map-view { width: 100%; height: 100%; min-height: 0; }
+    fieldset { display: flex; flex-wrap: wrap; gap: 1rem; margin: 0; padding: 0; border: 0; }
+    legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    fieldset label { display: inline-flex; align-items: center; gap: 0.35rem; }
+    #walls { stroke: #69dcff; }
+    #doors { stroke: #ffad57; }
+    .map-line { fill: none; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .door { stroke-width: 6; }
+    .door.open { stroke: #75f0b1; stroke-dasharray: 5 5; }
+    .light-range { stroke-width: 1; vector-effect: non-scaling-stroke; fill-opacity: 0.12; stroke-opacity: 0.7; }
+    .light-source { stroke: #15191f; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+    [hidden] { display: none !important; }
+    #empty { color: #b4c0ce; text-align: center; line-height: 1.6; }
+    footer { padding: 0.75rem 1.25rem; background: #202731; border-top: 1px solid #364151; font-size: 0.9rem; }
+    #status { margin: 0; overflow-wrap: anywhere; }
+    #status.error { color: #ffb4ac; }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>GeezVTT</h1>
+      <label for="map-file">Import map</label>
+      <input id="map-file" type="file" accept=".dd2vtt" aria-describedby="status">
+      <fieldset disabled id="layer-controls">
+        <legend>Map overlays</legend>
+        <label title="Cyan lines"><input type="checkbox" data-layer="walls" checked> Walls <span id="walls-count">(0)</span></label>
+        <label title="Light colors and range circles"><input type="checkbox" data-layer="lights" checked> Lights <span id="lights-count">(0)</span></label>
+        <label title="Orange: closed. Dashed green: open."><input type="checkbox" data-layer="doors" checked> Doors <span id="doors-count">(0)</span></label>
+      </fieldset>
+    </header>
+    <section id="floor" aria-label="Tabletop floor" aria-busy="false">
+      <p id="empty">Choose a .dd2vtt file to place its map on the floor.</p>
+      <svg id="map-view" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="map-title" hidden>
+        <title id="map-title">Floor map</title>
+        <image id="floor-image" x="0" y="0" preserveAspectRatio="none" />
+        <g id="lights"></g>
+        <g id="walls"></g>
+        <g id="doors"></g>
+      </svg>
+    </section>
+    <footer><p id="status" role="status" aria-live="polite">No map loaded.</p></footer>
+  </main>
+
+  <script>
+    // Keep local file import independent of the optional Three.js download.
+    const fileInput = document.querySelector('#map-file');
+    const floor = document.querySelector('#floor');
+    const floorImage = document.querySelector('#floor-image');
+    const mapView = document.querySelector('#map-view');
+    const empty = document.querySelector('#empty');
+    const status = document.querySelector('#status');
+    let importVersion = 0;
+
+    document.querySelectorAll('[data-layer]').forEach(input => {
+      input.addEventListener('change', () => {
+        document.getElementById(input.dataset.layer).style.display = input.checked ? '' : 'none';
+      });
+    });
+
+    function svgElement(tag, attributes = {}, title) {
+      const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+      if (title) {
+        const caption = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        caption.textContent = title;
+        element.append(caption);
+      }
+      return element;
+    }
+
+    function buildOverlays(map, imageWidth, imageHeight) {
+      const resolution = map.resolution || {};
+      const positive = value => Number.isFinite(value) && value > 0;
+      const grid = positive(resolution.pixels_per_grid) ? resolution.pixels_per_grid : 1;
+      const width = positive(resolution.map_size?.x) ? resolution.map_size.x : imageWidth / grid;
+      const height = positive(resolution.map_size?.y) ? resolution.map_size.y : imageHeight / grid;
+      const origin = resolution.map_origin || { x: 0, y: 0 };
+      const originX = Number.isFinite(origin.x) ? origin.x : 0;
+      const originY = Number.isFinite(origin.y) ? origin.y : 0;
+      const validPoint = p => p && Number.isFinite(p.x) && Number.isFinite(p.y);
+      const point = p => `${p.x - originX},${p.y - originY}`;
+      const layers = { walls: svgElement('g'), doors: svgElement('g'), lights: svgElement('g') };
+      const counts = { walls: 0, doors: 0, lights: 0 };
+      const list = value => Array.isArray(value) ? value : [];
+
+      for (const wall of list(map.line_of_sight)) {
+        if (!Array.isArray(wall) || wall.length < 2 || !wall.every(validPoint)) continue;
+        layers.walls.append(svgElement('polyline', { points: wall.map(point).join(' '), class: 'map-line' }, 'Wall'));
+        counts.walls++;
+      }
+      for (const door of list(map.portals)) {
+        if (!door || !Array.isArray(door.bounds) || door.bounds.length < 2 || !door.bounds.every(validPoint)) continue;
+        layers.doors.append(svgElement('polyline', {
+          points: door.bounds.map(point).join(' '), class: `map-line door${door.closed === false ? ' open' : ''}`
+        }, door.closed === false ? 'Open door' : 'Closed door'));
+        counts.doors++;
+      }
+      for (const light of list(map.lights)) {
+        if (!light || !validPoint(light.position) || !positive(light.range)) continue;
+        // Dungeondraft exports light colors as AARRGGBB.
+        const raw = typeof light.color === 'string' ? light.color.replace(/^#/, '') : '';
+        const hex = /^[0-9a-f]{8}$/i.test(raw) ? raw.slice(2) : /^[0-9a-f]{6}$/i.test(raw) ? raw : 'ffe6bf';
+        const alpha = /^[0-9a-f]{8}$/i.test(raw) ? parseInt(raw.slice(0, 2), 16) / 255 : 1;
+        const color = `#${hex}`;
+        const cx = light.position.x - originX;
+        const cy = light.position.y - originY;
+        const source = svgElement('g', {}, `Light · range ${light.range} squares · intensity ${light.intensity ?? 1}`);
+        source.append(svgElement('circle', { cx, cy, r: light.range, fill: color, stroke: color, opacity: alpha, class: 'light-range' }));
+        source.append(svgElement('circle', { cx, cy, r: 0.12, fill: color, class: 'light-source' }));
+        layers.lights.append(source);
+        counts.lights++;
+      }
+      return { width, height, layers, counts };
+    }
+
+    function imageSource(image) {
+      if (typeof image !== 'string' || !image.trim()) {
+        throw new Error('The file has no embedded map image.');
+      }
+      // DD2VTT normally stores raw base64; also accept an image data URL.
+      const data = image.trim().replace(/^data:image\/(?:png|jpeg|webp|gif);base64,/i, '').replace(/\s/g, '');
+      if (!/^[A-Za-z0-9+/]+={0,2}$/.test(data)) {
+        throw new Error('The embedded image is not valid base64.');
+      }
+      const signature = atob(data.slice(0, 16));
+      let mime;
+      if (signature.startsWith('\x89PNG\r\n\x1a\n')) mime = 'image/png';
+      else if (signature.startsWith('\xff\xd8\xff')) mime = 'image/jpeg';
+      else if (signature.startsWith('RIFF') && signature.slice(8, 12) === 'WEBP') mime = 'image/webp';
+      else if (signature.startsWith('GIF87a') || signature.startsWith('GIF89a')) mime = 'image/gif';
+      else throw new Error('The embedded image must be PNG, JPEG, WebP, or GIF.');
+      return `data:${mime};base64,${data}`;
+    }
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const version = ++importVersion;
+      status.classList.remove('error');
+      status.textContent = `Importing ${file.name}…`;
+      floor.setAttribute('aria-busy', 'true');
+      try {
+        if (!file.name.toLowerCase().endsWith('.dd2vtt')) {
+          throw new Error('Choose a .dd2vtt file.');
+        }
+        let map;
+        try { map = JSON.parse(await file.text()); }
+        catch { throw new Error('The file does not contain valid DD2VTT JSON.'); }
+        const preview = new Image();
+        preview.src = imageSource(map?.image);
+        try { await preview.decode(); }
+        catch { throw new Error('The embedded map image could not be decoded.'); }
+        if (version !== importVersion) return;
+        const overlay = buildOverlays(map, preview.naturalWidth, preview.naturalHeight);
+        mapView.setAttribute('viewBox', `0 0 ${overlay.width} ${overlay.height}`);
+        floorImage.setAttribute('href', preview.src);
+        floorImage.setAttribute('width', overlay.width);
+        floorImage.setAttribute('height', overlay.height);
+        document.querySelector('#map-title').textContent = `Floor map: ${file.name.replace(/\.dd2vtt$/i, '')}`;
+        for (const name of ['walls', 'lights', 'doors']) {
+          document.getElementById(name).replaceChildren(overlay.layers[name]);
+          document.getElementById(`${name}-count`).textContent = `(${overlay.counts[name]})`;
+        }
+        document.querySelector('#layer-controls').disabled = false;
+        mapView.removeAttribute('hidden');
+        empty.hidden = true;
+        status.textContent = `${file.name} · ${preview.naturalWidth} × ${preview.naturalHeight} px`;
+      } catch (error) {
+        if (version !== importVersion) return;
+        status.classList.add('error');
+        status.textContent = `Import failed: ${error.message}`;
+      } finally {
+        if (version === importVersion) {
+          floor.setAttribute('aria-busy', 'false');
+          fileInput.value = '';
+        }
+      }
+    });
+  </script>
+  <script type="module">
+    // Loaded for the next stage; no scene or renderer is created yet.
+    import * as THREE from 'three';
+    window.THREE = THREE;
+  </script>
+</body>
+</html>
