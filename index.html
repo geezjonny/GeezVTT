@@ -25,6 +25,7 @@
     h1 { font-size: .8rem; margin: 0; }
     #scene-name { margin-left: auto; min-width: 0; width: 12rem; padding: .15rem .3rem; font-size: .75rem; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .2rem; }
     #scene-state { white-space: nowrap; font-size: .7rem; }
+    #scene-floor { max-width: 10rem; font-size: .75rem; }
     label { font-size: 0.9rem; }
     input { max-width: 100%; font: inherit; }
     input::file-selector-button { border: 1px solid #61758f; border-radius: 0.35rem; background: #34465f; color: white; padding: 0.5rem 0.75rem; margin-right: 0.75rem; cursor: pointer; }
@@ -150,6 +151,15 @@
           </div>
         </details>
         <details class="menu" name="application-menu">
+          <summary>Scene</summary>
+          <div class="menu-items">
+            <button id="floor-up" type="button">Floor Up</button>
+            <button id="floor-down" type="button">Floor Down</button>
+            <button id="rename-floor" type="button" disabled>Rename Floor</button>
+            <button id="remove-floor" type="button" disabled>Remove Floor</button>
+          </div>
+        </details>
+        <details class="menu" name="application-menu">
           <summary>Edit</summary>
           <div class="menu-items">
             <button id="open-tools" type="button" disabled>Tools</button>
@@ -177,6 +187,9 @@
         </details>
       </nav>
       <input id="scene-name" aria-label="Scene name" placeholder="Scene name" maxlength="100" disabled>
+      <select id="scene-floor" aria-label="Scene floor" disabled></select>
+      <button id="floor-down-control" type="button" aria-label="Floor down" title="Floor down; create a blank floor at the bottom">&#9660;</button>
+      <button id="floor-up-control" type="button" aria-label="Floor up" title="Floor up; create a blank floor at the top">&#9650;</button>
       <span id="scene-state" role="status" aria-live="polite"></span>
     </header>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
@@ -427,28 +440,44 @@
       return `data:${mime};base64,${data}`;
     }
 
-    async function loadMap(file) {
+    async function loadMap(file, options = {}) {
       if (!file) return;
-      if (floor.confirmMapReplace && !floor.confirmMapReplace()) { fileInput.value = ''; document.querySelector('#scene-file').value = ''; return false; }
+      const sceneFile = file.name.toLowerCase().endsWith('.geezvtt');
+      const replaceFloor = Boolean(floor.sceneDocument && file.name.toLowerCase().endsWith('.dd2vtt') && !options.entry && !options.addFloor);
+      if (!options.entry && !options.addFloor && !replaceFloor && floor.confirmMapReplace && !floor.confirmMapReplace()) { fileInput.value = ''; document.querySelector('#scene-file').value = ''; return false; }
       const version = ++importVersion;
       status.classList.remove('error');
       status.textContent = `Importing ${file.name}…`;
       floor.setAttribute('aria-busy', 'true');
       try {
-        const sceneFile = file.name.toLowerCase().endsWith('.geezvtt');
         if (!sceneFile && !file.name.toLowerCase().endsWith('.dd2vtt')) {
           throw new Error('Choose a .dd2vtt or .geezvtt file.');
         }
-        let map, sceneName, sourceName = file.name;
-        try { map = JSON.parse(await file.text()); }
+        let map, sceneName, sceneDocument, activeFloorIndex = 0, sourceName = file.name;
+        try { map = options.entry ? options.entry.map : options.map || JSON.parse(await file.text()); }
         catch { throw new Error('The file does not contain valid map JSON.'); }
-        if (sceneFile) {
-          if (map?.format !== 'geezvtt' || map.version !== 1 || typeof map.name !== 'string' || !map.name.trim() || map.name.length > 100 || !map.map || typeof map.map !== 'object' || Array.isArray(map.map)) {
+        if (sceneFile && !options.entry) {
+          if (map?.format !== 'geezvtt' || ![1, 2].includes(map.version) || typeof map.name !== 'string' || !map.name.trim() || map.name.length > 100) {
             throw new Error('The scene is invalid or uses an unsupported version.');
           }
           sceneName = map.name.trim();
-          sourceName = typeof map.sourceName === 'string' && map.sourceName.toLowerCase().endsWith('.dd2vtt') ? map.sourceName : `${sceneName}.dd2vtt`;
-          map = map.map;
+          sceneDocument = map.version === 1
+            ? { floors: [{ name: 'Floor 1', sourceName: map.sourceName, map: map.map }] }
+            : map;
+          if (!Array.isArray(sceneDocument.floors) || !sceneDocument.floors.length || sceneDocument.floors.some(entry => !entry || typeof entry.name !== 'string' || !entry.name.trim() || entry.name.length > 100 || !entry.map || typeof entry.map !== 'object' || Array.isArray(entry.map))) {
+            throw new Error('The scene must contain named floors with maps.');
+          }
+          // Validate every floor before replacing the current scene.
+          for (const entry of sceneDocument.floors) {
+            const image = new Image();
+            image.src = imageSource(entry.map.image);
+            try { await image.decode(); }
+            catch { throw new Error(`The image for ${entry.name} could not be decoded.`); }
+            entry.sourceName = typeof entry.sourceName === 'string' && entry.sourceName.toLowerCase().endsWith('.dd2vtt') ? entry.sourceName : `${entry.name}.dd2vtt`;
+          }
+          activeFloorIndex = Number.isInteger(sceneDocument.activeFloorIndex) && sceneDocument.activeFloorIndex >= 0 && sceneDocument.activeFloorIndex < sceneDocument.floors.length ? sceneDocument.activeFloorIndex : 0;
+          sourceName = sceneDocument.floors[activeFloorIndex].sourceName;
+          map = sceneDocument.floors[activeFloorIndex].map;
         }
         const preview = new Image();
         preview.src = imageSource(map?.image);
@@ -456,13 +485,31 @@
         catch { throw new Error('The embedded map image could not be decoded.'); }
         if (version !== importVersion) return;
         const overlay = buildOverlays(map, preview.naturalWidth, preview.naturalHeight);
+        if (replaceFloor) {
+          Object.assign(floor.sceneDocument.floors[floor.activeFloorIndex], { sourceName, map });
+        } else if (options.entry || options.addFloor) {
+          floor.captureFloor();
+          if (options.addFloor) {
+            const index = options.insertIndex ?? floor.sceneDocument.floors.length;
+            floor.sceneDocument.floors.splice(index, 0, { name: options.floorName || `Floor ${floor.sceneDocument.floors.length + 1}`, sourceName, map });
+            floor.activeFloorIndex = index;
+          } else {
+            floor.activeFloorIndex = options.index;
+            sourceName = options.entry.sourceName;
+          }
+        } else {
+          floor.sceneDocument = sceneDocument || { floors: [{ name: options.floorName || 'Floor 1', sourceName, map }] };
+          floor.activeFloorIndex = activeFloorIndex;
+          floor.sceneName = sceneName || file.name.replace(/\.dd2vtt$/i, '').slice(0, 100);
+          floor.sceneSaved = sceneFile;
+        }
         mapView.setAttribute('viewBox', `0 0 ${overlay.width} ${overlay.height}`);
         floorImage.setAttribute('href', preview.src);
         floorImage.setAttribute('width', overlay.width);
         floorImage.setAttribute('height', overlay.height);
         document.querySelector('#grid').setAttribute('width', overlay.width);
         document.querySelector('#grid').setAttribute('height', overlay.height);
-        document.querySelector('#map-title').textContent = `Floor map: ${sceneName || file.name.replace(/\.dd2vtt$/i, '')}`;
+        document.querySelector('#map-title').textContent = `Floor map: ${floor.sceneDocument.floors[floor.activeFloorIndex].name}`;
         for (const name of ['walls', 'lights', 'doors']) {
           document.getElementById(name).replaceChildren(overlay.layers[name]);
         }
@@ -485,10 +532,11 @@
         };
         floor.sourceMap = map;
         floor.sourceName = sourceName;
-        floor.sceneName = sceneName || file.name.replace(/\.dd2vtt$/i, '').slice(0, 100);
-        floor.sceneSaved = sceneFile;
         document.querySelector('#toggle-3d').disabled = false;
-        floor.dispatchEvent(new Event('map-ready'));
+        floor.changingMap = true;
+        try {
+          floor.dispatchEvent(new CustomEvent('map-ready', { detail: { preserveScene: Boolean(options.entry || options.addFloor || replaceFloor), addedFloor: Boolean(options.addFloor), replacedMap: replaceFloor } }));
+        } finally { floor.changingMap = false; }
         status.textContent = `${file.name} · ${preview.naturalWidth} × ${preview.naturalHeight} px`;
         return true;
       } catch (error) {
@@ -505,6 +553,7 @@
       }
     }
     fileInput.addEventListener('change', () => loadMap(fileInput.files[0]));
+    floor.loadMap = loadMap;
     document.querySelector('#scene-file').addEventListener('change', event => loadMap(event.target.files[0]));
   </script>
   <script type="module" src="js/dice-roller.js"></script>

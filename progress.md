@@ -168,3 +168,14 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
 
+## Scene floors saved - 2026-11-23
+
+- Adds the Scene > Floor > Map hierarchy. Portable scene format v2 stores all floors and the selected floor; existing v1 scenes open with their map on Floor 1. Older app versions cannot open v2 saves.
+- Floor Up/Down controls switch between existing floors and create a blank floor at either end. Blank floors inherit the current map dimensions, or start at 40 by 40 when no scene is open, allowing drawing without an imported map.
+- Uses Floor 1, Floor 2, and higher numbers upward, and Floor -1, Floor -2, and lower numbers downward, skipping zero. Floor numbers persist independently of custom floor names. Previously generated Upper Floor/Lower Floor names become numbered names when loaded.
+- Import Map applies a DD2VTT to the selected floor, replacing that floor's map and edits while preserving the scene name and other floors. The first import creates the scene. Removed the separate Add Floor from Map workflow.
+- Includes a floor selector and Scene menu actions to rename or remove floors. Switching preserves each floor's map edits, tokens, fog, and environment; saving a scene includes all floors. Save Map exports the selected floor only.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise positive and negative floor numbering, blank-floor drawing, importing onto selected floors, switching with edits, rename/remove behavior, v1 migration, v2 save/open round trips with every floor's tokens and environment, and failure handling for invalid imports. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
