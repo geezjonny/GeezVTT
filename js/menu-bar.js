@@ -2,7 +2,7 @@ import { isGM } from './session-role.js';
 
 document.querySelectorAll('summary[data-gm-only]').forEach(summary => summary.closest('.menu').setAttribute('data-gm-only', ''));
 document.querySelectorAll('.editor-panel').forEach(panel => {
-  if (!['vtt-panel', 'dice-panel', 'chest-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
+  if (!['vtt-panel', 'dice-panel', 'chest-panel', 'initiative-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
 });
 const menus = [...document.querySelectorAll('.menu')];
 const floor = document.querySelector('#floor');
@@ -129,7 +129,7 @@ function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
+  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel', 'initiative-panel', 'scene-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
 new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
@@ -141,7 +141,7 @@ document.querySelector('#toggle-grid').addEventListener('change', event => {
 });
 document.querySelector('#open-dice').addEventListener('click', () => {
   openPanel(document.querySelector('#dice-panel'));
-  document.querySelector('#dice-sides').focus();
+  document.querySelector('[data-dice-sides="20"]').focus();
 });
 
 function connectedPanels(panel) {
@@ -201,6 +201,12 @@ function positionPanel(panel, left, top, snap = false, group = [panel]) {
 function raisePanel(panel) {
   panels.forEach(other => { other.style.zIndex = other === panel ? '4' : '3'; });
 }
+function anchorPanel(panel) {
+  const left = panel.offsetLeft, top = panel.offsetTop;
+  panel.style.left = left + 'px';
+  panel.style.top = top + 'px';
+  panel.style.right = panel.style.bottom = 'auto';
+}
 export function openPanel(panel) {
   if (!isGM && panel.hasAttribute('data-gm-only')) return;
   panel.hidden = false;
@@ -210,14 +216,15 @@ export function openPanel(panel) {
 for (const panel of panels) {
   const titlebar = panel.querySelector('.editor-titlebar');
   titlebar.setAttribute('aria-label', titlebar.getAttribute('aria-label') + ' Snapped windows move together. Hold Shift to move only this window.');
-  titlebar.title = 'Drag snapped windows together. Shift-drag to detach this window.';
+  titlebar.title = 'Drag snapped windows together. Shift-drag to detach. Resize from the bottom-right corner or use Alt + arrow keys.';
+  titlebar.setAttribute('aria-label', titlebar.getAttribute('aria-label') + ' Alt + arrow keys resize this window.');
   let drag;
 
-  panel.addEventListener('pointerdown', () => raisePanel(panel));
+  panel.addEventListener('pointerdown', () => { anchorPanel(panel); raisePanel(panel); });
   panel.addEventListener('focusin', () => raisePanel(panel));
   panel.querySelector('.editor-close:not(#vtt-collapse):not(#build-collapse)')?.addEventListener('click', () => {
     panel.hidden = true;
-    document.querySelector(panel.id === 'library-panel' ? '#load-battlemap' : panel.id === 'dice-panel' ? '#open-dice' : panel.id === 'environment-panel' ? '#open-environment' : '#open-tools').closest('.menu').querySelector('summary').focus();
+    document.querySelector('#vtt-collapse').focus();
   });
   titlebar.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;
@@ -245,6 +252,13 @@ for (const panel of panels) {
     const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[event.key];
     if (!delta) return;
     event.preventDefault();
+    if (event.altKey) {
+      anchorPanel(panel);
+      panel.style.width = Math.max(0, panel.offsetWidth + delta[0]) + 'px';
+      panel.style.height = Math.max(0, panel.offsetHeight + delta[1]) + 'px';
+      positionPanel(panel, panel.offsetLeft, panel.offsetTop);
+      return;
+    }
     positionPanel(panel, panel.offsetLeft + delta[0], panel.offsetTop + delta[1], false, event.shiftKey ? [panel] : connectedPanels(panel));
   });
 }

@@ -353,3 +353,18 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm matching square buttons at different viewport widths, the two floor arrows fitting within one square, tooltips and keyboard access, floor navigation in both views, blank floor creation at scene boundaries, and player visibility restrictions. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Resizable floating controls and initiative saved - 2026-11-23
+
+- Reduces VTT Controls and Build Controls windows and their contents by 30 percent. Adds Grid and Environment icons to VTT Controls.
+- Adds a compact Initiative window showing up to four upcoming turns, score ordering, Next Turn cycling, and removal. Token right-click menus in 2D and 3D offer Edit token and Add to initiative; adding prompts for a score and updates an existing entry instead of duplicating it. Initiative state saves with each map/floor and uses existing live map synchronization. Adds unrun model assertions in tests/initiative.test.mjs.
+- Adds compact Scene Controls with Load and Import menus for Battlemap or Scene, plus Save Map and Save Scene icons. These reuse existing actions and reflect their disabled states.
+- Reworks Dice Controls with instant-roll d4, d6, d8, d10, d12, d20, and d100 icons, a quantity dropdown, and the existing modifier and d20 mode controls. Always attempts 3D presentation; removes the 3D option, Roll Dice, and Clear Tray buttons. Retains automatic tray cleanup, recent results, synchronization, and recorded-result fallback if 3D is unavailable.
+- Removes the visible top bar and its layout offset. Retains hidden action elements and scene state needed by existing floating controls. Per user direction, does not relocate remaining menu actions or top-bar fields.
+- Floating editor windows support native bottom-right resizing and Alt + arrow keys on their title bars. Anchors resizing at the top-left, sets minimum/maximum dimensions, preserves scrolling, and reflows VTT/Build/Scene icon grids by width. Collapsed controls retain title-only height and cannot resize until expanded.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify pointer and keyboard resizing, scroll behavior, icon reflow, collapse/expand after resizing, dragging/snapping and viewport changes; initiative ordering, cycling, removal, duplicate updates, map/floor persistence and player sync; Scene Controls load/import/save flows and disabled states; Grid and Environment actions; instant dice rolls, quantity limits, d20 advantage/disadvantage, 3D animation, cleanup and failure fallback; and full-height map layout without the bar. Earlier verification items remain outstanding.
+
+Known limits: advantage/disadvantage applies to one d20; d100 quantity is capped at six. Initiative is stored per map/floor. Remaining top-bar-only actions and fields are no longer exposed, including window reopening from View, scene/floor naming, floor selection, Save Scene As, floor removal, and the initiative-active switch; this was accepted by the user. Window sizes are not persisted across reloads.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

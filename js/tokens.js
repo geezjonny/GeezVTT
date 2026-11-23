@@ -2,6 +2,7 @@ import { openPanel } from './menu-bar.js';
 import { isGM } from './session-role.js';
 import { npcCatalog, tokenProperties } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
+import { showMapMenu } from './map-object-menu.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
@@ -117,6 +118,13 @@ function editToken(token) {
   openPanel(properties);
   $('token-name').focus();
 }
+function tokenMenu(token, x, y, origin) {
+  if (!isGM) return;
+  showMapMenu(x, y, [
+    { label: 'Edit token...', action: () => editToken(token) },
+    { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) }
+  ], origin);
+}
 onMapRightClick(svg, event => {
   if (svg.hidden) return;
   // Pointer capture can target the map instead of the token under the cursor.
@@ -126,18 +134,24 @@ onMapRightClick(svg, event => {
   if (!token) return;
   event.preventDefault();
   event.stopPropagation();
-  editToken(token);
+  tokenMenu(token, event.clientX, event.clientY, svg);
 });
 group.addEventListener('keydown', event => {
   if (!isGM) return;
   const token = tokenAt(event);
   if (token && ['Enter', ' ', 'ContextMenu'].includes(event.key)) {
-    event.preventDefault(); event.stopPropagation(); editToken(token);
+    event.preventDefault(); event.stopPropagation();
+    const rect = event.target.getBoundingClientRect();
+    tokenMenu(token, rect.right, rect.top, event.target);
   }
 });
 floor.addEventListener('token-edit', event => {
   const token = tokens().find(token => token.id === event.detail);
   if (token) editToken(token);
+});
+floor.addEventListener('token-menu', event => {
+  const token = tokens().find(token => token.id === event.detail.id);
+  if (token) tokenMenu(token, event.detail.x, event.detail.y, document.activeElement);
 });
 $('token-form').addEventListener('submit', async event => {
   event.preventDefault();

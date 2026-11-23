@@ -18,6 +18,14 @@ function selectToken(token) {
   $('vtt-controls').querySelector('[data-vtt-tool="select"]').title = token ? `Selected: ${token.name}` : isGM ? 'Select and move tokens or props' : 'Select a PC token';
 }
 $('vtt-view').addEventListener('click', () => $('toggle-3d').click());
+$('vtt-grid').addEventListener('click', () => $('toggle-grid').click());
+const syncGrid = () => $('vtt-grid').setAttribute('aria-pressed', String($('toggle-grid').checked));
+$('toggle-grid').addEventListener('change', syncGrid);
+syncGrid();
+$('vtt-environment').addEventListener('click', () => $('open-environment').click());
+const syncEnvironment = () => { $('vtt-environment').disabled = $('open-environment').disabled; };
+new MutationObserver(syncEnvironment).observe($('open-environment'), { attributes: true, attributeFilter: ['disabled'] });
+syncEnvironment();
 new MutationObserver(() => {
   $('vtt-view').disabled = $('toggle-3d').disabled;
   $('vtt-view').setAttribute('aria-pressed', $('toggle-3d').getAttribute('aria-pressed'));

@@ -10,7 +10,6 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: #15191f; color: #e6ebf1; }
     main { height: 100dvh; display: flex; flex-direction: column; }
-    header { display: flex; align-items: center; gap: .5rem; padding: 0 .375rem; background: #202731; border-bottom: 1px solid #364151; z-index: 2; }
     .menu-bar { display: flex; }
     .menu { position: relative; }
     .menu > summary { cursor: pointer; list-style: none; padding: .1rem .375rem; border-radius: 0.2rem; font-size: .7rem; line-height: 1.4; }
@@ -63,10 +62,11 @@
     #dice-panel { left: auto; right: 1rem; }
     #dice-form { display: flex; flex-wrap: wrap; align-items: end; gap: .4rem; }
     #dice-form label { display: grid; gap: .15rem; }
-    #dice-form .toggle { display: flex; align-items: center; align-self: center; }
     #dice-form input[type="number"] { width: 3.5rem; }
-    #dice-form button { padding: .25rem .4rem; font-size: .75rem; min-height: 24px; }
-    #roll-dice { background: #73404b; border-color: #c4808c; font-weight: 600; }
+    #dice-icons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; width: 100%; }
+    #dice-icons button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; padding: .15rem; }
+    #dice-icons svg { width: 28px; height: 28px; pointer-events: none; }
+    #dice-icons text { fill: currentColor; stroke: none; font: bold 8px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
     #dice-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
     #dice-status { color: #b4c0ce; margin: .4rem 0; font-size: .75rem; }
     #dice-history { margin: 0; padding-left: 1.25rem; font-size: .75rem; }
@@ -83,15 +83,33 @@
     #view-help { position: absolute; bottom: 0.5rem; left: 0.75rem; right: 0.75rem; margin: 0; pointer-events: none; color: #e6ebf1; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
+    .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
+    .editor-panel:has(.editor-close[aria-expanded="false"]) { resize: none; height: auto !important; min-height: 0; }
+    .editor-panel > .editor-titlebar { flex-shrink: 0; }
+    .editor-panel > .editor-body { flex: 1; align-content: start; }
+    .editor-titlebar h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .editor-titlebar { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .1rem .375rem; font-size: .7rem; line-height: 1.4; background: #293544; cursor: move; touch-action: none; user-select: none; }
     .editor-titlebar h2 { margin: 0; font-size: inherit; }
     .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
     #vtt-panel { top: auto; bottom: 2rem; }
     #build-panel { left: 15rem; top: auto; bottom: 2rem; }
-    #vtt-controls, #build-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
-    #vtt-controls button, #build-controls button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .65rem; }
-    #vtt-controls svg, #build-controls svg { width: 14px; height: 14px; margin: 3px; pointer-events: none; }
+    #vtt-panel, #build-panel, #initiative-panel, #scene-panel { width: min(9.1rem, calc(100vw - 2rem)); }
+    :is(#vtt-panel, #build-panel, #initiative-panel, #scene-panel) .editor-titlebar { gap: .28rem; padding: .07rem .2625rem; font-size: .49rem; }
+    :is(#vtt-panel, #build-panel, #initiative-panel, #scene-panel) .editor-close { padding: 0 .14rem; min-width: .84rem; }
+    #scene-panel { left: 35rem; top: auto; bottom: 2rem; }
+    #initiative-panel { left: 25rem; top: auto; bottom: 2rem; }
+    #initiative-panel .editor-body { padding: .28rem; font-size: .6rem; }
+    #initiative-list { margin: 0 0 .175rem; padding: 0; list-style: none; }
+    #initiative-list li { display: flex; align-items: center; gap: .175rem; min-height: 1rem; }
+    #initiative-list li:first-child { color: #ffd86b; }
+    #initiative-list span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #initiative-panel button:not(.editor-close) { padding: .07rem .2rem; font-size: .6rem; }
+    #initiative-next { width: 100%; }
+    #vtt-controls, #build-controls, #scene-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .175rem; padding: .28rem; }
+    #vtt-controls, #build-controls, #scene-controls { grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); }
+    #vtt-controls button, #build-controls button, #scene-controls button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
+    #vtt-controls svg, #build-controls svg, #scene-controls svg { width: 9.8px; height: 9.8px; margin: 2.1px; pointer-events: none; }
     #vtt-floors { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); aspect-ratio: 1; }
     #vtt-controls #vtt-floors button { aspect-ratio: auto; }
     #vtt-floors svg { margin: 0; }
@@ -169,7 +187,7 @@
 </head>
 <body>
   <main>
-    <header>
+    <div id="menu-actions" hidden>
       <h1>GeezVTT</h1>
       <input id="map-file" type="file" accept=".dd2vtt" aria-label="Import map" aria-describedby="status" hidden>
       <input id="scene-file" type="file" accept=".geezvtt" aria-label="Open scene" aria-describedby="status" hidden>
@@ -226,13 +244,15 @@
             <button id="fit-3d" type="button" hidden>Fit map</button>
             <button id="open-environment" type="button" aria-controls="environment-panel" data-gm-only disabled>Environment</button>
             <button id="open-build" type="button" aria-controls="build-panel" data-gm-only>Build Controls</button>
+            <button id="open-scene-controls" type="button" aria-controls="scene-panel" data-gm-only>Scene Controls</button>
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
+            <button id="open-initiative" type="button" aria-controls="initiative-panel">Initiative</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
           <summary>Dice</summary>
           <div class="menu-items">
-            <button id="open-dice" type="button" aria-controls="dice-panel">Open Dice Roller</button>
+            <button id="open-dice" type="button" aria-controls="dice-panel">Dice Controls</button>
           </div>
         </details>
       </nav>
@@ -243,7 +263,7 @@
       <label data-gm-only><input id="initiative-active" type="checkbox"> Initiative active</label>
       <span id="session-status" role="status" aria-live="polite"></span>
       <span id="scene-state" role="status" aria-live="polite"></span>
-    </header>
+    </div>
     <section id="library-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="library-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move library window. Drag or use arrow keys.">
         <h2 id="library-title">Load Battlemap</h2>
@@ -267,6 +287,8 @@
         <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel" aria-label="Dice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg></button>
         <button id="vtt-tokens" type="button" title="Tokens" aria-controls="tokens-panel" data-gm-only disabled aria-label="Tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></button>
         <button id="vtt-view" type="button" title="Toggle 2D / 3D" aria-label="Toggle 2D / 3D" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
+        <button id="vtt-grid" type="button" title="Toggle grid" aria-label="Toggle grid" aria-controls="grid" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
+        <button id="vtt-environment" type="button" title="Environment" aria-label="Environment" aria-controls="environment-panel" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="M9 1v2M1 9h2m1-5L2 2m12 2 2-2M4 14l-2 2m11 4h6a3 3 0 0 0 0-6 5 5 0 0 0-9-1 3.5 3.5 0 0 0 0 7Z"/></svg></button>
         <button id="vtt-new-scene" type="button" title="New blank scene" aria-label="New blank scene" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/></svg></button>
         <div id="vtt-floors" role="group" aria-label="Floor navigation" data-gm-only>
           <button id="vtt-floor-up" type="button" title="Floor up; create a blank floor at the top" aria-label="Floor up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
@@ -286,6 +308,28 @@
         <button type="button" data-build-layer="doors" aria-pressed="false" title="Doors" disabled aria-label="Doors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 21V3h16v18M7 21V5h10v16M13 13h1"/></svg></button>
         <button type="button" data-build-layer="portals" aria-pressed="false" title="Portals" disabled aria-label="Portals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3C0 8 0 16 8 21m8-18c8 5 8 13 0 18M6 12h12m-4-4 4 4-4 4"/></svg></button>
         <button type="button" data-build-layer="props" aria-pressed="false" title="Props" disabled aria-label="Props"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 6 9-4 9 4v12l-9 4-9-4Zm0 0 9 4 9-4M12 10v12"/></svg></button>
+      </div>
+    </section>
+    <section id="scene-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="scene-controls-title">
+      <div class="editor-titlebar" tabindex="0" aria-label="Move Scene controls. Drag or use arrow keys.">
+        <h2 id="scene-controls-title">Scene Controls</h2>
+        <button class="editor-close" type="button" aria-label="Close Scene controls">&times;</button>
+      </div>
+      <div id="scene-controls" class="editor-body" role="group" aria-label="Scene tools">
+        <button id="scene-load" type="button" title="Load" aria-label="Load" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8V4h7l2 3h9v3M3 8h18l-3 12H3Z"/></svg></button>
+        <button id="scene-import" type="button" title="Import" aria-label="Import" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M3 15v6h18v-6"/></svg></button>
+        <button type="button" data-scene-action="edit-export" title="Save Map" aria-label="Save Map" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h15l3 3v15H3ZM7 3v6h10V3M7 21v-8h10v8M10 15h4"/></svg></button>
+        <button type="button" data-scene-action="save-scene" title="Save Scene" aria-label="Save Scene" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h15l3 3v15H3ZM7 3v6h10V3M7 21v-8h10v8M10 15l4 3m0-3-4 3"/></svg></button>
+      </div>
+    </section>
+    <section id="initiative-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="initiative-title">
+      <div class="editor-titlebar" tabindex="0" aria-label="Move initiative window. Drag or use arrow keys.">
+        <h2 id="initiative-title">Initiative</h2>
+        <button class="editor-close" type="button" aria-label="Close initiative">&times;</button>
+      </div>
+      <div class="editor-body">
+        <ol id="initiative-list" aria-label="Next four turns" aria-live="polite"></ol>
+        <button id="initiative-next" type="button" data-gm-only disabled>Next Turn</button>
       </div>
     </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
@@ -474,18 +518,23 @@
     </section>
     <section id="dice-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="dice-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move dice window. Drag or use arrow keys.">
-        <h2 id="dice-title">Dice roller</h2>
-        <button class="editor-close" type="button" aria-label="Close dice roller">&times;</button>
+        <h2 id="dice-title">Dice Controls</h2>
+        <button class="editor-close" type="button" aria-label="Close Dice Controls">&times;</button>
       </div>
       <div class="editor-body">
       <form id="dice-form">
-        <label>Dice <select id="dice-sides"><option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option></select></label>
-        <label>Quantity <input id="dice-count" type="number" min="1" max="12" value="1" required></label>
+        <div id="dice-icons" role="group" aria-label="Roll dice">
+          <button type="button" data-dice-sides="4" title="Roll d4" aria-label="Roll d4"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 14 27H2Z"/><text x="16" y="19">4</text></svg></button>
+          <button type="button" data-dice-sides="6" title="Roll d6" aria-label="Roll d6"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="3"/><text x="16" y="16">6</text></svg></button>
+          <button type="button" data-dice-sides="8" title="Roll d8" aria-label="Roll d8"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 14 14-14 14L2 16Z"/><text x="16" y="16">8</text></svg></button>
+          <button type="button" data-dice-sides="10" title="Roll d10" aria-label="Roll d10"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 14 11-5 13-9 4-9-4-5-13Z"/><text x="16" y="16">10</text></svg></button>
+          <button type="button" data-dice-sides="12" title="Roll d12" aria-label="Roll d12"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 13 9-5 17H8L3 11Z"/><text x="16" y="16">12</text></svg></button>
+          <button type="button" data-dice-sides="20" title="Roll d20" aria-label="Roll d20"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 13 7v14l-13 7-13-7V9Zm-13 7 13-7 13 7M3 23l13 7 13-7"/><text x="16" y="16">20</text></svg></button>
+          <button type="button" data-dice-sides="100" title="Roll d100 (up to 6)" aria-label="Roll d100"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 14 11-5 13-9 4-9-4-5-13Z"/><text x="16" y="16">100</text></svg></button>
+        </div>
+        <label>Quantity <select id="dice-count"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option><option>11</option><option>12</option></select></label>
         <label>Modifier <input id="dice-modifier" type="number" min="-999" max="999" value="0" required></label>
         <label>d20 mode <select id="dice-mode"><option value="normal">Normal</option><option value="advantage">Advantage</option><option value="disadvantage">Disadvantage</option></select></label>
-        <label class="toggle"><input id="dice-animated" type="checkbox" checked> 3D dice</label>
-        <button id="roll-dice" type="submit">Roll dice</button>
-        <button id="clear-dice" type="button">Clear tray</button>
       </form>
       <p id="dice-status" role="status" aria-live="polite"></p>
       <ol id="dice-history" aria-label="Recent local rolls, newest first"></ol>
@@ -708,6 +757,8 @@
   <script type="module" src="js/environment.js"></script>
   <script type="module" src="js/vtt-controls.js"></script>
   <script type="module" src="js/build-controls.js"></script>
+  <script type="module" src="js/scene-controls.js"></script>
+  <script type="module" src="js/initiative.js"></script>
   <script type="module" src="js/tabletop-session.js"></script>
 </body>
 </html>

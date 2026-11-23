@@ -6,6 +6,7 @@ import { isGM } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
+import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
@@ -914,6 +915,7 @@ floor.addEventListener('map-ready',()=>{
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
+  imported.initiative=initiativeState(saved?.initiative,model.tokens);
   updateTools(); render();
   $('edit-export').disabled=false;
   if(controls.disabled) message('Switch to 2D view to edit. Your changes are visible in 3D.');
@@ -934,10 +936,11 @@ export function serializeMap() {
   raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_hidden:!!d.hidden,geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',geezvtt_prop_id:l.propId || null,geezvtt_hidden:!!l.hidden,geezvtt_off:!!l.off,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
+  raw.geezvtt_editor.initiative=initiativeState(floor.tabletopMap.initiative,model.tokens);
   return raw;
 }
 export function sharedMapState() {
-  return { ...geometry(), environment: clone(floor.tabletopMap.environment) };
+  return { ...geometry(), environment: clone(floor.tabletopMap.environment), initiative: initiativeState(floor.tabletopMap.initiative,model.tokens) };
 }
 export function applySharedMap(state) {
   if(isGM || !model || !state) return;
@@ -947,6 +950,7 @@ export function applySharedMap(state) {
   }
   for(const key of ['floors','walls','doors','lights','tokens','portals','props']) model[key]=clone(state[key] || []);
   floor.tabletopMap.environment=environmentSettings(state.environment,model);
+  floor.tabletopMap.initiative=initiativeState(state.initiative,model.tokens);
   render();
   floor.dispatchEvent(new Event('environment-changed'));
 }

@@ -56,7 +56,9 @@ export function createMapView3D(host) {
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
     const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)],true)[0];
-    if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
+    if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-menu', {
+      detail: { id: hit.object.userData.tokenId, x: event.clientX, y: event.clientY }
+    }));
     else if (hit?.object.userData.portalId) host.closest('#floor').dispatchEvent(new CustomEvent('portal-menu', {
       detail: { id: hit.object.userData.portalId, x: event.clientX, y: event.clientY }
     }));

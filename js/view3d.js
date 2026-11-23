@@ -90,7 +90,6 @@ function init() {
   fpLook(renderer.domElement); new ResizeObserver(resize).observe(host);
 }
 function resize() {
-  const hb = document.querySelector("header")?.getBoundingClientRect().bottom; if (hb) host.style.top = hb + "px";   // sit right under the menu bar, filling the window
   if (!renderer) return; const w = host.clientWidth || 800, h = host.clientHeight || 560;
   renderer.setSize(w, h); const pr = renderer.getPixelRatio(); hullRes.set(w * pr, h * pr); camera.aspect = w / h; camera.updateProjectionMatrix(); dirty = true;
 }

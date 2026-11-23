@@ -1,11 +1,9 @@
 import { buildRoll } from './dice-roll.js';
 
 const form = document.querySelector('#dice-form');
-const sides = document.querySelector('#dice-sides');
+const diceButtons = [...document.querySelectorAll('[data-dice-sides]')];
 const count = document.querySelector('#dice-count');
 const mode = document.querySelector('#dice-mode');
-const animated = document.querySelector('#dice-animated');
-const rollButton = document.querySelector('#roll-dice');
 const status = document.querySelector('#dice-status');
 const history = document.querySelector('#dice-history');
 let tray, busy = false, version = 0, clearTimer;
@@ -17,36 +15,20 @@ document.querySelector('#floor').addEventListener('session-dice', event => {
   status.textContent = entry.textContent;
 });
 
-function updateOptions() {
-  mode.disabled = Number(sides.value) !== 20;
-  if (mode.disabled) mode.value = 'normal';
-  count.max = sides.value === '100' ? '6' : '12';
-  count.disabled = mode.value !== 'normal';
-  if (count.disabled) count.value = '1';
-  else if (Number(count.value) > Number(count.max)) count.value = count.max;
-}
-sides.addEventListener('change', updateOptions);
-mode.addEventListener('change', updateOptions);
-updateOptions();
-
 function clearTray() {
   clearTimeout(clearTimer);
   version++;
   tray?.clear();
 }
-document.querySelector('#clear-dice').addEventListener('click', () => {
-  clearTray();
-  status.textContent = 'Tray cleared. Recent rolls are kept below.';
-});
-animated.addEventListener('change', () => { if (!animated.checked) clearTray(); });
-
-form.addEventListener('submit', async event => {
-  event.preventDefault();
+form.addEventListener('submit', event => event.preventDefault());
+for (const button of diceButtons) button.addEventListener('click', async () => {
   if (busy || !form.reportValidity()) return;
+  const sides = Number(button.dataset.diceSides);
+  if (sides === 100 && Number(count.value) > 6) count.value = '6';
   let roll;
   try {
-    roll = buildRoll({ sides: Number(sides.value), count: Number(count.value),
-      modifier: Number(document.querySelector('#dice-modifier').value), mode: mode.value });
+    roll = buildRoll({ sides, count: sides === 20 && mode.value !== 'normal' ? 1 : Number(count.value),
+      modifier: Number(document.querySelector('#dice-modifier').value), mode: sides === 20 ? mode.value : 'normal' });
   } catch (error) {
     status.textContent = error.message;
     return;
@@ -59,20 +41,18 @@ form.addEventListener('submit', async event => {
   status.textContent = entry.textContent;
   document.querySelector('#floor').dispatchEvent(new CustomEvent('session-action', { detail: { type: 'dice', text: entry.textContent } }));
   clearTray();
-  if (!animated.checked) return;
   const token = version;
   busy = true;
-  rollButton.disabled = true;
-  rollButton.textContent = 'Rolling…';
+  diceButtons.forEach(button => { button.disabled = true; });
   try {
     if (!tray) {
       // dice3d.js loads its compatible Three.js r128 and Cannon only on demand.
       const { createDiceTray3D } = await import('./dice3d.js');
       tray = await createDiceTray3D(document.querySelector('#dice-overlay'));
     }
-    if (token === version && animated.checked) {
+    if (token === version) {
       await tray.throwGroup([roll]);
-      if (token === version && animated.checked) clearTimer = setTimeout(clearTray, 3000);
+      if (token === version) clearTimer = setTimeout(clearTray, 3000);
     }
   } catch (error) {
     console.warn('3D dice unavailable:', error);
@@ -81,7 +61,6 @@ form.addEventListener('submit', async event => {
     if (token === version) status.textContent = `${entry.textContent}. 3D unavailable; your roll is recorded.`;
   } finally {
     busy = false;
-    rollButton.disabled = false;
-    rollButton.textContent = 'Roll dice';
+    diceButtons.forEach(button => { button.disabled = false; });
   }
 });
