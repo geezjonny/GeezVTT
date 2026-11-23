@@ -54,6 +54,12 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/index.html`});
   await wait(`document.querySelector('#map-view')?.tabIndex===0`);
+  await evaluate(`document.querySelectorAll('.menu > summary')[0].click(); document.querySelectorAll('.menu')[1].dispatchEvent(new PointerEvent('pointerenter',{pointerType:'mouse'}))`);
+  assert.equal(await evaluate(`document.querySelectorAll('.menu[open]').length`),1);
+  assert.equal(await evaluate(`document.querySelectorAll('.menu')[1].open`),true,'hover switches the open menu');
+  await evaluate(`document.querySelectorAll('.menu')[2].open=true`);
+  assert.equal(await evaluate(`document.querySelectorAll('.menu[open]').length`),1,'top bar menus are mutually exclusive');
+  await evaluate(`document.querySelectorAll('.menu').forEach(menu=>menu.open=false)`);
   const importFile=async name=>{
     const {root:doc}=await send('DOM.getDocument');
     const {nodeId}=await send('DOM.querySelector',{nodeId:doc.nodeId,selector:'#map-file'});
@@ -73,6 +79,24 @@ try {
     await importFile(name);
     assert.equal(await evaluate(`document.getElementById('editor-controls').disabled`),false);
   }
+  // Swatches stay open together, retain separate settings, and share one tool selection.
+  await evaluate(`document.querySelectorAll('[data-edit-layer]').forEach(button=>button.click())`);
+  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),3);
+  await change('edit-tool','replace');
+  await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="brick"]').click()`);
+  assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'walls');
+  await evaluate(`document.querySelector('[data-material-layer="doors"] [data-material="wood"]').click()`);
+  assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'doors');
+  assert.equal(await evaluate(`document.getElementById('edit-material').value`),'brick');
+  assert.equal(await evaluate(`document.getElementById('edit-door-material').value`),'wood');
+  await change('edit-color','#ff0000');
+  assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'lights');
+  assert.equal(await evaluate(`document.getElementById('edit-tool').value`),'replace');
+  assert.equal(await evaluate(`document.getElementById('editor-title').textContent`),'Tools — Lights');
+  assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),3);
+  await evaluate(`document.querySelectorAll('.swatch-panel .editor-close').forEach(button=>button.click())`);
+  assert.equal(await evaluate(`document.getElementById('editor-panel').hidden`),false);
+  await change('edit-layer','walls');
   await change('edit-tool','paint');await click(2,2);await click(5,2);await click(5,5);
   assert.equal(await count('walls'),0,'preview must not commit before Enter');
   await key('Enter');assert.equal(await count('walls'),2);
@@ -86,8 +110,12 @@ try {
   await change('edit-tool','replace');await change('edit-material','metal');await click(4,3);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.wallMaterials[0]`),'metal');
   await change('edit-tool','erase');await click(4,3);assert.equal(await count('walls'),1);
-  await clickButton('edit-undo');assert.equal(await count('walls'),2);
-  await clickButton('edit-redo');assert.equal(await count('walls'),1);
+  await clickButton('editor-close');
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}))`);
+  assert.equal(await count('walls'),2,'Ctrl+Z works with Tools closed');
+  await clickButton('open-tools');
+  await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'y',ctrlKey:true,bubbles:true,cancelable:true}))`);
+  assert.equal(await count('walls'),1,'Ctrl+Y works with a tool button focused');
   await drag(1,1,8,8);assert.equal(await count('walls'),0);
   assert.equal(await evaluate(`document.querySelector('#edit-tool option[value="bucket"]').disabled`),true);
   await change('edit-layer','lights');await change('edit-tool','paint');await click(3,3);assert.equal(await count('lights'),1);
@@ -99,7 +127,7 @@ try {
   await change('edit-layer','lights');await change('edit-tool','bucket');await change('edit-spacing','2');await click(4,4);
   assert.equal(await count('lights'),16,'enclosed fill has 16 cells including the existing light');
   await click(4,4);assert.equal(await count('lights'),16,'repeated fills skip occupied centers');
-  await change('edit-layer','doors');await change('edit-tool','paint');await change('edit-material','wood');await click(2,2);await click(3,2);await key('Enter');
+  await change('edit-layer','doors');await change('edit-tool','paint');await change('edit-door-material','wood');await click(2,2);await click(3,2);await key('Enter');
   assert.equal(await count('doors'),1);
   await change('edit-tool','replace');await change('edit-door','open');await click(2.5,2);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].open`),true);

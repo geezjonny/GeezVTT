@@ -6,6 +6,7 @@ const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('ed
 const panel=$('editor-panel');
 let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
+const materialInput=(name=layer())=>$(name==='doors'?'edit-door-material':'edit-material');
 const message=text=>{ $('editor-help').textContent=text; };
 const node=(tag,attrs={})=>{
   const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
@@ -15,14 +16,13 @@ const node=(tag,attrs={})=>{
 const geometry=()=>clone({walls:model.walls,doors:model.doors,lights:model.lights});
 function remember() { undo.push(geometry()); if(undo.length>50) undo.shift(); redo=[]; }
 function buttons() {
-  $('edit-undo').disabled=!undo.length; $('edit-redo').disabled=!redo.length;
   $('edit-apply').disabled=$('edit-delete').disabled=!selected.size;
   document.querySelectorAll('[data-tool]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.tool===tool()));
     button.disabled=toolInput.querySelector(`[value="${button.dataset.tool}"]`).disabled;
   });
   document.querySelectorAll('[data-material]').forEach(button=>{
-    button.setAttribute('aria-pressed',String(button.dataset.material===$('edit-material').value));
+    button.setAttribute('aria-pressed',String(button.dataset.material===materialInput(button.closest('[data-material-layer]').dataset.materialLayer).value));
   });
 }
 function settings() {
@@ -31,7 +31,7 @@ function settings() {
     if(!Number.isFinite(range) || range<.25 || range>100 || !Number.isFinite(intensity) || intensity<0 || intensity>10) throw new Error('Use a light range of 0.25–100 and intensity of 0–10.');
     return {color:$('edit-color').value, range, intensity, opacity:1};
   }
-  return {material:$('edit-material').value, ...(layer()==='doors'?{open:$('edit-door').value==='open'}:{})};
+  return {material:materialInput().value, ...(layer()==='doors'?{open:$('edit-door').value==='open'}:{})};
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
@@ -63,16 +63,14 @@ function render(notify=true) {
 }
 function updateTools() {
   chain=[]; hover=null; gesture=null; preview.replaceChildren(); selected.clear();
-  const light=layer()==='lights', door=layer()==='doors';
-  $('editor-title').textContent=layerInput.selectedOptions[0].textContent;
-  $('materials-title').textContent=door?'Doors:':'Walls:';
+  $('editor-title').textContent=`Tools — ${layerInput.selectedOptions[0].textContent}`;
+  document.querySelectorAll('[data-swatch-layer]').forEach(panel=>{
+    panel.dataset.active=String(panel.dataset.swatchLayer===layer());
+  });
   toolInput.querySelector('[value="bucket"]').disabled=layer()==='walls';
   if(layer()==='walls' && tool()==='bucket') toolInput.value='paint';
-  $('material-label').hidden=light;
-  for(const id of ['color','range','intensity']) $(`${id}-label`).hidden=!light;
-  $('door-label').hidden=!door; $('spacing-label').hidden=tool()!=='bucket';
-  const help={select:'Click an object or drag a box to select. Shift adds/removes objects. Drag a selected object to move the selection. Apply settings or Delete selection.',erase:'Click a segment/source or drag a box to erase a collection.',replace:'Choose settings, then click a segment/source or drag a box to replace a collection.',paint:light?'Click to place a light with the chosen color, range, and intensity.':'Click points to draw a connected chain. Enter places it; Escape cancels; Backspace removes the last point.',bucket:'Click inside an area to fill it at the chosen spacing. Walls and closed doors bound the fill. Lights use cell centers; doors fill as horizontal segments.'};
-  message(help[tool()]+' Changes are local; use File > Save Map to keep them.');
+  $('spacing-label').hidden=tool()!=='bucket';
+  message('');
   if(model) render(false);
 }
 function hit(p) {
@@ -173,7 +171,7 @@ svg.addEventListener('pointerup',event=>{
     if(selected.size===1) {
       const obj=model[layer()][[...selected][0]];
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
-      else { if(obj.material) $('edit-material').value=obj.material; if(layer()==='doors') $('edit-door').value=obj.open?'open':'closed'; }
+      else { if(obj.material) materialInput().value=obj.material; if(layer()==='doors') $('edit-door').value=obj.open?'open':'closed'; }
     }
     render(false); message(`Selected ${selected.size} ${layer()}. Drag selected objects to move, or apply settings.`);
   } else attempt(()=>apply(indices,tool()));
@@ -188,20 +186,43 @@ svg.tabIndex=0;
 svg.setAttribute('role','group');
 svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Enter finishes painting; Escape cancels.');
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
+const toolIcons={
+  select:'M4 3 19 13l-7 1-3 7Z',
+  erase:'m4 13 9-9a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-9 9H8l-4-4a2 2 0 0 1 0-3Zm5-5 8 8M11 20h10',
+  paint:'m14 5 5-3 3 3-3 5-7 7-5-5ZM7 12c-4 0-2 6-5 8 4 2 9 0 9-4',
+  bucket:'m9 4 11 11-8 6L2 11Zm-4-2 9 9M3 12h13m4 4s-2 3-2 4a2 2 0 0 0 4 0c0-1-2-4-2-4Z',
+  replace:'M2 2h7v7H2ZM15 15h7v7h-7ZM10 10l4 4m-4 0h4v-4'
+};
 for(const option of toolInput.options) {
   const button=document.createElement('button');
-  button.type='button'; button.dataset.tool=option.value; button.textContent=option.textContent;
-  if(option.value==='bucket') button.title='Fill enclosed areas with lights or doors. Not available for walls.';
+  button.type='button'; button.dataset.tool=option.value;
+  button.title=option.textContent;
+  button.setAttribute('aria-label',option.textContent);
+  const icon=node('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':1.7,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'});
+  icon.append(node('path',{d:toolIcons[option.value]}));
+  button.append(icon);
+  if(option.value==='bucket') button.title='Bucket: fill enclosed areas with lights or doors. Not available for walls.';
   button.addEventListener('click',()=>{ toolInput.value=option.value; toolInput.dispatchEvent(new Event('change')); });
   $('tool-buttons').append(button);
 }
-for(const [material,color] of Object.entries(MATERIALS)) {
-  const button=document.createElement('button'), swatch=document.createElement('span');
-  button.type='button'; button.dataset.material=material;
-  swatch.className='material-swatch'; swatch.style.setProperty('--material-color',color); swatch.setAttribute('aria-hidden','true');
-  button.append(swatch,document.createTextNode(material));
-  button.addEventListener('click',()=>{ $('edit-material').value=material; buttons(); });
-  $('material-swatches').append(button);
+for(const palette of document.querySelectorAll('[data-material-layer]')) {
+  for(const [material,color] of Object.entries(MATERIALS)) {
+    const button=document.createElement('button'), swatch=document.createElement('span');
+    button.type='button'; button.dataset.material=material; button.title=material;
+    button.setAttribute('aria-label',material);
+    swatch.className='material-swatch'; swatch.style.setProperty('--material-color',color); swatch.setAttribute('aria-hidden','true');
+    button.append(swatch);
+    button.addEventListener('click',()=>{ materialInput(palette.dataset.materialLayer).value=material; buttons(); });
+    palette.append(button);
+  }
+}
+for(const swatches of document.querySelectorAll('[data-swatch-layer]')) {
+  const activate=event=>{
+    if(event.target.closest('.editor-close') || swatches.querySelector('fieldset').disabled || layer()===swatches.dataset.swatchLayer) return;
+    layerInput.value=swatches.dataset.swatchLayer;
+    layerInput.dispatchEvent(new Event('change'));
+  };
+  for(const event of ['pointerdown','focusin','click','change']) swatches.addEventListener(event,activate);
 }
 $('editor-close').addEventListener('click',()=>{
   cancelGesture(); selected.clear(); if(model) render(false);
@@ -213,15 +234,16 @@ function history(back) {
   if(!from.length) return;
   to.push(geometry()); Object.assign(model,from.pop()); selected.clear(); render(); message(back?'Undid edit.':'Redid edit.');
 }
-$('edit-undo').addEventListener('click',()=>history(true));
-$('edit-redo').addEventListener('click',()=>history(false));
 document.addEventListener('keydown',event=>{
-  if(!model || panel.hidden || svg.hidden || event.target.closest('#editor-titlebar') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
+  if(!model || event.defaultPrevented || event.target.isContentEditable || /INPUT|TEXTAREA/.test(event.target.tagName)) return;
+  if((event.ctrlKey||event.metaKey) && !event.altKey && ['z','y'].includes(event.key.toLowerCase())) {
+    event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); return;
+  }
+  if(!model || panel.hidden || svg.hidden || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
   if(event.key==='Escape') { cancelGesture(); selected.clear(); render(false); }
   else if(event.key==='Enter' && tool()==='paint' && layer()!=='lights') { event.preventDefault(); attempt(placeChain); }
   else if(event.key==='Backspace' && chain.length) { event.preventDefault(); chain.pop(); drawPreview(); }
   else if(event.key==='Delete' && selected.size) { event.preventDefault(); apply([...selected],'erase'); }
-  else if((event.ctrlKey||event.metaKey) && ['z','y'].includes(event.key.toLowerCase())) { event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); }
 });
 floor.addEventListener('map-ready',()=>{
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
@@ -233,13 +255,16 @@ floor.addEventListener('map-ready',()=>{
     lights:imported.lights.map(l=>({...l}))};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
-  undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true'; updateTools(); render();
+  undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
+  updateTools(); render();
   $('edit-export').disabled=false;
   if(controls.disabled) message('Switch to 2D view to edit. Your changes are visible in 3D.');
 });
 function viewState() {
   const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
   cancelGesture(); controls.disabled=!model || on;
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
   if(on) message('Switch to 2D view to edit. Your changes are visible in 3D.'); else if(model) updateTools();
 }
 new MutationObserver(viewState).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});
