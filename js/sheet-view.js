@@ -1,3 +1,4 @@
+import { EQUIPMENT_SLOTS, fitsEquipment, equippedName, itemEquipped } from './inventory-model.js';
 export const SHEET_SECTIONS = ['Stats', 'Inventory', 'Feats', 'Spells'];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const list = value => Object.values(value && typeof value === 'object' ? value : {});
@@ -7,7 +8,7 @@ const row = (label, value) => `<div class="sheet-row"><span>${esc(label)}</span>
 const card = (name, description, meta = '') => `<article><strong>${esc(name)}</strong>${meta ? `<small>${esc(meta)}</small>` : ''}${description ? `<p>${esc(text(description))}</p>` : ''}</article>`;
 let referencePromise;
 export function loadSheetReference() {
-  return referencePromise ||= Promise.all(['spells', 'equipment', 'magic_items'].map(async name => {
+  return referencePromise ||= Promise.all(['spells', 'equipment', 'magic_items', 'skills'].map(async name => {
     const response = await fetch(`data/${name}.json`);
     if (!response.ok) throw new Error('Reference descriptions unavailable.');
     return response.json();
@@ -34,20 +35,29 @@ export function sheetHTML(pc, section, reference = {}) {
       if (!Number.isSafeInteger(max) || max <= 0 || max > 100) continue;
       slots += `<div class="sheet-slots"><span>Level ${level}: ${max - used}/${max}</span><span class="sheet-pips" role="img" aria-label="${max - used} of ${max} spell slots remaining">${Array.from({ length: max }, (_, i) => `<i class="sheet-pip${i < used ? ' used' : ''}"></i>`).join('')}</span></div>`;
     }
-    return html + (slots || '<p>No spell slots.</p>');
+    html += slots || '<p>No spell slots.</p>';
+    html += heading('Skills');
+    for (const skill of Object.values(reference).filter(item => item.ability_score && item.url?.includes('/skills/'))) {
+      const key = skill.index.replace(/-/g, '_'), data = pc.skills?.[key] || {}, ability = skill.ability_score.index;
+      const proficiency = Number(combat.proficiency_bonus ?? 2);
+      const bonus = Number(data.bonus ?? (Math.floor((Number(pc.stats?.[ability] ?? 10) - 10) / 2) + (data.expertise ? 2 : data.proficient ? 1 : 0) * proficiency));
+      html += row(`${skill.name}${data.expertise ? ' (expertise)' : data.proficient ? ' (proficient)' : ''}`, bonus >= 0 ? `+${bonus}` : bonus);
+    }
+    return html;
   }
   if (section === 'Inventory') {
-    const equipped = pc.equipped || {};
+    const items = Object.entries(pc.inventory || {}).filter(([, item]) => item && typeof item.name === 'string');
     let html = heading('Equipment');
-    for (const [key, label] of [['helmet', 'Helmet'], ['armor', 'Armor'], ['shield', 'Shield'], ['main_hand', 'Weapon']]) {
-      const name = equipped[key] === true ? label : equipped[key] || (key === 'main_hand' ? equipped.weapon : '');
-      html += row(label, name || '—');
+    for (const [slot, label] of Object.entries(EQUIPMENT_SLOTS)) {
+      const name = equippedName(pc, slot);
+      const options = items.filter(([, item]) => Number(item.qty ?? 1) > 0 && fitsEquipment(slot, item, reference));
+      const selected = options.find(([, item]) => item.name === name)?.[0];
+      html += `<label class="sheet-equipment">${esc(label)}<select data-equipment-slot="${slot}" data-current-key="${esc(selected ?? '')}"><option value="">Unequip</option>${name && selected === undefined ? `<option value="" selected disabled>${esc(name)}</option>` : ''}${options.map(([key, item]) => `<option value="${esc(key)}"${key === selected ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>`;
       if (name && lookup(name).desc) html += card(name, lookup(name).desc);
     }
     html += heading('Bag');
-    const items = list(pc.inventory).filter(item => item && typeof item.name === 'string');
-    html += items.map(item => card(`${item.name} ×${item.qty ?? 1}`, item.desc || lookup(item.name).desc,
-      [item.category, item.notes].filter(Boolean).join(' · '))).join('') || '<p>Bag is empty.</p>';
+    html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}" tabindex="0" aria-label="${esc(item.name)} bag actions"><button type="button" data-bag-menu aria-label="${esc(item.name)} actions">⋯</button>${card(`${item.name} ×${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc || lookup(item.name).desc,
+      [item.category, item.notes].filter(Boolean).join(' · '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
     if (pc.coin_purse) html += row('Coins', ['pp', 'gp', 'ep', 'sp', 'cp'].map(key => `${pc.coin_purse[key] ?? 0} ${key}`).join(' · '));
     return html;
   }

@@ -3,10 +3,9 @@ import { addPCInventoryItem } from './pc-inventory.js';
 import { loadSheetReference } from './sheet-view.js';
 
 export function mountInventoryAdder(container, getToken, onSaved) {
-  if (!isGM) return;
   const form = document.createElement('form');
   form.className = 'sheet-inventory-add';
-  form.innerHTML = `<label>SRD item <input name="item" list="sheet-srd-items" autocomplete="off" required></label>
+  form.innerHTML = `<label>${isGM ? 'SRD or new item' : 'SRD item'} <input name="item" list="sheet-srd-items" autocomplete="off" maxlength="100" required></label>
     <datalist id="sheet-srd-items"></datalist>
     <label>Quantity <input name="qty" type="number" min="1" max="9999" step="1" value="1" required></label>
     <button type="submit" disabled>Add to bag</button><p role="status" aria-live="polite"></p>`;
@@ -25,8 +24,9 @@ export function mountInventoryAdder(container, getToken, onSaved) {
   name.addEventListener('focus', () => { if (!items) load(); });
   form.addEventListener('submit', async event => {
     event.preventDefault();
-    if (!isGM || saving) return;
-    const token = getToken(), item = items?.get(name.value.trim().toLowerCase()), qty = Number(quantity.value);
+    if (saving) return;
+    const token = getToken(), label = name.value.trim(), qty = Number(quantity.value);
+    const item = items?.get(label.toLowerCase()) || (isGM && label ? { name: label } : null);
     if (!token || !item) { status.textContent = 'Choose an SRD item and a linked PC.'; return; }
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 9999) { status.textContent = 'Quantity must be 1–9999.'; return; }
     if (!pending || pending.pc !== token.npcId || pending.name !== item.name || pending.qty !== qty) {
@@ -44,4 +44,5 @@ export function mountInventoryAdder(container, getToken, onSaved) {
     finally { saving = false; button.disabled = false; name.disabled = quantity.disabled = false; }
   });
   load();
+  return label => { if (!saving) { name.value = label || ''; name.focus(); } };
 }

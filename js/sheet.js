@@ -1,15 +1,18 @@
 import { readPC } from './pc-inventory.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
-import { mountInventoryAdder } from './inventory-adder.js';
+import { mountInventoryTools } from './inventory-tools.js';
 
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
 const id = query.get('pc') || query.get('char');
 let section = SHEET_SECTIONS.find(name => name.toLowerCase() === query.get('section')?.toLowerCase()) || 'Stats';
 let pc, reference = {}, reading = false, dirty = false, stream;
-const inventoryAdder = document.createElement('div');
-$('sheet-content').after(inventoryAdder);
-mountInventoryAdder(inventoryAdder, () => id && pc ? { npcId: `v2:${id}` } : null, refresh);
+const inventoryAdder = mountInventoryTools($('sheet-content').parentElement, () => id && pc && section === 'Inventory' ? { npcId: `v2:${id}` } : null, async () => {
+  const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
+  const response = await fetch(`${base}/v2/worlds/gaia/entities.json`, { signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+  return response.json();
+}, refresh);
 function draw() {
   inventoryAdder.hidden = section !== 'Inventory' || !pc;
   if (pc) $('sheet-content').innerHTML = sheetHTML(pc, section, reference);

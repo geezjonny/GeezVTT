@@ -30,3 +30,27 @@ test('Spells supports sparse Firebase lists and escapes reference text', () => {
   assert.ok(!html.includes('<script>'));
   for (const section of SHEET_SECTIONS) assert.ok(sheetHTML({}, section));
 });
+
+test('Stats includes all referenced skills with expertise and explicit bonuses', () => {
+  const reference = {
+    stealth: { index: 'stealth', name: 'Stealth', url: '/api/2014/skills/stealth', ability_score: { index: 'dex' } },
+    perception: { index: 'perception', name: 'Perception', url: '/api/2014/skills/perception', ability_score: { index: 'wis' } },
+    arcana: { index: 'arcana', name: 'Arcana', url: '/api/2014/skills/arcana', ability_score: { index: 'int' } }
+  };
+  const html = sheetHTML({ stats: { dex: 16, wis: 8 }, combat: { proficiency_bonus: 3 }, skills: { stealth: { expertise: true }, perception: { bonus: 0 } } }, 'Stats', reference);
+  assert.match(html, /Stealth \(expertise\)<\/span><strong>\+9/);
+  assert.match(html, /Perception<\/span><strong>\+0/);
+  assert.match(html, /Arcana<\/span><strong>\+0/);
+});
+
+test('Inventory renders slot-appropriate dropdowns, unequip, and keyed accessible bag menus', () => {
+  const html = sheetHTML({ equipped: { main_hand: 'Rapier' }, inventory: {
+    a: { name: 'Rapier', qty: 1 }, b: { name: 'Shield', qty: 1 }, c: { name: 'Torch', qty: 1 }
+  } }, 'Inventory', { rapier: { weapon_category: 'Martial' }, shield: { armor_category: 'Shield' } });
+  assert.match(html, /data-equipment-slot="main_hand"[\s\S]*?<option value="a" selected>Rapier/);
+  assert.match(html, /data-equipment-slot="shield"[^<]*><option value="">Unequip<\/option><option value="b">Shield/);
+  assert.doesNotMatch(html, /<option value="c">Torch/);
+  assert.match(html, /data-bag-key="a"/);
+  assert.match(html, /Rapier ×1 \(equipped\)/);
+  assert.match(html, /aria-label="Torch actions"/);
+});

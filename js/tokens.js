@@ -4,7 +4,7 @@ import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-mod
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
-import { mountInventoryAdder } from './inventory-adder.js';
+import { mountInventoryTools } from './inventory-tools.js';
 import { applyFirebaseEvent } from './firebase-events.js';
 
 const $ = id => document.getElementById(id);
@@ -47,8 +47,8 @@ async function read(path) {
   return response.json();
 }
 const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcId.slice(3)) ? token.npcId.slice(3) : null;
-mountInventoryAdder($('sheet-inventory-content').parentElement,
-  () => tokens().find(token => token.id === sheetTokens.get('Inventory')));
+mountInventoryTools($('sheet-inventory-content').parentElement,
+  () => tokens().find(token => token.id === sheetTokens.get('Inventory')), () => entities);
 const status = text => { $('token-status').textContent = text; };
 function pcSyncStatus(id, message) {
   status(message);

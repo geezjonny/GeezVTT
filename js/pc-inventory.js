@@ -1,3 +1,4 @@
+import { changeInventory } from './inventory-model.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=token=>{
   if(!token?.npcId?.startsWith('v2:')) throw new Error('Select a linked PC.');
@@ -12,6 +13,29 @@ export async function readPC(token) {
 }
 export function pcInventory(pc) {
   return Object.entries(pc.inventory || {}).flatMap(([id,item])=>item && typeof item.name==='string'?[{...item,id}]:[]);
+}
+export async function updatePCInventory(token, action, reference) {
+  if (action.type === 'transfer') action = { ...action, targetKey: crypto.randomUUID() };
+  const sourcePath = entityPath(token), id = token.npcId.slice(3);
+  const path = action.type === 'transfer' ? 'v2/worlds/gaia/entities' : sourcePath;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(`${base}/${path}.json`, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+    const etag = response.headers.get('ETag');
+    if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
+    const value = await response.json();
+    const entities = action.type === 'transfer' ? value || {} : { [id]: value };
+    changeInventory(entities, id, action, reference);
+    // Transfer both bags together; reject concurrent equipment or inventory changes.
+    const saved = await fetch(`${base}/${path}.json`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+      body: JSON.stringify(action.type === 'transfer' ? entities : entities[id]), signal: AbortSignal.timeout(15000)
+    });
+    if (saved.status === 412) continue;
+    if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
+    return;
+  }
+  throw new Error('Inventory changed elsewhere. Try again.');
 }
 export async function addPCInventoryItem(token, item, qty, key) {
   if (typeof item?.name !== 'string' || !item.name.trim()) throw new Error('Choose an SRD item.');
