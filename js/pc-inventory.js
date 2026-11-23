@@ -1,4 +1,6 @@
 import { changeInventory } from './inventory-model.js';
+import { changeSpellSlot } from './sheet-rolls.js';
+import { changeCombat } from './sheet-combat.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=token=>{
   if(!token?.npcId?.startsWith('v2:')) throw new Error('Select a linked PC.');
@@ -9,6 +11,28 @@ export async function readPC(token) {
   if(!response.ok) throw new Error(`Firebase returned ${response.status}`);
   const entity=await response.json();
   if(entity?.kind!=='pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
+  return entity.data;
+}
+export async function updatePCSpellSlot(token, level, pip) {
+  return updatePCSheet(token, pc => changeSpellSlot(pc, level, pip));
+}
+export async function updatePCCombat(token, action) {
+  return updatePCSheet(token, pc => changeCombat(pc, action));
+}
+async function updatePCSheet(token, change) {
+  const url = `${base}/${entityPath(token)}.json`;
+  const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
+  if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+  const entity = await response.json(), etag = response.headers.get('ETag');
+  if (entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
+  if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
+  change(entity.data);
+  const saved = await fetch(url, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+    body: JSON.stringify(entity), signal: AbortSignal.timeout(15000)
+  });
+  if (saved.status === 412) throw new Error('Character changed elsewhere. Try again.');
+  if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
   return entity.data;
 }
 export function pcInventory(pc) {
@@ -33,7 +57,7 @@ export async function updatePCInventory(token, action, reference) {
     });
     if (saved.status === 412) continue;
     if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
-    return;
+    return entities[id].data;
   }
   throw new Error('Inventory changed elsewhere. Try again.');
 }

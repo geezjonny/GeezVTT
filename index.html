@@ -504,6 +504,16 @@
         <p id="sheet-spells-status" role="status"></p>
       </div>
     </section>
+    <section id="sheet-weapons-panel" class="editor-panel sheet-panel" style="left: 15rem" role="dialog" aria-modal="false" aria-labelledby="sheet-weapons-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move weapons window. Drag or use arrow keys.">
+        <h2 id="sheet-weapons-title">Weapons</h2>
+        <button class="editor-close" type="button" aria-label="Close weapons">&times;</button>
+      </div>
+      <div class="editor-body">
+        <div id="sheet-weapons-content" class="sheet-content"></div>
+        <p id="sheet-weapons-status" role="status"></p>
+      </div>
+    </section>
     <section id="token-properties-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="token-properties-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move token properties window. Drag or use arrow keys.">
         <h2 id="token-properties-title">Token properties</h2>
@@ -565,6 +575,8 @@
       </div>
       <div class="editor-body">
       <form id="dice-form">
+        <label hidden>Formula <input id="dice-expression" type="text" maxlength="200"></label>
+        <button id="dice-roll-selected" type="submit" hidden>Roll again</button>
         <div id="dice-icons" role="group" aria-label="Roll dice">
           <button type="button" data-dice-sides="4" title="Roll d4" aria-label="Roll d4"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m16 2 14 27H2Z"/><text x="16" y="19">4</text></svg></button>
           <button type="button" data-dice-sides="6" title="Roll d6" aria-label="Roll d6"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="3" y="3" width="26" height="26" rx="3"/><text x="16" y="16">6</text></svg></button>
@@ -578,6 +590,7 @@
         <label>Modifier <input id="dice-modifier" type="number" min="-999" max="999" value="0" required></label>
         <label>d20 mode <select id="dice-mode"><option value="normal">Normal</option><option value="advantage">Advantage</option><option value="disadvantage">Disadvantage</option></select></label>
       </form>
+      <p id="dice-source"></p>
       <p id="dice-status" role="status" aria-live="polite"></p>
       <ol id="dice-history" aria-label="Recent local rolls, newest first"></ol>
       </div>

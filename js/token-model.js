@@ -1,4 +1,5 @@
 import { crosses, distance, segments } from './map-editor-model.js';
+import { equippedAC } from './equipment-modifiers.js';
 
 export const TOKEN_ICONS = ['Generic', 'Fighter', 'Hunter', 'Druid', 'Wizard', 'Sorcerer', 'Bard', 'Monk', 'Rogue', 'Barbarian', 'Cleric', 'Paladin', 'Ranger', 'Warlock', 'Artificer', 'Lark', 'Liora', 'Ashara', 'Rurik', 'Seris'];
 export const TOKEN_SYMBOLS = { lark: '♬', liora: '➹', ashara: '☀', rurik: '🍺', seris: '⚔', fighter: '⚔', hunter: '➶', druid: '❧', wizard: '✦', sorcerer: 'ϟ', bard: '♫', monk: '☯', rogue: '†', barbarian: '⚒', cleric: '✚', paladin: '⛨', ranger: '➹', warlock: '☾', artificer: '⚙' };
@@ -45,7 +46,7 @@ export function npcCatalog(entities, legacy) {
     npcs.push({ npcId: id, name: (typeof name === 'string' && name.trim() ? name.trim() : id).slice(0, 100),
       size: Number.isFinite(size) && size >= .5 && size <= 20 && Number.isInteger(size * 2) ? size : 1,
       hp: Number.isSafeInteger(hp) && hp >= 0 && hp <= 999999 ? hp : 0,
-      ...(kind === 'pc' ? pcStats(data.combat?.hp_max, data.combat?.ac ?? data.combat?.armor_class ?? data.ac) : {}) });
+      ...(kind === 'pc' ? pcStats(data.combat?.hp_max, equippedAC(data)) : {}) });
   };
   for (const [id, entity] of Object.entries(entities || {})) {
     if (!['npc', 'pc'].includes(entity?.kind)) continue;

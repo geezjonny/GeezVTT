@@ -27,3 +27,29 @@ export function buildRoll({ sides, count, modifier, mode }, random = randomDie) 
   const natural = sides === 20 && count === 1 ? kept[0].v : null;
   return { dice, total, label, sub, cls: natural === 20 ? 'crit' : natural === 1 ? 'bad' : '', color: '#8b1e2b' };
 }
+
+export function buildExpressionRoll(expression, mode = 'normal', random = randomDie) {
+  const value = String(expression).toLowerCase().replace(/\s+(?:acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)(?:\s+damage)?\s*$/, '').replace(/\s+/g, '').replace(/−/g, '-');
+  if (value.length > 200 || !/^[+]?(?:\d*d\d+|-?\d+)(?:[+-](?:\d*d\d+|\d+))*$/.test(value)) {
+    throw new Error('Use a dice formula such as 1d20+4 or 1d8+1d6+3.');
+  }
+  const groups = [], dice = [];
+  let modifier = 0;
+  for (const term of value.match(/[+-]?[^+-]+/g)) {
+    if (!term.includes('d')) { modifier += Number(term); continue; }
+    const [count, sides] = term.replace(/^\+/, '').split('d');
+    if (term.startsWith('-')) throw new Error('Dice counts must be positive.');
+    groups.push({ count: count === '' ? 1 : Number(count), sides: Number(sides), modifier: 0, mode: 'normal' });
+  }
+  if (!Number.isSafeInteger(modifier) || Math.abs(modifier) > 999 || groups.reduce((sum, group) => sum + group.count, 0) > 12 ||
+      groups.filter(group => group.sides === 100).reduce((sum, group) => sum + group.count, 0) > 6) {
+    throw new Error('Choose up to 12 dice and a modifier from -999 to 999.');
+  }
+  if (groups.length === 1) return buildRoll({ ...groups[0], modifier, mode }, random);
+  if (mode !== 'normal') throw new Error('Advantage and disadvantage use one d20.');
+  // Validate every group before generating any result.
+  for (const group of groups) buildRoll(group, () => 1);
+  for (const group of groups) dice.push(...buildRoll(group, random).dice);
+  return { dice, total: dice.reduce((sum, die) => sum + die.v, modifier), label: value,
+    sub: dice.map(die => die.v).join(', '), cls: '', color: '#8b1e2b' };
+}

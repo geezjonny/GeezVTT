@@ -1,7 +1,10 @@
+import { validateItemEdit } from './item-modifiers.js';
 export const EQUIPMENT_SLOTS = { helmet: 'Helmet', armor: 'Armor', shield: 'Shield', main_hand: 'Weapon' };
+export const COIN_TYPES = { pp: 'Platinum', gp: 'Gold', ep: 'Electrum', sp: 'Silver', cp: 'Copper' };
 const norm = value => String(value || '').trim().toLowerCase();
 export function fitsEquipment(slot, item, reference = {}) {
   const data = reference[norm(item.name)] || {}, category = norm(item.category || data.equipment_category?.name);
+  if (category === 'consumable') return false;
   const shield = data.armor_category === 'Shield' || /\bshield\b/i.test(item.name);
   if (slot === 'helmet') return /\b(helm|helmet|hat|cap|crown|circlet|hood|mask|headband|coif|diadem)\b/i.test(item.name) && !data.weapon_category;
   if (slot === 'shield') return shield;
@@ -24,6 +27,13 @@ export function changeInventory(entities, sourceId, action, reference = {}) {
   const entity = Object.hasOwn(entities, sourceId) ? entities[sourceId] : null;
   if (entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
   const pc = entity.data;
+  if (action.type === 'coin') {
+    if (!Object.hasOwn(COIN_TYPES, action.coin) || ![1, -1].includes(action.delta)) throw new Error('Choose a coin and adjust it by one.');
+    const current = Number(pc.coin_purse?.[action.coin] ?? 0), next = current + action.delta;
+    if (!Number.isSafeInteger(current) || current < 0 || !Number.isSafeInteger(next) || next < 0) throw new Error('Coins must stay a nonnegative whole number.');
+    pc.coin_purse = { ...pc.coin_purse, [action.coin]: next };
+    return;
+  }
   if (action.type === 'equip') {
     if (!Object.hasOwn(EQUIPMENT_SLOTS, action.slot)) throw new Error('Invalid equipment slot.');
     const item = action.key && Object.hasOwn(pc.inventory || {}, action.key) ? pc.inventory[action.key] : null;
@@ -36,6 +46,14 @@ export function changeInventory(entities, sourceId, action, reference = {}) {
   }
   const item = Object.hasOwn(pc.inventory || {}, action.key) ? pc.inventory[action.key] : null;
   if (!item || typeof item.name !== 'string') throw new Error('Item is no longer in this bag.');
+  if (action.type === 'edit') {
+    const edited = validateItemEdit(action.value, item);
+    if (itemEquipped(pc, item, reference) && (edited.name !== item.name || edited.category !== item.category || edited.qty === 0)) {
+      throw new Error('Unequip this item before renaming, changing its category, or setting quantity to zero.');
+    }
+    Object.assign(item, edited);
+    return;
+  }
   if (action.type === 'add') {
     const qty = Number(item.qty ?? 1);
     if (!Number.isSafeInteger(qty) || qty < 0 || qty >= 9999) throw new Error('Quantity must stay within 0–9999.');

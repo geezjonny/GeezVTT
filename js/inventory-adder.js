@@ -8,7 +8,7 @@ export function mountInventoryAdder(container, getToken, onSaved) {
   form.innerHTML = `<label>${isGM ? 'SRD or new item' : 'SRD item'} <input name="item" list="sheet-srd-items" autocomplete="off" maxlength="100" required></label>
     <datalist id="sheet-srd-items"></datalist>
     <label>Quantity <input name="qty" type="number" min="1" max="9999" step="1" value="1" required></label>
-    <button type="submit" disabled>Add to bag</button><p role="status" aria-live="polite"></p>`;
+    <button type="submit"${isGM ? '' : ' disabled'}>Add to bag</button><p role="status" aria-live="polite"></p>`;
   container.append(form);
   const name = form.elements.namedItem('item'), quantity = form.elements.namedItem('qty'), button = form.querySelector('button'), status = form.querySelector('[role="status"]');
   let items, pending, saving = false;
@@ -19,7 +19,7 @@ export function mountInventoryAdder(container, getToken, onSaved) {
       items = new Map(Object.values(reference).filter(item => item.equipment_category).map(item => [item.name.toLowerCase(), item]));
       form.querySelector('datalist').replaceChildren(...[...items.values()].sort((a, b) => a.name.localeCompare(b.name)).map(item => new Option(item.name, item.name)));
       button.disabled = false; status.textContent = '';
-    } catch (error) { status.textContent = error.message; }
+    } catch (error) { button.disabled = !isGM; status.textContent = error.message; }
   }
   name.addEventListener('focus', () => { if (!items) load(); });
   form.addEventListener('submit', async event => {

@@ -1,0 +1,31 @@
+export const ITEM_CATEGORIES = ['Consumable', 'Armor', 'Weapon'];
+export const ITEM_STATS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+export const ITEM_SKILLS = ['acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception', 'history', 'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception', 'performance', 'persuasion', 'religion', 'sleight_of_hand', 'stealth', 'survival'];
+
+export function validateItemEdit(value, original) {
+  if (typeof value?.name !== 'string' || !value.name.trim() || value.name.trim().length > 100) throw new Error('Enter an item name of 1–100 characters.');
+  if (typeof value.category !== 'string' || (!ITEM_CATEGORIES.includes(value.category) && value.category !== (original.category || ''))) throw new Error('Choose an item category.');
+  if (!Number.isSafeInteger(value.qty) || value.qty < 0 || value.qty > 9999) throw new Error('Quantity must be 0–9999.');
+  if (typeof value.desc !== 'string' || value.desc.length > 20000) throw new Error('Description must be at most 20000 characters.');
+  const modifiers = { ac: value.modifiers?.ac ?? 0, stats: {}, skills: {} };
+  for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
+    const values = value.modifiers?.[group] ?? {};
+    if (Object.keys(values).some(key => !keys.includes(key))) throw new Error('Invalid modifier target.');
+    for (const key of keys) {
+      const bonus = values[key] ?? 0;
+      if (!Number.isSafeInteger(bonus) || Math.abs(bonus) > 999) throw new Error('Modifiers must be whole numbers from -999 to 999.');
+      if (bonus) modifiers[group][key] = bonus;
+    }
+  }
+  if (!Number.isSafeInteger(modifiers.ac) || Math.abs(modifiers.ac) > 999) throw new Error('AC modifier must be a whole number from -999 to 999.');
+  return { name: value.name.trim(), category: value.category, qty: value.qty, desc: value.desc, modifiers };
+}
+
+export function modifierText(modifiers = {}) {
+  const sign = value => Number(value) >= 0 ? `+${value}` : String(value);
+  const parts = modifiers.ac ? [`AC ${sign(modifiers.ac)}`] : [];
+  for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
+    for (const key of keys) if (modifiers[group]?.[key]) parts.push(`${key.replace(/_/g, ' ')} ${sign(modifiers[group][key])}`);
+  }
+  return parts.join(' · ');
+}

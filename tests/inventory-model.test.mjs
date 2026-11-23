@@ -57,3 +57,34 @@ test('bag add increases quantity, transfer preserves metadata and rejects invali
   changeInventory(entities, 'b', { type: 'remove', key: 'new-key' });
   assert.equal(entities.b.data.inventory['new-key'], undefined);
 });
+
+test('editing items preserves extra metadata and protects equipped names and slots', () => {
+  const entities = world();
+  entities.a.data.inventory.weapon.notes = 'Engraved';
+  const value = { name: 'Sword', category: 'Weapon', qty: 1, desc: 'Custom sword', modifiers: { ac: 1, stats: { str: 2 }, skills: { athletics: 1 } } };
+  changeInventory(entities, 'a', { type: 'edit', key: 'weapon', value }, reference);
+  assert.equal(entities.a.data.inventory.weapon.notes, 'Engraved');
+  assert.equal(entities.a.data.inventory.weapon.modifiers.stats.str, 2);
+  changeInventory(entities, 'a', { type: 'equip', slot: 'main_hand', key: 'weapon' }, reference);
+  changeInventory(entities, 'a', { type: 'edit', key: 'weapon', value: { ...value, desc: 'Updated' } }, reference);
+  for (const patch of [{ name: 'Other sword' }, { category: 'Consumable' }, { qty: 0 }]) {
+    assert.throws(() => changeInventory(entities, 'a', { type: 'edit', key: 'weapon', value: { ...value, ...patch } }, reference), /Unequip/);
+  }
+  assert.equal(fitsEquipment('main_hand', { name: 'Sword potion', category: 'Consumable' }, reference), false);
+  assert.equal(fitsEquipment('armor', { name: 'Enchanted Coat', category: 'Armor' }, reference), true);
+  changeInventory(entities, 'a', { type: 'equip', slot: 'main_hand', key: '' }, reference);
+  changeInventory(entities, 'a', { type: 'transfer', key: 'weapon', to: 'b', targetKey: 'custom-sword' }, reference);
+  assert.equal(entities.b.data.inventory['custom-sword'].modifiers.ac, 1);
+});
+
+test('coin adjustments preserve denominations, initialize missing purses and reject negative balances', () => {
+  const entities = world();
+  for (const coin of ['pp', 'gp', 'ep', 'sp', 'cp']) changeInventory(entities, 'a', { type: 'coin', coin, delta: 1 });
+  assert.deepEqual(entities.a.data.coin_purse, { pp: 1, gp: 1, ep: 1, sp: 1, cp: 1 });
+  changeInventory(entities, 'a', { type: 'coin', coin: 'gp', delta: -1 });
+  assert.equal(entities.a.data.coin_purse.gp, 0);
+  assert.equal(entities.a.data.coin_purse.sp, 1);
+  for (const action of [{ coin: 'gp', delta: -1 }, { coin: 'bitcoin', delta: 1 }, { coin: 'gp', delta: 2 }, { coin: '__proto__', delta: 1 }]) {
+    assert.throws(() => changeInventory(entities, 'a', { type: 'coin', ...action }));
+  }
+});

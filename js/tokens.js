@@ -6,6 +6,10 @@ import { showMapMenu } from './map-object-menu.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
 import { mountInventoryTools } from './inventory-tools.js';
 import { applyFirebaseEvent } from './firebase-events.js';
+import { sheetRolls } from './sheet-rolls.js';
+import { rollFromSheet } from './dice-roller.js';
+import { mountSpellSlots } from './sheet-slots.js';
+import { readPC } from './pc-inventory.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
@@ -22,8 +26,23 @@ function drawSheet(section) {
   const entity = entities[pcId(token)];
   $(`${sheetId(section)}-title`).textContent = `${entity?.name || token.name} · ${section}`;
   $(`${sheetId(section)}-content`).innerHTML = entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted
-    ? sheetHTML(entity.data, section, sheetReference) : '<p>Linked PC unavailable.</p>';
+    ? sheetHTML(entity.data, section, sheetReference, true, isGM) : '<p>Linked PC unavailable.</p>';
 }
+for (const section of ['Stats', 'Weapons']) {
+  $(`${sheetId(section)}-content`).addEventListener('click', event => {
+    const button = event.target.closest('[data-sheet-roll]');
+    const token = tokens().find(token => token.id === sheetTokens.get(section));
+    const entity = entities[pcId(token)];
+    if (!button || entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) return;
+    const roll = Object.values(sheetRolls(entity.data, sheetReference)).flat().find(roll => roll.key === button.dataset.sheetRoll);
+    if (roll) rollFromSheet(entity.name || token.name, roll);
+  });
+}
+mountSpellSlots($('sheet-stats-content'), () => tokens().find(token => token.id === sheetTokens.get('Stats')),
+  $('sheet-stats-status'), (pc, token) => {
+    const id = pcId(token);
+    if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
+  });
 async function openSheet(token, section) {
   sheetTokens.set(section, token.id);
   const panel = $(`${sheetId(section)}-panel`);
@@ -48,7 +67,10 @@ async function read(path) {
 }
 const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcId.slice(3)) ? token.npcId.slice(3) : null;
 mountInventoryTools($('sheet-inventory-content').parentElement,
-  () => tokens().find(token => token.id === sheetTokens.get('Inventory')), () => entities);
+  () => tokens().find(token => token.id === sheetTokens.get('Inventory')), () => entities, async (token, pc) => {
+    const id = pcId(token);
+    if (id && entities[id]) { entities[id].data = pc ?? await readPC(token); applyPC(id); }
+  });
 const status = text => { $('token-status').textContent = text; };
 function pcSyncStatus(id, message) {
   status(message);
