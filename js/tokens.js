@@ -124,6 +124,7 @@ function tokenMenu(token, x, y, origin) {
   if (!isGM) return;
   showMapMenu(x, y, [
     { label: 'Edit token...', action: () => editToken(token) },
+    { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
     { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) }
   ], origin);
 }

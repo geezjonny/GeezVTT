@@ -213,9 +213,18 @@ function anchorPanel(panel) {
   panel.style.top = top + 'px';
   panel.style.right = panel.style.bottom = 'auto';
 }
+function setPanelMinimized(panel, minimized) {
+  const button = panel.querySelector('.editor-close[aria-expanded]');
+  if (!button) return;
+  document.getElementById(button.getAttribute('aria-controls')).hidden = minimized;
+  button.setAttribute('aria-expanded', String(!minimized));
+  button.setAttribute('aria-label', button.getAttribute('aria-label').replace(/^(Minimize|Restore)/, minimized ? 'Restore' : 'Minimize'));
+  button.textContent = minimized ? '+' : '\u2212';
+}
 export function openPanel(panel) {
   if (!isGM && panel.hasAttribute('data-gm-only')) return;
   panel.hidden = false;
+  setPanelMinimized(panel, false);
   positionPanel(panel, panel.offsetLeft, panel.offsetTop);
   raisePanel(panel);
 }
@@ -228,9 +237,14 @@ for (const panel of panels) {
 
   panel.addEventListener('pointerdown', () => { anchorPanel(panel); raisePanel(panel); });
   panel.addEventListener('focusin', () => raisePanel(panel));
-  panel.querySelector('.editor-close:not(#vtt-collapse):not(#build-collapse)')?.addEventListener('click', () => {
-    panel.hidden = true;
-    document.querySelector('#vtt-collapse').focus();
+  panel.querySelector('.editor-close').addEventListener('click', event => {
+    if (!event.currentTarget.hasAttribute('aria-expanded')) {
+      panel.hidden = true;
+      document.querySelector('#vtt-collapse').focus();
+      return;
+    }
+    setPanelMinimized(panel, event.currentTarget.getAttribute('aria-expanded') === 'true');
+    positionPanel(panel, panel.offsetLeft, panel.offsetTop);
   });
   titlebar.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;
@@ -293,10 +307,7 @@ try {
     if (Number.isFinite(saved.top)) panel.style.bottom = 'auto';
     const collapse = panel.querySelector('.editor-close[aria-expanded]');
     if (collapse && typeof saved.collapsed === 'boolean') {
-      document.getElementById(collapse.getAttribute('aria-controls')).hidden = saved.collapsed;
-      collapse.setAttribute('aria-expanded', String(!saved.collapsed));
-      collapse.setAttribute('aria-label', collapse.getAttribute('aria-label').replace(/^(Expand|Collapse)/, saved.collapsed ? 'Expand' : 'Collapse'));
-      collapse.textContent = saved.collapsed ? '+' : '\u2212';
+      setPanelMinimized(panel, saved.collapsed);
     }
     if (!panel.hidden) positionPanel(panel, panel.offsetLeft, panel.offsetTop);
   }

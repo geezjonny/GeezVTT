@@ -55,6 +55,25 @@ try {
   await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/index.html`});
   await wait(`document.querySelector('#map-view')?.tabIndex===0`);
   await evaluate(`window.confirm=()=>true`);
+  assert.equal(await evaluate(`(()=>{
+    for(const panel of document.querySelectorAll('.editor-panel')) {
+      const hidden=panel.hidden, button=panel.querySelector('.editor-close');
+      panel.hidden=false;
+      if(!['scene-panel','vtt-panel','build-panel','initiative-panel'].includes(panel.id)) {
+        button.click();
+        if(!panel.hidden || button.hasAttribute('aria-expanded') || !button.getAttribute('aria-label').startsWith('Close ')) return false;
+        panel.hidden=hidden;
+        continue;
+      }
+      const body=document.getElementById(button.getAttribute('aria-controls'));
+      button.click();
+      if(panel.hidden || !body.hidden || button.getAttribute('aria-expanded')!=='false' || !button.getAttribute('aria-label').startsWith('Restore ')) return false;
+      button.click();
+      if(panel.hidden || body.hidden || button.getAttribute('aria-expanded')!=='true' || !button.getAttribute('aria-label').startsWith('Minimize ')) return false;
+      panel.hidden=hidden;
+    }
+    return true;
+  })()`),true,'the four permanent controls minimize and restore; other floating windows close');
   await evaluate(`document.querySelectorAll('.menu > summary')[0].click(); document.querySelectorAll('.menu')[1].dispatchEvent(new PointerEvent('pointerenter',{pointerType:'mouse'}))`);
   assert.equal(await evaluate(`document.querySelectorAll('.menu[open]').length`),1);
   assert.equal(await evaluate(`document.querySelectorAll('.menu')[1].open`),true,'hover switches the open menu');

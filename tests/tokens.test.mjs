@@ -1,6 +1,28 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenProperties, npcCatalog, importedTokens, pcTokenStatus } from '../js/token-model.js';
+import { tokenProperties, npcCatalog, importedTokens, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from '../js/token-model.js';
+
+test('named PC miniatures survive map import with their selected appearance', () => {
+  for (const icon of ['lark', 'liora', 'ashara', 'rurik', 'seris']) {
+    assert.equal(tokenIcon(icon), icon);
+    assert.ok(TOKEN_SYMBOLS[icon]);
+    const [restored] = importedTokens([{ name: icon, icon, size: 1, hp: 10, x: 1, y: 1 }], 10, 10);
+    assert.equal(restored.icon, icon);
+  }
+  assert.equal(tokenIcon('unknown'), 'generic');
+});
+
+test('token facing survives map import and invalid rotation is ignored', () => {
+  const token = { name: 'Lark', size: 1, hp: 10, x: 1, y: 1 };
+  for (const [rotation, expected] of [[90, 90], [450, 90], [-90, 270]]) {
+    const [restored] = importedTokens([{ ...token, rotation }], 10, 10);
+    assert.equal(restored.rotation, expected);
+  }
+  for (const rotation of [undefined, null, '90', Infinity]) {
+    const [restored] = importedTokens([{ ...token, rotation }], 10, 10);
+    assert.equal(restored.rotation, undefined);
+  }
+});
 
 test('token properties accept zero HP and half-square sizes and reject invalid edits', () => {
   assert.deepEqual(tokenProperties(' Goblin ', .5, 0), { name: 'Goblin', size: .5, hp: 0 });

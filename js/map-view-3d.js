@@ -362,6 +362,7 @@ export function createMapView3D(host) {
         new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .1 }));
       mesh.rotation.x = -Math.PI / 2;
       const miniature = tokenMini(token.icon);
+      miniature.rotation.y = -(token.rotation || 0) * Math.PI / 180;
       miniature.scale.setScalar(token.size);
       const group = new THREE.Group();
       group.position.set(token.x, .03, token.y);

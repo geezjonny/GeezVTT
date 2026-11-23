@@ -108,6 +108,7 @@ function render(notify=true) {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`});
         el.dataset.tokenId=obj.id;
         el.append(node('circle',{r:obj.size/2,fill:'#344f70',stroke:'#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
+        el.append(node('path',{d:`M ${-obj.size*.08} ${obj.size*.39} L 0 ${obj.size*.49} L ${obj.size*.08} ${obj.size*.39} Z`,fill:'#a2cbff',transform:`rotate(${obj.rotation || 0})`,'pointer-events':'none'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
         const symbol=TOKEN_SYMBOLS[tokenIcon(obj.icon)];
@@ -780,6 +781,12 @@ floor.addEventListener('vtt-object-move',event=>{
   Object.assign(object,{x:Math.max(0,Math.min(model.width,x)),y:Math.max(0,Math.min(model.height,y))});
   if(portal) Object.assign(portal,{x:object.x,y:object.y});
   render();
+});
+floor.addEventListener('vtt-token-rotate',event=>{
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  const token=model.tokens.find(item=>item.id===event.detail);
+  if(!token) return;
+  cancelGesture(); remember(); token.rotation=((token.rotation || 0)+90)%360; render();
 });
 floor.addEventListener('vtt-token-move',event=>{
   if(!isGM) return;

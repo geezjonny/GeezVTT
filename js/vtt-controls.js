@@ -103,13 +103,6 @@ $('vtt-floor-up').addEventListener('click',()=>$('floor-up-control').click());
 $('vtt-floor-down').addEventListener('click',()=>$('floor-down-control').click());
 $('vtt-roll').addEventListener('click', () => $('open-dice').click());
 $('open-vtt').addEventListener('click', () => { openPanel(panel); $('vtt-collapse').focus(); });
-$('vtt-collapse').addEventListener('click', () => {
-  const collapsed = !$('vtt-controls').hidden;
-  $('vtt-controls').hidden = collapsed;
-  $('vtt-collapse').setAttribute('aria-expanded', String(!collapsed));
-  $('vtt-collapse').setAttribute('aria-label', `${collapsed ? 'Expand' : 'Collapse'} VTT controls`);
-  $('vtt-collapse').textContent = collapsed ? '+' : '\u2212';
-});
 // Opening map editing tools hands input back to the editor.
 function handToEditor() {
   clear(); enabled=false;

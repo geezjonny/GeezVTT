@@ -419,3 +419,16 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: confirm Tokens opens without Tools - Tokens in both views and that choosing and placing tokens still works. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Custom PC tokens, token rotation, and permanent controls saved - 2026-11-23
+
+- Adds selectable named miniatures for Lark, Liora, Ashara, Rurik, and Seris in the token Icon menu, with matching 2D symbols. Reuses the existing miniature cache and geometry/material disposal. Includes distinctive stature, clothing, hair, weapons, and accessories, including Lark's maroon beret and rapier, Liora's green cloak and boots, Ashara's flame hair and acolyte outfit, Rurik's bald head, red beard/moustache, monocle and beer glass, and Seris's purple hair and black longsword.
+- Adds Rotate 90 degrees to the GM token right-click menu in both views. Rotates the 3D miniature, shows facing on 2D tokens, supports undo, and preserves normalized rotation through map import/export.
+- Scene Controls, VTT Controls, Build Controls, and Initiative are permanent floating controls with minimize/restore buttons and remembered minimized state. Every other floating window retains its X close button. Reopening a permanent control restores its contents. Existing window sizes, positions, dragging, and snapping remain in use.
+- Adds unrun assertions for named token appearance persistence, rotation import normalization, and permanent-window minimize/restore versus other-window closing.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: inspect the five miniatures and accessories in 3D; select/save/reload named icons; check 2D symbols and facing; exercise right-click rotation in both views, undo, map/scene round trips, and shared synchronization; confirm only the four permanent controls minimize and restore, minimized state survives reload, other windows close and reopen, and tool switching remains functional. Earlier verification items remain outstanding.
+
+Known limits: named PC appearances are chosen manually from each token's Icon menu; rotation uses 90-degree steps. Window layouts remain local to the browser.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion, scene/blackpearl-whole.geezvtt modification, and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

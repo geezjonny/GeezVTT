@@ -1,7 +1,7 @@
 import { crosses, distance, segments } from './map-editor-model.js';
 
-export const TOKEN_ICONS = ['Generic', 'Fighter', 'Hunter', 'Druid', 'Wizard', 'Sorcerer', 'Bard', 'Monk', 'Rogue', 'Barbarian', 'Cleric', 'Paladin', 'Ranger', 'Warlock', 'Artificer'];
-export const TOKEN_SYMBOLS = { fighter: '⚔', hunter: '➶', druid: '❧', wizard: '✦', sorcerer: 'ϟ', bard: '♫', monk: '☯', rogue: '†', barbarian: '⚒', cleric: '✚', paladin: '⛨', ranger: '➹', warlock: '☾', artificer: '⚙' };
+export const TOKEN_ICONS = ['Generic', 'Fighter', 'Hunter', 'Druid', 'Wizard', 'Sorcerer', 'Bard', 'Monk', 'Rogue', 'Barbarian', 'Cleric', 'Paladin', 'Ranger', 'Warlock', 'Artificer', 'Lark', 'Liora', 'Ashara', 'Rurik', 'Seris'];
+export const TOKEN_SYMBOLS = { lark: '♬', liora: '➹', ashara: '☀', rurik: '🍺', seris: '⚔', fighter: '⚔', hunter: '➶', druid: '❧', wizard: '✦', sorcerer: 'ϟ', bard: '♫', monk: '☯', rogue: '†', barbarian: '⚒', cleric: '✚', paladin: '⛨', ranger: '➹', warlock: '☾', artificer: '⚙' };
 
 export function tokenIcon(value) {
   return TOKEN_ICONS.some(label => label.toLowerCase() === value) ? value : 'generic';
@@ -71,6 +71,7 @@ export function importedTokens(value, width, height) {
       ids.add(id);
       return [{ id, ...props, x: token.x, y: token.y,
         ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
+        ...(Number.isFinite(token.rotation) ? { rotation: ((token.rotation % 360) + 360) % 360 } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }

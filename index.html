@@ -94,6 +94,7 @@
     .editor-titlebar h2 { margin: 0; font-size: inherit; }
     .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
+    .editor-close[aria-expanded]:hover { background: #344f70; }
     #vtt-panel { top: auto; bottom: 2rem; }
     #build-panel { left: 15rem; top: auto; bottom: 2rem; }
     #vtt-panel, #build-panel, #initiative-panel, #scene-panel { width: min(9.1rem, calc(100vw - 2rem)); }
@@ -278,7 +279,7 @@
     <section id="vtt-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="vtt-title">
       <div class="editor-titlebar" tabindex="0" aria-label="Move VTT controls. Drag or use arrow keys.">
         <h2 id="vtt-title">VTT Controls</h2>
-        <button id="vtt-collapse" class="editor-close" type="button" aria-label="Collapse VTT controls" aria-expanded="true" aria-controls="vtt-controls">&minus;</button>
+        <button id="vtt-collapse" class="editor-close" type="button" aria-label="Minimize VTT controls" aria-expanded="true" aria-controls="vtt-controls">&minus;</button>
       </div>
       <div id="vtt-controls" class="editor-body" role="group" aria-label="VTT tools">
         <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens or props" disabled aria-label="Select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg></button>
@@ -299,7 +300,7 @@
     <section id="build-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="build-title">
       <div class="editor-titlebar" tabindex="0" aria-label="Move Build controls. Drag or use arrow keys.">
         <h2 id="build-title">Build Controls</h2>
-        <button id="build-collapse" class="editor-close" type="button" aria-label="Collapse Build controls" aria-expanded="true" aria-controls="build-controls">&minus;</button>
+        <button id="build-collapse" class="editor-close" type="button" aria-label="Minimize Build controls" aria-expanded="true" aria-controls="build-controls">&minus;</button>
       </div>
       <div id="build-controls" class="editor-body" role="group" aria-label="Build tools">
         <button type="button" data-build-layer="walls" aria-pressed="false" title="Walls" disabled aria-label="Walls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 4h20v16H2ZM2 12h20M8 4v8m8 0v8"/></svg></button>
@@ -313,7 +314,7 @@
     <section id="scene-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="scene-controls-title">
       <div class="editor-titlebar" tabindex="0" aria-label="Move Scene controls. Drag or use arrow keys.">
         <h2 id="scene-controls-title">Scene Controls</h2>
-        <button class="editor-close" type="button" aria-label="Close Scene controls">&times;</button>
+        <button class="editor-close" type="button" aria-label="Minimize Scene controls" aria-expanded="true" aria-controls="scene-controls">&minus;</button>
       </div>
       <div id="scene-controls" class="editor-body" role="group" aria-label="Scene tools">
         <button id="scene-load" type="button" title="Load" aria-label="Load" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8V4h7l2 3h9v3M3 8h18l-3 12H3Z"/></svg></button>
@@ -325,7 +326,7 @@
     <section id="initiative-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="initiative-title">
       <div class="editor-titlebar" tabindex="0" aria-label="Move initiative window. Drag or use arrow keys.">
         <h2 id="initiative-title">Initiative</h2>
-        <button class="editor-close" type="button" aria-label="Close initiative">&times;</button>
+        <button class="editor-close" type="button" aria-label="Minimize initiative" aria-expanded="true" aria-controls="initiative-controls">&minus;</button>
       </div>
       <div id="initiative-controls" class="editor-body">
         <ol id="initiative-list" role="list" aria-label="Next four turns" aria-live="polite"></ol>

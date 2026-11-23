@@ -10,13 +10,6 @@ const $=id=>document.getElementById(id);
 const floor=$('floor'), panel=$('build-panel');
 const buttons=[...panel.querySelectorAll('[data-build-layer]')];
 $('open-build').addEventListener('click',()=>{openPanel(panel); $('build-collapse').focus();});
-$('build-collapse').addEventListener('click',()=>{
-  const collapsed=!$('build-controls').hidden;
-  $('build-controls').hidden=collapsed;
-  $('build-collapse').setAttribute('aria-expanded',String(!collapsed));
-  $('build-collapse').setAttribute('aria-label',`${collapsed?'Expand':'Collapse'} Build controls`);
-  $('build-collapse').textContent=collapsed?'+':'\u2212';
-});
 function start(layer) {
   if(!isGM || !floor.tabletopMap || floor.getAttribute('aria-busy')==='true') return;
   for(const settings of document.querySelectorAll('[data-swatch-layer]')) settings.hidden=true;
