@@ -33,7 +33,7 @@ export function importedProps(value) {
       const id = typeof prop.id === 'string' && prop.id ? prop.id : crypto.randomUUID();
       if (ids.has(id)) return [];
       ids.add(id);
-      return [{ id, x: prop.x, y: prop.y, ...properties, hidden: prop.hidden === true }];
+      return [{ id, x: prop.x, y: prop.y, ...properties, hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
     } catch { return []; }
   });
 }
@@ -51,4 +51,13 @@ export function propDistance(prop, point) {
   const { width, depth } = PROPS[prop.kind];
   return Math.hypot(Math.max(0, Math.abs(dx * Math.cos(angle) - dy * Math.sin(angle)) - width * prop.size / 2),
     Math.max(0, Math.abs(dx * Math.sin(angle) + dy * Math.cos(angle)) - depth * prop.size / 2));
+}
+
+export function importedItems(value) {
+  if(!Array.isArray(value)) return [];
+  const ids=new Set();
+  return value.flatMap(item=>{
+    if(!item || typeof item.id!=='string' || !item.id || item.id.length>100 || /[.#$\[\]\/]/.test(item.id) || ids.has(item.id) || typeof item.name!=='string' || !item.name.trim() || item.name.length>100) return [];
+    ids.add(item.id); return [{id:item.id,name:item.name.trim()}];
+  });
 }

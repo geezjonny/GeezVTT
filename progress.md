@@ -307,3 +307,20 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: one shared Gaia table and one active GM authority; the GM view must remain open to process player movement and door requests. The URL role switch controls the interface and is not authentication or server-side authorization. Firebase access to the new shared-table path has not been verified.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+
+## Prop actions, attached lighting, and chest inventory saved - 2026-11-23
+
+- Extends GM right-click menus with door open/close, lock/unlock, hide/show, delete, and light placement; light on/off, hide/show, delete, icon, color, and intensity; and paired portal use and light placement.
+- All props share Delete, Hide/Show, Change icon, and lighting actions, with chest/crate and ladder actions retained. GM VTT Select supports left-drag movement of props, portals, and lights with previews in both views. Moving a decorative ladder also moves its colocated portal endpoint.
+- Prop lighting is attached: Add light becomes Remove light and Edit light, using the existing color/intensity window. Attached lights follow prop movement and hidden state, are removed with their prop, and retain their association in map exports/imports. Previously placed standalone lights remain independent.
+- Adds a standard-width chest contents window. GMs can add/remove named items and open/close or lock/unlock chests and crates. Players can inspect lock state, request open/close, and take items when a selected PC is nearby and the container is open and unlocked.
+- Reads the linked PC inventory from Firebase character records. GM-processed loot transfers write character inventory and shared chest removal together; stable item keys and transfer receipts support retries. Character inventory stays independent of token/scene data.
+- Picking checks the PC inventory for lockpicks or thieves' tools with positive quantity. Missing tools report No lockpicks; available tools produce a shared raw d20 lockpicking result for GM resolution.
+- Saves door visibility, light visibility/on-off state, prop icon changes, container state, and contents alongside existing geometry and synchronization data.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Existing Firebase PC inventory fields were read to establish the schema; this was not application verification. Outstanding work: verify GM actions and dragging in both views; attached-light add/edit/remove, movement, visibility, deletion, undo/redo and map/scene round trips; chest/crate permissions, proximity, lock state and contents windows; Firebase loot transfers, retry/error handling and simultaneous player actions; tool detection and shared lockpicking rolls; and scene/floor changes during requests. Earlier verification items remain outstanding.
+
+Known limits: lockpicking modifiers and success/difficulty rules are pending, so the GM resolves the raw d20. Ladder Use requires a paired portal at its position. Player requests require the active GM session. Existing URL role selection is UI control, not authentication. Previously added standalone lights are not automatically attached to props.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

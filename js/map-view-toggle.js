@@ -19,6 +19,10 @@ export function previewToken(id, point) {
   if (active) view?.previewToken(id, point);
 }
 
+export function previewObject(kind,id,index,point) {
+  if(active) view?.previewObject(kind,id,index,point);
+}
+
 function layers() {
   view?.setLayers({ grid: document.querySelector('#toggle-grid').checked });
 }

@@ -154,6 +154,7 @@
     .token-fields input, .token-fields select { width: 100%; min-width: 0; }
     .token-fields p { margin: 0; }
     .map-token { cursor: grab; }
+    [data-role="gm"] #map-view[data-vtt-tool="select"] :is([data-prop-id], [data-portal-id], [data-light-index]) { cursor: grab; }
     .map-token:focus-visible circle { stroke: white; }
   </style>
   <script type="importmap">
@@ -256,7 +257,7 @@
         <button id="vtt-collapse" class="editor-close" type="button" aria-label="Collapse VTT controls" aria-expanded="true" aria-controls="vtt-controls">&minus;</button>
       </div>
       <div id="vtt-controls" class="editor-body" role="group" aria-label="VTT tools">
-        <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg>Select</button>
+        <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens or props" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg>Select</button>
         <button type="button" data-vtt-tool="measure" aria-pressed="false" title="Drag to measure distance (5 feet per square)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21Zm10-10 3 3m-6 0 2 2m-5 1 3 3"/></svg>Measure</button>
         <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg>Ping</button>
         <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg>Dice</button>
@@ -353,6 +354,17 @@
           <button id="portal-travel" type="button" disabled>Use selected portal</button>
         </fieldset>
       </div>
+    </section>
+    <section id="chest-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="chest-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move chest window."><h2 id="chest-title">Chest</h2><button class="editor-close" type="button" aria-label="Close chest window">&times;</button></div>
+      <div class="editor-body"><p id="chest-state" role="status"></p><div id="chest-items"></div>
+        <form id="chest-add"><label>Item <input id="chest-item-name" maxlength="100" required></label><button type="submit">Add item</button></form>
+        <h3>Selected PC inventory</h3><div id="chest-inventory"></div>
+      </div>
+    </section>
+    <section id="object-light-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="object-light-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move light window."><h2 id="object-light-title">Light</h2><button class="editor-close" type="button" aria-label="Close light">&times;</button></div>
+      <form id="object-light-form" class="editor-body"><label>Color <input id="object-light-color" type="color"></label><label>Intensity <input id="object-light-intensity" type="number" min="0" max="10" step="0.1" required></label><button type="submit">Apply</button></form>
     </section>
     <section id="props-panel" class="editor-panel swatch-panel" data-swatch-layer="props" role="dialog" aria-modal="false" aria-labelledby="props-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move props window. Drag or use arrow keys.">

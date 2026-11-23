@@ -140,6 +140,8 @@ listen('actions', actions => {
       if (action.type === 'move') {
         const next = playerDestination(map, token, action.dx, action.dy, floor.initiativeActive);
         if (next) floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next } }));
+      } else if (action.type === 'chest') {
+        floor.dispatchEvent(new CustomEvent('vtt-chest-action',{detail:action}));
       } else if (action.type === 'door') {
         const index = nearbyDoor(map, token);
         if (index >= 0) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: index }));

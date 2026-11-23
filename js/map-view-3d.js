@@ -89,11 +89,23 @@ export function createMapView3D(host) {
   }
   function tabletopHit(event) {
     aim(event);
-    return raycaster.intersectObjects([...groups.tokens.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
+    return raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
   }
   function previewToken(id, point) {
     const mesh = groups.tokens.children.find(item => item.userData.tokenId === id);
     if (mesh) { mesh.position.set(point.x, .03, point.y); invalidate(); }
+  }
+  function previewObject(kind,id,index,point) {
+    const key=kind==='lights'?'lightIndex':kind==='portals'?'portalId':'propId';
+    const value=kind==='lights'?index:id;
+    const group=groups[kind==='lights'?'lightMarkers':kind];
+    const mesh=group.children.find(root=>{ let match=false; root.traverse(child=>{if(child.userData[key]===value) match=true;}); return match; });
+    const object=kind==='lights'?model.lights[index]:model[kind].find(item=>item.id===id);
+    if(!mesh || !object) return;
+    mesh.userData.dragOrigin ||= mesh.position.clone();
+    mesh.position.x=mesh.userData.dragOrigin.x+point.x-object.x;
+    mesh.position.z=mesh.userData.dragOrigin.z+point.y-object.y;
+    invalidate();
   }
   controls.addEventListener('change', invalidate);
 
@@ -238,6 +250,7 @@ export function createMapView3D(host) {
     }
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls));
     model.doors.forEach((door,index) => {
+      if(door.hidden && !isGM) return;
       const window = door.type === 'window';
       const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
         : material(door.material, 'wood');
@@ -249,8 +262,9 @@ export function createMapView3D(host) {
       mesh.traverse(object=>{delete object.userData.propId; object.userData[key]=value;});
       return mesh;
     };
-    for (const prop of model.props || []) if(!prop.hidden) groups.props.add(propMesh(prop));
+    for (const prop of model.props || []) if(isGM || !prop.hidden) groups.props.add(propMesh({...prop,kind:propAppearance(prop)?.kind || prop.kind}));
     model.lights.forEach((light,index)=>{
+      if(light.propId || (light.hidden && !isGM)) return;
       const appearance=propAppearance(light);
       if(appearance) groups.lightMarkers.add(appearanceMesh(appearance,'lightIndex',index));
       else {
@@ -260,7 +274,7 @@ export function createMapView3D(host) {
       }
     });
     for (const portal of model.portals || []) {
-      if (portal.hidden) continue;
+      if (portal.hidden && !isGM) continue;
       const appearance=propAppearance(portal);
       if(appearance) {
         groups.portals.add(appearanceMesh(appearance,'portalId',portal.id));
@@ -313,7 +327,7 @@ export function createMapView3D(host) {
     const used = new Set();
     root.traverse(object => { if (object.material) used.add(object.material); });
     materials.forEach(value => { if (!used.has(value)) { value.map?.dispose(); value.dispose(); } });
-    const strength = light => Math.max(0, Number.isFinite(light.intensity) ? light.intensity : 1) *
+    const strength = light => light.off ? 0 : Math.max(0, Number.isFinite(light.intensity) ? light.intensity : 1) *
       THREE.MathUtils.clamp(Number.isFinite(light.opacity) ? light.opacity : 1, 0, 1);
     const lights = model.lights.filter(light => strength(light) > 0 && Number.isFinite(light.range) && light.range > 0);
     // shortcut: only the eight strongest eligible lights cast shadows; use tiled lighting for larger scenes.
@@ -397,5 +411,5 @@ export function createMapView3D(host) {
     renderer.forceContextLoss();
     renderer.domElement.remove();
   }
-  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken };
+  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject };
 }
