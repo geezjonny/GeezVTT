@@ -1,6 +1,6 @@
 # GeezVTT progress
 
-Updated: 2026-11-22
+Updated: 2026-11-23
 
 ## Current implementation
 
@@ -292,3 +292,18 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
 
+
+## GM and player views saved - 2026-11-23
+
+- Uses ?gm=jonny for the GM interface and the plain URL for players. Hides scene management, editing, environment controls, and object editing menus from players.
+- Player tools are Select, Ping, Measure, Dice, and a 2D/3D toggle. Players select PC tokens and move with WASD outside initiative; movement respects map bounds, walls, windows, and closed doors. Space toggles a nearby unlocked door.
+- Adds a GM Initiative active toggle that pauses player WASD movement. Preserves token IDs across imports and shared updates, and adds keyboard PC selection.
+- Adds Firebase Realtime Database tabletop synchronization using REST writes and EventSource streams at v2/worlds/gaia/vtt. The GM publishes the shared scene and live geometry/environment/initiative state and processes player movement and door requests. Pings and dice results are shared; camera modes remain local.
+- Player fog stays opaque except for existing light-based reveals, which respect walls and closed doors. GM fog is translucent in both views, and GM 3D picking ignores fog meshes.
+- Adds unrun movement, initiative, door, and lighting/fog regression assertions in tests/player-actions.test.mjs.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify both URL modes and player restrictions; PC selection and WASD in both views; initiative pause; door proximity and locks; Firebase read/write permissions, live synchronization, reconnects, and floor/scene changes; shared pings and dice; and opaque player fog with light reveals and wall/door occlusion. Earlier verification items remain outstanding.
+
+Known limits: one shared Gaia table and one active GM authority; the GM view must remain open to process player movement and door requests. The URL role switch controls the interface and is not authentication or server-side authorization. Firebase access to the new shared-table path has not been verified.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

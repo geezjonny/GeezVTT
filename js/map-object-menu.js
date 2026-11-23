@@ -1,3 +1,4 @@
+import { isGM } from './session-role.js';
 const objectMenu = document.createElement('div');
 objectMenu.id = 'map-object-menu';
 objectMenu.setAttribute('popover', 'auto');
@@ -9,6 +10,7 @@ export function closeMapMenu() {
   objectMenu.hidePopover();
 }
 export function showMapMenu(x, y, actions, origin = document.activeElement) {
+  if (!isGM) return;
   menuOrigin = origin;
   objectMenu.replaceChildren(...actions.map(({ label, action, icon, disabled = false }) => {
     const button = document.createElement('button');

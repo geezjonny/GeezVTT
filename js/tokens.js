@@ -1,4 +1,5 @@
 import { openPanel } from './menu-bar.js';
+import { isGM } from './session-role.js';
 import { npcCatalog, tokenProperties } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
 
@@ -106,6 +107,7 @@ async function loadNPCs() {
 $('open-tokens').addEventListener('click', loadNPCs);
 
 function editToken(token) {
+  if (!isGM) return;
   editingId = token.id;
   editingValues = { name: token.name, size: token.size, hp: token.hp };
   $('token-name').value = token.name;
@@ -127,6 +129,7 @@ onMapRightClick(svg, event => {
   editToken(token);
 });
 group.addEventListener('keydown', event => {
+  if (!isGM) return;
   const token = tokenAt(event);
   if (token && ['Enter', ' ', 'ContextMenu'].includes(event.key)) {
     event.preventDefault(); event.stopPropagation(); editToken(token);

@@ -1,6 +1,7 @@
 // Adapted from view3d.js: grid coordinates map directly to world (x, z).
 // One grid cell = one world unit = 5 ft; walls and doors are two units high.
 import * as THREE from 'three';
+import { isGM } from './session-role.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { PORTAL_ICONS } from './portal-model.js';
@@ -44,7 +45,7 @@ export function createMapView3D(host) {
   scene.add(root);
   const fogGroup = new THREE.Group();
   scene.add(fogGroup);
-  const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10' });
+  const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10', transparent: isGM, opacity: isGM ? .55 : 1 });
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
   let bounds;
   const raycaster = new THREE.Raycaster();
@@ -54,7 +55,7 @@ export function createMapView3D(host) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...fogGroup.children],true)[0];
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...(isGM ? [] : fogGroup.children)],true)[0];
     if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
     else if (hit?.object.userData.portalId) host.closest('#floor').dispatchEvent(new CustomEvent('portal-menu', {
       detail: { id: hit.object.userData.portalId, x: event.clientX, y: event.clientY }
@@ -88,7 +89,7 @@ export function createMapView3D(host) {
   }
   function tabletopHit(event) {
     aim(event);
-    return raycaster.intersectObjects([...groups.tokens.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...fogGroup.children], true)[0]?.object.userData;
+    return raycaster.intersectObjects([...groups.tokens.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
   }
   function previewToken(id, point) {
     const mesh = groups.tokens.children.find(item => item.userData.tokenId === id);

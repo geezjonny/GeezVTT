@@ -1,4 +1,6 @@
 import { openPanel } from './menu-bar.js';
+import { isGM } from './session-role.js';
+import { fogRectangles } from './environment-model.js';
 import { tabletopPoint, screenPoint, tabletopHit, previewToken } from './map-view-toggle.js';
 
 const $ = id => document.getElementById(id);
@@ -6,6 +8,24 @@ const floor = $('floor'), map = $('map-view'), host = $('view-3d');
 const panel = $('vtt-panel'), overlay = $('vtt-overlay');
 const buttons = [...panel.querySelectorAll('[data-vtt-tool]')];
 let tool = 'select', enabled = true, gesture, measurement, ping, frame;
+let selectedToken;
+const sendAction = detail => floor.dispatchEvent(new CustomEvent('session-action', { detail }));
+const visible = p => isGM || !fogRectangles(floor.tabletopMap).some(rect => p.x >= rect.x && p.x < rect.x + rect.width && p.y >= rect.y && p.y < rect.y + rect.height);
+function selectToken(token) {
+  selectedToken = token?.id;
+  $('tokens').querySelectorAll('[data-token-id]').forEach(node => node.classList.toggle('player-selected', node.dataset.tokenId === selectedToken));
+  $('vtt-controls').querySelector('[data-vtt-tool="select"]').title = token ? `Selected: ${token.name}` : 'Select a PC token';
+}
+$('vtt-view').addEventListener('click', () => $('toggle-3d').click());
+new MutationObserver(() => {
+  $('vtt-view').disabled = $('toggle-3d').disabled;
+  $('vtt-view').setAttribute('aria-pressed', $('toggle-3d').getAttribute('aria-pressed'));
+}).observe($('toggle-3d'), { attributes: true, attributeFilter: ['disabled', 'aria-pressed'] });
+if (!isGM) {
+  $('empty').textContent = 'Waiting for the GM’s map.';
+  $('view-help').textContent = 'WASD: move selected PC · Space: door · Middle-drag: pan · Scroll: zoom · Right-drag: orbit';
+  map.setAttribute('aria-label', 'Player tabletop. Select a PC; WASD to move, Space to open nearby doors.');
+}
 const svgNode = (tag, attributes) => {
   const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
@@ -97,8 +117,17 @@ floor.addEventListener('pointerdown', event => {
   };
   event.preventDefault(); event.stopImmediatePropagation();
   clear();
-  if (tool === 'ping') { ping = { x: p.x, y: p.y, time: performance.now() }; redraw(); return; }
+  if (tool === 'ping') {
+    if (!visible(p)) return;
+    ping = { x: p.x, y: p.y, time: performance.now() }; redraw();
+    sendAction({ type: 'ping', x: p.x, y: p.y }); return;
+  }
   const token = tool === 'select' ? floor.tabletopMap.tokens.find(item => item.id === hit?.tokenId) : null;
+  if (!isGM && tool === 'select') {
+    selectToken(token?.kind === 'pc' && visible(token) ? token : null);
+    (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
+    return;
+  }
   if (tool === 'select' && !token) {
     if (hit?.doorIndex !== undefined) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: Number(hit.doorIndex) }));
     return;
@@ -142,6 +171,28 @@ for (const type of ['pointercancel', 'lostpointercapture']) floor.addEventListen
 }, true);
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !event.target.matches('input, textarea, select')) clear();
+  if (isGM || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.isContentEditable || event.target.closest('input, textarea, select, button, .editor-titlebar')) return;
+  const step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0] }[event.code];
+  if (!step && event.code !== 'Space') return;
+  event.preventDefault();
+  const token = floor.tabletopMap?.tokens.find(token => token.id === selectedToken && token.kind === 'pc');
+  if (!token) return;
+  if (step && !floor.initiativeActive) sendAction({ type: 'move', tokenId: token.id, dx: step[0], dy: step[1] });
+  else if (!step && !event.repeat) sendAction({ type: 'door', tokenId: token.id });
+});
+floor.addEventListener('session-ping', event => {
+  if (!floor.tabletopMap || !visible(event.detail)) return;
+  ping = { ...event.detail, time: performance.now() }; redraw();
+});
+$('tokens').addEventListener('keydown', event => {
+  if (isGM || event.key !== 'Enter') return;
+  const token = floor.tabletopMap?.tokens.find(token => token.id === event.target.closest('[data-token-id]')?.dataset.tokenId);
+  if (token?.kind !== 'pc' || !visible(token)) return;
+  event.preventDefault();
+  selectToken(token);
+});
+floor.addEventListener('map-changed', () => {
+  if (!isGM) selectToken(floor.tabletopMap?.tokens.find(token => token.id === selectedToken));
 });
 floor.addEventListener('map-ready', () => { clear(); buttons.forEach(button => { button.disabled = false; }); });
 new MutationObserver(clear).observe($('toggle-3d'), { attributes: true, attributeFilter: ['aria-pressed'] });

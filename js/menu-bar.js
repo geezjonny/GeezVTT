@@ -1,3 +1,9 @@
+import { isGM } from './session-role.js';
+
+document.querySelectorAll('summary[data-gm-only]').forEach(summary => summary.closest('.menu').setAttribute('data-gm-only', ''));
+document.querySelectorAll('.editor-panel').forEach(panel => {
+  if (!['vtt-panel', 'dice-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
+});
 const menus = [...document.querySelectorAll('.menu')];
 const floor = document.querySelector('#floor');
 const editor = document.querySelector('#editor-panel');
@@ -196,6 +202,7 @@ function raisePanel(panel) {
   panels.forEach(other => { other.style.zIndex = other === panel ? '4' : '3'; });
 }
 export function openPanel(panel) {
+  if (!isGM && panel.hasAttribute('data-gm-only')) return;
   panel.hidden = false;
   positionPanel(panel, panel.offsetLeft, panel.offsetTop);
   raisePanel(panel);

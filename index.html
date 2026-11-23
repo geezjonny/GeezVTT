@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GeezVTT — Map import</title>
+  <script type="module" src="js/session-role.js"></script>
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     * { box-sizing: border-box; }
@@ -49,6 +50,8 @@
     .light-range { stroke-width: 1; vector-effect: non-scaling-stroke; fill-opacity: 0.12; stroke-opacity: 0.7; }
     .light-source { stroke: #15191f; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
     [hidden] { display: none !important; }
+    html:not([data-role="gm"]) [data-gm-only] { display: none !important; }
+    html[data-role="gm"] #fog-of-war { opacity: .55; }
     #empty { color: #b4c0ce; text-align: center; line-height: 1.6; }
     #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
     #status.error { position: fixed; bottom: .5rem; left: .5rem; width: auto; height: auto; max-width: calc(100vw - 1rem); clip-path: none; margin: 0; padding: .5rem; background: #202731; border: 1px solid #c4808c; color: #ffb4ac; overflow-wrap: anywhere; z-index: 5; }
@@ -88,6 +91,9 @@
     #vtt-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
     #vtt-controls button { display: grid; justify-items: center; gap: .2rem; padding: .3rem .1rem; font-size: .65rem; }
     #vtt-controls svg { width: 20px; height: 20px; pointer-events: none; }
+    #vtt-view { grid-column: 1 / -1; }
+    .player-selected > circle { stroke: #ffd86b; stroke-width: 4; }
+    #session-status { font-size: .7rem; }
     #vtt-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: hidden; }
     #vtt-overlay line, #vtt-overlay circle { fill: none; stroke: #ffd86b; stroke-width: 3; }
     #vtt-overlay text { fill: #ffd86b; stroke: #15191f; stroke-width: 4; paint-order: stroke; font-size: 14px; font-weight: 600; text-anchor: middle; }
@@ -164,7 +170,7 @@
       <input id="map-file" type="file" accept=".dd2vtt" aria-label="Import map" aria-describedby="status" hidden>
       <input id="scene-file" type="file" accept=".geezvtt" aria-label="Open scene" aria-describedby="status" hidden>
       <nav class="menu-bar" aria-label="Application menu">
-        <details class="menu" name="application-menu">
+        <details class="menu" name="application-menu" data-gm-only>
           <summary>File</summary>
           <div class="menu-items">
             <details class="submenu" name="file-submenu">
@@ -187,7 +193,7 @@
           </div>
         </details>
         <details class="menu" name="application-menu">
-          <summary>Scene</summary>
+          <summary data-gm-only>Scene</summary>
           <div class="menu-items">
             <button id="floor-up" type="button">Floor Up</button>
             <button id="floor-down" type="button">Floor Down</button>
@@ -196,7 +202,7 @@
           </div>
         </details>
         <details class="menu" name="application-menu">
-          <summary>Edit</summary>
+          <summary data-gm-only>Edit</summary>
           <div class="menu-items">
             <button id="open-tools" type="button" disabled>Tools</button>
             <button type="button" data-edit-layer="walls" disabled>Walls</button>
@@ -214,7 +220,7 @@
             <button id="toggle-3d" type="button" aria-pressed="false" aria-controls="view-3d" disabled>Toggle (2D/3D)</button>
             <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
             <button id="fit-3d" type="button" hidden>Fit map</button>
-            <button id="open-environment" type="button" aria-controls="environment-panel" disabled>Environment</button>
+            <button id="open-environment" type="button" aria-controls="environment-panel" data-gm-only disabled>Environment</button>
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
           </div>
         </details>
@@ -225,10 +231,12 @@
           </div>
         </details>
       </nav>
-      <input id="scene-name" aria-label="Scene name" placeholder="Scene name" maxlength="100" disabled>
-      <select id="scene-floor" aria-label="Scene floor" disabled></select>
-      <button id="floor-down-control" type="button" aria-label="Floor down" title="Floor down; create a blank floor at the bottom">&#9660;</button>
-      <button id="floor-up-control" type="button" aria-label="Floor up" title="Floor up; create a blank floor at the top">&#9650;</button>
+      <input id="scene-name" aria-label="Scene name" placeholder="Scene name" maxlength="100" data-gm-only disabled>
+      <select id="scene-floor" aria-label="Scene floor" data-gm-only disabled></select>
+      <button id="floor-down-control" type="button" aria-label="Floor down" title="Floor down; create a blank floor at the bottom" data-gm-only>&#9660;</button>
+      <button id="floor-up-control" type="button" aria-label="Floor up" title="Floor up; create a blank floor at the top" data-gm-only>&#9650;</button>
+      <label data-gm-only><input id="initiative-active" type="checkbox"> Initiative active</label>
+      <span id="session-status" role="status" aria-live="polite"></span>
       <span id="scene-state" role="status" aria-live="polite"></span>
     </header>
     <section id="library-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="library-title" hidden>
@@ -251,7 +259,8 @@
         <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg>Select</button>
         <button type="button" data-vtt-tool="measure" aria-pressed="false" title="Drag to measure distance (5 feet per square)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21Zm10-10 3 3m-6 0 2 2m-5 1 3 3"/></svg>Measure</button>
         <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg>Ping</button>
-        <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg>Roll</button>
+        <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg>Dice</button>
+        <button id="vtt-view" type="button" aria-controls="view-3d" aria-pressed="false" disabled>2D / 3D</button>
       </div>
     </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
@@ -662,5 +671,6 @@
   <script type="module" src="js/scenes.js"></script>
   <script type="module" src="js/environment.js"></script>
   <script type="module" src="js/vtt-controls.js"></script>
+  <script type="module" src="js/tabletop-session.js"></script>
 </body>
 </html>

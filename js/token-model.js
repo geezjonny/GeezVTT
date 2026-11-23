@@ -55,11 +55,14 @@ export function npcCatalog(entities, legacy) {
 
 export function importedTokens(value, width, height) {
   if (!Array.isArray(value)) return [];
+  const ids = new Set();
   return value.flatMap(token => {
     try {
       const props = tokenProperties(token?.name, token?.size, token?.hp);
       if (!Number.isFinite(token.x) || !Number.isFinite(token.y) || token.x < 0 || token.y < 0 || token.x > width || token.y > height) return [];
-      return [{ id: crypto.randomUUID(), ...props, x: token.x, y: token.y,
+      const id = typeof token.id === 'string' && token.id.length > 0 && token.id.length <= 100 && !ids.has(token.id) ? token.id : crypto.randomUUID();
+      ids.add(id);
+      return [{ id, ...props, x: token.x, y: token.y,
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }

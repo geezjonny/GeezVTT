@@ -1,4 +1,5 @@
 import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
+import { isGM } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
@@ -89,7 +90,7 @@ function render(notify=true) {
         if(appearance) el.append(propMarker({...appearance,x:0,y:0}));
         else { text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text); }
       } else if(name==='tokens') {
-        el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to edit.`});
+        el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`});
         el.dataset.tokenId=obj.id;
         el.append(node('circle',{r:obj.size/2,fill:'#344f70',stroke:'#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
@@ -102,7 +103,7 @@ function render(notify=true) {
             node('rect',{x:-width/2,y:top,width:width*status.fraction,height:obj.size*.09,rx:obj.size*.025,fill:status.color,'pointer-events':'none'}));
           const label=node('text',{x:0,y:obj.size*.83,'text-anchor':'middle','font-size':obj.size*.14,'font-weight':'600',fill:'#fff',stroke:'#17212b','stroke-width':obj.size*.025,'paint-order':'stroke','pointer-events':'none'});
           label.textContent=status.label; el.append(label);
-          el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to edit.`);
+          el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`);
         }
       } else if(name==='floors') {
         el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
@@ -251,6 +252,7 @@ function bucket(p) {
   render(); message(`Filled area with ${fresh.length} ${layer()}.`);
 }
 svg.addEventListener('pointerdown',event=>{
+  if(!isGM) return;
   if(!model || panel.hidden || event.button!==0 || svg.hidden) return;
   // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
@@ -415,6 +417,7 @@ onMapRightClick(svg,event=>{
   if(lightIndex>=0) lightMenu(lightIndex,event.clientX,event.clientY,svg);
 });
 $('lights').addEventListener('keydown',event=>{
+  if(!isGM) return;
   const target=event.target.closest('[data-light-index]');
   if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
   event.preventDefault(); event.stopPropagation();
@@ -428,6 +431,7 @@ floor.addEventListener('light-menu',event=>{
   lightMenu(index,x,y,document.activeElement);
 });
 $('portals').addEventListener('keydown',event=>{
+  if(!isGM) return;
   const target=event.target.closest('[data-portal-id]');
   if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
   event.preventDefault(); event.stopPropagation();
@@ -439,6 +443,7 @@ floor.addEventListener('portal-menu',event=>{
   portalMenu(id,x,y,document.activeElement);
 });
 $('doors').addEventListener('keydown',event=>{
+  if(!isGM) return;
   const target=event.target.closest('[data-door-index]');
   if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
   event.preventDefault(); event.stopPropagation();
@@ -450,6 +455,7 @@ floor.addEventListener('door-menu',event=>{
   doorMenu(index,x,y,document.activeElement);
 });
 $('props').addEventListener('keydown',event=>{
+  if(!isGM) return;
   const target=event.target.closest('[data-prop-id]');
   if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
   event.preventDefault(); event.stopPropagation();
@@ -483,12 +489,14 @@ floor.addEventListener('token-update',event=>{
   } catch(error) { event.detail.error=error.message; }
 });
 floor.addEventListener('vtt-door-toggle',event=>{
+  if(!isGM) return;
   if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
   const door=model.doors[event.detail];
   if(!door || door.type==='window' || (!door.open && door.locked)) return;
   cancelGesture(); remember(); door.open=!door.open; render();
 });
 floor.addEventListener('vtt-token-move',event=>{
+  if(!isGM) return;
   if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
   const {id,x,y}=event.detail, token=model.tokens.find(item=>item.id===id);
   if(!token || !Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -629,6 +637,7 @@ function history(back) {
   to.push(geometry()); Object.assign(model,from.pop()); selected.clear(); render(); message(back?'Undid edit.':'Redid edit.');
 }
 document.addEventListener('keydown',event=>{
+  if(!isGM) return;
   if(!model || event.defaultPrevented || event.target.isContentEditable || /INPUT|TEXTAREA/.test(event.target.tagName)) return;
   if((event.ctrlKey||event.metaKey) && !event.altKey && ['z','y'].includes(event.key.toLowerCase())) {
     event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); return;
@@ -680,6 +689,20 @@ export function serializeMap() {
   raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;
+}
+export function sharedMapState() {
+  return { ...geometry(), environment: clone(floor.tabletopMap.environment) };
+}
+export function applySharedMap(state) {
+  if(isGM || !model || !state) return;
+  // Firebase omits empty arrays when reading JSON back.
+  for(const key of ['floors','walls','doors','lights','tokens','portals','props']) {
+    if(state[key] != null && !Array.isArray(state[key])) return;
+  }
+  for(const key of ['floors','walls','doors','lights','tokens','portals','props']) model[key]=clone(state[key] || []);
+  floor.tabletopMap.environment=environmentSettings(state.environment,model);
+  render();
+  floor.dispatchEvent(new Event('environment-changed'));
 }
 $('edit-export').addEventListener('click',()=>{
   const raw=serializeMap();

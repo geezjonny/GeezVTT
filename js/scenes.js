@@ -1,4 +1,5 @@
 import { serializeMap } from './map-editor.js';
+import { isGM } from './session-role.js';
 
 const floor = document.getElementById('floor');
 const name = document.getElementById('scene-name');
@@ -12,13 +13,15 @@ let saving = false;
 const sceneFileTypes = [{ description: 'GeezVTT scene', accept: { 'application/json': ['.geezvtt'] } }];
 
 function changed() {
+  if (!isGM) return;
   revision++;
   dirty = true;
   state.textContent = 'Unsaved scene';
+  floor.dispatchEvent(new Event('scene-changed'));
 }
 floor.confirmMapReplace = () => !dirty || window.confirm('Discard unsaved scene changes and open another scene?');
 window.addEventListener('beforeunload', event => {
-  if (!dirty && !saving) return;
+  if (!isGM || !dirty && !saving) return;
   event.preventDefault();
   event.returnValue = '';
 });

@@ -9,6 +9,13 @@ const rollButton = document.querySelector('#roll-dice');
 const status = document.querySelector('#dice-status');
 const history = document.querySelector('#dice-history');
 let tray, busy = false, version = 0, clearTimer;
+document.querySelector('#floor').addEventListener('session-dice', event => {
+  const entry = document.createElement('li');
+  entry.textContent = event.detail;
+  history.prepend(entry);
+  while (history.children.length > 10) history.lastElementChild.remove();
+  status.textContent = entry.textContent;
+});
 
 function updateOptions() {
   mode.disabled = Number(sides.value) !== 20;
@@ -50,6 +57,7 @@ form.addEventListener('submit', async event => {
   history.prepend(entry);
   while (history.children.length > 10) history.lastElementChild.remove();
   status.textContent = entry.textContent;
+  document.querySelector('#floor').dispatchEvent(new CustomEvent('session-action', { detail: { type: 'dice', text: entry.textContent } }));
   clearTray();
   if (!animated.checked) return;
   const token = version;
