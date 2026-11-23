@@ -110,7 +110,8 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
   button.addEventListener('click', () => {
     const input = document.querySelector('#edit-layer');
     const swatches = document.querySelector(`#${button.dataset.editLayer}-panel`);
-    if (button.dataset.editLayer === 'tokens' && document.querySelector('#map-view').hidden) {
+    if (button.dataset.editLayer === 'tokens') {
+      editor.hidden = true;
       openPanel(swatches);
       swatches.querySelector('select').focus();
       return;

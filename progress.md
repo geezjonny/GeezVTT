@@ -390,3 +390,12 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: advanced selection tools remain in 2D; placement indicators are flat outlines rather than full object ghosts. Door openings cut only overlapping collinear walls, preserving crossing walls; deleting a door leaves its cut opening, while undo restores the original wall. Browser layout storage does not sync between devices and is lost when site data is cleared.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Token picker without the Tools window saved - 2026-11-23
+
+- Tokens now opens only the token picker and hides the legacy Tools window in both 2D and 3D.
+- Routes both views through the existing token build placement mode, preserving the picker, templates, snapping, and undo behavior.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: confirm Tokens opens without Tools - Tokens in both views and that choosing and placing tokens still works. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

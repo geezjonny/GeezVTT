@@ -805,7 +805,7 @@ floor.addEventListener('build-start',event=>{
 });
 for(const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click',()=>{
   stopBuild();
-  if(svg.hidden && button.dataset.editLayer==='tokens') floor.dispatchEvent(new CustomEvent('build-start',{detail:'tokens'}));
+  if(button.dataset.editLayer==='tokens') floor.dispatchEvent(new CustomEvent('build-start',{detail:'tokens'}));
 });
 $('fog-tool').addEventListener('change',()=>{if($('fog-tool').value!=='off') stopBuild();});
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
