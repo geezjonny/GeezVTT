@@ -108,9 +108,6 @@ export function createMapView3D(host) {
         mesh.position.set(a.x - dz / 2, 1, a.y + dx / 2);
         mesh.rotation.y -= Math.PI / 2;
       }
-      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry),
-        new THREE.LineBasicMaterial({ color: open ? 0x75f0b1 : 0x273445 }));
-      mesh.add(edges);
       parent.add(mesh);
     }
   }
@@ -158,7 +155,7 @@ export function createMapView3D(host) {
     for (const tile of model.floors || []) {
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, palette.stone));
       mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(tile.x, -0.005, tile.y);
+      mesh.position.set(tile.x, -0.001, tile.y);
       mesh.receiveShadow = true;
       groups.floors.add(mesh);
     }
@@ -210,8 +207,8 @@ export function createMapView3D(host) {
     sun.position.copy(sun.target.position).add(new THREE.Vector3(-1, 2, 1).normalize().multiplyScalar(radius * 2));
     Object.assign(sun.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius, near: 0.1, far: radius * 4 });
     sun.shadow.camera.updateProjectionMatrix();
-    ambient.intensity = lights.length ? 0.22 : 0.8;
-    sun.intensity = lights.length ? 0.35 : 2.5;
+    ambient.intensity = lights.length ? 0.03 : 0.8;
+    sun.intensity = lights.length ? 0 : 2.5;
     renderer.shadowMap.needsUpdate = true;
     invalidate();
     if (refit) pendingFit = true;

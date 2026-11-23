@@ -132,3 +132,15 @@ This section supersedes earlier palette layouts and floor-editing descriptions.
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify floor tools and history, exterior and negative-coordinate drawing, fill bounds, export/re-import, image/floor coexistence in both views, expanded grids and 3D framing, and compact palettes at narrow window sizes. Existing verification items above remain outstanding.
 
 Save requested with commit and push to `origin/main`. Leave the unrelated README.md deletion unstaged.
+
+## Floor layering and 3D presentation saved - 2026-11-22
+
+This section supersedes the earlier image-over-floor layering description.
+
+- Drawn floors render above the embedded DD2VTT image and below the grid in 2D.
+- Raises 3D floor tiles to y = -0.001, above the image at y = -0.005 and below the grid at y = 0.
+- Includes pending 3D presentation changes removing wall/door edge outlines and reducing ambient light to 0.03 and directional light to zero when active point lights exist.
+
+Verification is left to the user. No tests, browser checks, visual inspections, or other application validation commands were run. Outstanding work: verify painted floors cover the image in both views, grid visibility, and 3D lighting and wall/door appearance. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
