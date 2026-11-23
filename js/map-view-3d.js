@@ -31,11 +31,12 @@ export function createMapView3D(host) {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.screenSpacePanning = false;
-  const groups = { walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group() };
+  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group() };
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
+  let bounds;
   const raycaster = new THREE.Raycaster();
   const removeRightClick = onMapRightClick(renderer.domElement, event => {
     if (!active) return;
@@ -80,10 +81,10 @@ export function createMapView3D(host) {
     if (!model) return;
     resize();
     // Fit a bounding sphere in both the vertical and horizontal field of view.
-    const radius = Math.hypot(model.width, model.height, 2) / 2;
+    const radius = Math.hypot(bounds.right-bounds.left, bounds.bottom-bounds.top, 2) / 2;
     const fov = Math.min(THREE.MathUtils.degToRad(camera.fov), 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
     const distance = radius / Math.sin(fov / 2) * 1.12;
-    const target = new THREE.Vector3(model.width / 2, 0.5, model.height / 2);
+    const target = new THREE.Vector3((bounds.left+bounds.right)/2, 0.5, (bounds.top+bounds.bottom)/2);
     controls.target.copy(target);
     camera.position.copy(target).add(new THREE.Vector3(0, 0.9, 0.8).normalize().multiplyScalar(distance));
     controls.minDistance = 0.5;
@@ -116,32 +117,36 @@ export function createMapView3D(host) {
   function setMap(next, refit = true) {
     disposeContents();
     model = next;
+    bounds = (model.floors || []).reduce((box, tile) => ({
+      left: Math.min(box.left, tile.x-.5), top: Math.min(box.top, tile.y-.5),
+      right: Math.max(box.right, tile.x+.5), bottom: Math.max(box.bottom, tile.y+.5)
+    }), { left: 0, top: 0, right: model.width, bottom: model.height });
     const texture = new THREE.Texture(model.image);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
     texture.needsUpdate = true;
     const ground = new THREE.Mesh(new THREE.PlaneGeometry(model.width, model.height),
-      new THREE.MeshStandardMaterial({ map: texture, roughness: 1 }));
+      new THREE.MeshStandardMaterial({ map: texture, roughness: 1, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
     ground.receiveShadow = true;
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(model.width / 2, -0.005, model.height / 2);
     root.add(ground);
     const gridMaterial = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
-      uniforms: { size: { value: new THREE.Vector2(model.width, model.height) } },
+      uniforms: { size: { value: new THREE.Vector2(bounds.right-bounds.left, bounds.bottom-bounds.top) }, origin: { value: new THREE.Vector2(bounds.left, bounds.top) } },
       vertexShader: `varying vec2 gridUv;
         void main() { gridUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform vec2 size; varying vec2 gridUv;
+      fragmentShader: `uniform vec2 size; uniform vec2 origin; varying vec2 gridUv;
         void main() {
-          vec2 cell = vec2(gridUv.x, 1.0 - gridUv.y) * size;
+          vec2 cell = origin + vec2(gridUv.x, 1.0 - gridUv.y) * size;
           vec2 line = abs(fract(cell - 0.5) - 0.5) / max(fwidth(cell), vec2(0.0001));
           float alpha = 1.0 - min(min(line.x, line.y), 1.0);
           gl_FragColor = vec4(0.86, 0.9, 0.95, alpha * 0.55);
         }`
     });
-    const grid = new THREE.Mesh(new THREE.PlaneGeometry(model.width, model.height), gridMaterial);
+    const grid = new THREE.Mesh(new THREE.PlaneGeometry(bounds.right-bounds.left, bounds.bottom-bounds.top), gridMaterial);
     grid.rotation.x = -Math.PI / 2;
-    grid.position.set(model.width / 2, 0, model.height / 2);
+    grid.position.set((bounds.left+bounds.right)/2, 0, (bounds.top+bounds.bottom)/2);
     groups.grid.add(grid);
     const palette = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
     const materials = new Map();
@@ -150,6 +155,13 @@ export function createMapView3D(host) {
       if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: name === 'metal' ? 0.35 : 0.85, metalness: name === 'metal' ? 0.65 : 0 }));
       return materials.get(color);
     };
+    for (const tile of model.floors || []) {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, palette.stone));
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(tile.x, -0.005, tile.y);
+      mesh.receiveShadow = true;
+      groups.floors.add(mesh);
+    }
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], '#a7aabb'), groups.walls));
     model.doors.forEach(door => slabs(door.points, material(door.material, door.open ? '#75b89a' : '#b47c42'), groups.doors, door.open));
     for (const token of model.tokens || []) {
@@ -193,8 +205,8 @@ export function createMapView3D(host) {
       source.shadow.normalBias = 0.015;
       groups.lights.add(source);
     });
-    const radius = Math.hypot(model.width, model.height, 2) / 2;
-    sun.target.position.set(model.width / 2, 0, model.height / 2);
+    const radius = Math.hypot(bounds.right-bounds.left, bounds.bottom-bounds.top, 2) / 2;
+    sun.target.position.set((bounds.left+bounds.right)/2, 0, (bounds.top+bounds.bottom)/2);
     sun.position.copy(sun.target.position).add(new THREE.Vector3(-1, 2, 1).normalize().multiplyScalar(radius * 2));
     Object.assign(sun.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius, near: 0.1, far: radius * 4 });
     sun.shadow.camera.updateProjectionMatrix();

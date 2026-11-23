@@ -2,6 +2,16 @@ const floor = document.querySelector('#floor');
 const map = document.querySelector('#map-view');
 let pan;
 
+function extendGrid() {
+  const box = map.viewBox.baseVal, grid = document.querySelector('#grid');
+  grid.setAttribute('x', box.x-box.width);
+  grid.setAttribute('y', box.y-box.height);
+  grid.setAttribute('width', box.width*3);
+  grid.setAttribute('height', box.height*3);
+}
+new MutationObserver(extendGrid).observe(map, { attributes: true, attributeFilter: ['viewBox'] });
+floor.addEventListener('map-ready', extendGrid);
+
 function endPan() {
   if (!pan) return;
   const { pointerId } = pan;

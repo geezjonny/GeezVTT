@@ -17,7 +17,7 @@ template();
 async function loadNPCs() {
   if (loading) return;
   loading = true;
-  status('Loading NPCs from Firebase… Blank Token is available.');
+  status('');
   try {
     const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
     const read = async path => {
@@ -32,7 +32,7 @@ async function loadNPCs() {
     $('token-source').replaceChildren(new Option('Blank Token', ''), ...npcs.map(npc => new Option(npc.name, npc.npcId)));
     $('token-source').value = npcs.some(npc => npc.npcId === previous) ? previous : '';
     template();
-    status(`${npcs.length} NPCs loaded.${results.some(result => result.status === 'rejected') ? ' One Firebase source could not be read; the list may be incomplete.' : ''}`);
+    status(results.some(result => result.status === 'rejected') ? 'One NPC source could not be read; the list may be incomplete.' : '');
   } catch (error) {
     status(`Could not load NPCs: ${error.message}. Reopen Tokens to retry. Blank Token is available.`);
   } finally { loading = false; }

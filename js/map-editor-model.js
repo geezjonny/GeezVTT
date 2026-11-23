@@ -17,21 +17,22 @@ export function inBox(object, a, b, layer) {
   const left=Math.min(a.x,b.x), right=Math.max(a.x,b.x), top=Math.min(a.y,b.y), bottom=Math.max(a.y,b.y);
   const inside = p => p.x>=left && p.x<=right && p.y>=top && p.y<=bottom;
   if (layer==='lights') return inside(object);
+  if (layer==='floors') return object.x+.5>=left && object.x-.5<=right && object.y+.5>=top && object.y-.5<=bottom;
   if (layer==='tokens') return Math.hypot(object.x-Math.max(left,Math.min(right,object.x)),object.y-Math.max(top,Math.min(bottom,object.y)))<=object.size/2;
   const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
   return object.points.some(inside) || segments(object.points).some(([p,q]) => corners.some((c,i)=>crosses(p,q,c,corners[(i+1)%4])));
 }
 // Flood cell centers, with imported wall and closed-door segments as barriers.
 // Refuse oversized fills atomically, including maps without enclosing walls.
-export function bucketCells(model, seed, spacing, limit=2000) {
-  const cols=Math.ceil(model.width/spacing), rows=Math.ceil(model.height/spacing);
-  const center=(x,y)=>({x:(x+.5)*spacing,y:(y+.5)*spacing});
+export function bucketCells(model, seed, spacing, limit=2000, bounds={left:0,top:0,right:model.width,bottom:model.height}) {
+  const cols=Math.ceil((bounds.right-bounds.left)/spacing), rows=Math.ceil((bounds.bottom-bounds.top)/spacing);
+  const center=(x,y)=>({x:bounds.left+(x+.5)*spacing,y:bounds.top+(y+.5)*spacing});
   const barriers=[...model.walls, ...model.doors.filter(d=>!d.open)].flatMap(o=>segments(o.points));
-  const start=[Math.floor(seed.x/spacing),Math.floor(seed.y/spacing)];
+  const start=[Math.floor((seed.x-bounds.left)/spacing),Math.floor((seed.y-bounds.top)/spacing)];
   const queue=[start], seen=new Set([start.join(',')]), result=[];
   for(let i=0;i<queue.length;i++) {
     const [x,y]=queue[i], p=center(x,y);
-    if(x<0 || y<0 || x>=cols || y>=rows || p.x>=model.width || p.y>=model.height) continue;
+    if(x<0 || y<0 || x>=cols || y>=rows || p.x>=bounds.right || p.y>=bounds.bottom) continue;
     result.push(p);
     if(result.length>limit) throw new Error(`Fill exceeds ${limit} objects. Increase spacing or enclose a smaller area.`);
     for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {

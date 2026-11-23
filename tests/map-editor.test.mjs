@@ -38,3 +38,18 @@ test('bucket bounds partial cells and refuses excessive fills atomically',()=>{
   assert.equal(bucketCells({width:2.2,height:2.2,walls:[],doors:[]},{x:0,y:0},1).length,4);
   assert.throws(()=>bucketCells({width:100,height:100,walls:[],doors:[]},{x:0,y:0},1),/exceeds 2000/);
 });
+
+test('floors select by tile edges outside the imported map',()=>{
+  const tile={x:-1.5,y:4.5};
+  assert.ok(inBox(tile,{x:-2.1,y:4},{x:-1.9,y:5},'floors'));
+  assert.ok(!inBox(tile,{x:0,y:0},{x:1,y:1},'floors'));
+});
+
+test('floor bucket accepts negative bounds while preserving wall barriers and fill limits',()=>{
+  const model={width:2,height:2,walls:[{points:[{x:0,y:-2},{x:0,y:2}]}],doors:[]};
+  const bounds={left:-2,top:-2,right:2,bottom:2};
+  const cells=bucketCells(model,{x:-.5,y:-.5},1,2000,bounds);
+  assert.equal(cells.length,8);
+  assert.ok(cells.every(p=>p.x<0));
+  assert.throws(()=>bucketCells(model,{x:-.5,y:-.5},1,7,bounds),/exceeds 7/);
+});

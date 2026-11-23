@@ -7,15 +7,15 @@ const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('ed
 const panel=$('editor-panel');
 let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
-const pointLayer=()=>layer()==='lights' || layer()==='tokens';
-const materialInput=(name=layer())=>$(name==='doors'?'edit-door-material':'edit-material');
+const pointLayer=()=>['lights','tokens','floors'].includes(layer());
+const materialInput=(name=layer())=>$(name==='floors'?'edit-floor-material':name==='doors'?'edit-door-material':'edit-material');
 const message=text=>{ $('editor-help').textContent=text; };
 const node=(tag,attrs={})=>{
   const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
   for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
   return el;
 };
-const geometry=()=>clone({walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens});
+const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens});
 function remember() { undo.push(geometry()); if(undo.length>50) undo.shift(); redo=[]; }
 function buttons() {
   $('edit-apply').disabled=$('edit-delete').disabled=!selected.size;
@@ -38,7 +38,7 @@ function settings() {
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
-  for(const name of ['walls','doors','lights','tokens']) {
+  for(const name of ['floors','walls','doors','lights','tokens']) {
     const group=$(name); group.replaceChildren();
     model[name].forEach((obj,index)=>{
       let el;
@@ -49,6 +49,8 @@ function render(notify=true) {
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
         el.append(text);
+      } else if(name==='floors') {
+        el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:MATERIALS[obj.material] || MATERIALS.stone,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
       } else if(name==='lights') {
         el=node('g');
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.opacity,class:'light-range'}));
@@ -57,7 +59,7 @@ function render(notify=true) {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.open?' open':''}`:''}`});
         if(obj.material) el.style.stroke=MATERIALS[obj.material] || MATERIALS.stone;
       }
-      const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='walls'?'Wall':'Door'} · ${obj.material || 'imported'}${name==='doors'?obj.open?' · open':' · closed':''}`;
+      const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':'Door'} · ${obj.material || 'imported'}${name==='doors'?obj.open?' · open':' · closed':''}`;
       el.append(title);
       if(name===layer() && selected.has(index)) {
         if(name==='lights' || name==='tokens') el.querySelector(name==='lights'?'.light-source':'circle').classList.add('edit-selected');
@@ -67,7 +69,7 @@ function render(notify=true) {
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -79,7 +81,7 @@ function updateTools() {
   });
   toolInput.querySelector('[value="bucket"]').disabled=layer()==='walls';
   if(layer()==='walls' && tool()==='bucket') toolInput.value='paint';
-  $('spacing-label').hidden=tool()!=='bucket';
+  $('spacing-label').hidden=tool()!=='bucket' || layer()==='floors';
   message('');
   if(model) render(false);
 }
@@ -87,7 +89,7 @@ function hit(p) {
   const matrix=svg.getScreenCTM(), tolerance=9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
   let index=-1, best=tolerance;
   model[layer()].forEach((obj,i)=>{
-    const d=pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
+    const d=layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
   return index;
@@ -95,6 +97,7 @@ function hit(p) {
 function point(event,snap=false) {
   const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!snap) return {x:p.x,y:p.y};
+  if(layer()==='floors') return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
   if(snap && layer()==='walls') {
     const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
@@ -130,13 +133,20 @@ function placeChain() {
 }
 function paint(p) {
   const props=settings();
+  if(layer()==='floors' && model.floors.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<.01)) return;
   if(pointLayer()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
   else if(!chain.length || Math.hypot(chain.at(-1).x-p.x,chain.at(-1).y-p.y)>.00001) { chain.push(p); drawPreview(); }
 }
 function bucket(p) {
-  const spacing=Number($('edit-spacing').value);
+  const spacing=layer()==='floors'?1:Number($('edit-spacing').value);
   if(!Number.isFinite(spacing) || spacing<.5 || spacing>100) throw new Error('Fill spacing must be between 0.5 and 100 squares.');
-  const props=settings(), cells=bucketCells(model,p,spacing);
+  const bounds=layer()==='floors'?{
+    left:Math.floor(Math.min(0,p.x,...model.floors.map(o=>o.x-.5))),
+    top:Math.floor(Math.min(0,p.y,...model.floors.map(o=>o.y-.5))),
+    right:Math.ceil(Math.max(model.width,p.x+1,...model.floors.map(o=>o.x+.5))),
+    bottom:Math.ceil(Math.max(model.height,p.y+1,...model.floors.map(o=>o.y+.5)))
+  }:undefined;
+  const props=settings(), cells=bucketCells(model,p,spacing,2000,bounds);
   const fresh=cells.filter(c=>!model[layer()].some(o=>pointLayer()?Math.hypot(o.x-c.x,o.y-c.y)<.01:distance(c,o.points[0],o.points[1])<.01));
   if(!fresh.length) { message('This area is already filled.'); return; }
   remember();
@@ -145,9 +155,9 @@ function bucket(p) {
 }
 svg.addEventListener('pointerdown',event=>{
   if(!model || panel.hidden || event.button!==0 || svg.hidden) return;
-  // Placement stays on the map; existing imported objects may lie outside it.
+  // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
-  if((tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
+  if(layer()!=='floors' && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
   event.preventDefault(); svg.focus();
   const p=point(event), index=hit(p);
   if(tool()==='paint' || tool()==='bucket') {
@@ -167,8 +177,10 @@ svg.addEventListener('pointermove',event=>{
       if($('edit-snap').checked) { dx=Math.round(dx); dy=Math.round(dy); }
       const originals=[...selected].map(i=>gesture.before[layer()][i]);
       const pts=originals.flatMap(o=>pointLayer()?[o]:o.points);
-      dx=Math.max(-Math.min(...pts.map(p=>p.x)),Math.min(model.width-Math.max(...pts.map(p=>p.x)),dx));
-      dy=Math.max(-Math.min(...pts.map(p=>p.y)),Math.min(model.height-Math.max(...pts.map(p=>p.y)),dy));
+      if(layer()!=='floors') {
+        dx=Math.max(-Math.min(...pts.map(p=>p.x)),Math.min(model.width-Math.max(...pts.map(p=>p.x)),dx));
+        dy=Math.max(-Math.min(...pts.map(p=>p.y)),Math.min(model.height-Math.max(...pts.map(p=>p.y)),dy));
+      }
       for(const i of selected) {
         const obj=clone(gesture.before[layer()][i]);
         if(pointLayer()) { obj.x+=dx; obj.y+=dy; } else obj.points=obj.points.map(p=>({x:p.x+dx,y:p.y+dy}));
@@ -230,7 +242,7 @@ for(const option of toolInput.options) {
   const icon=node('svg',{viewBox:'0 0 24 24',fill:'none',stroke:'currentColor','stroke-width':1.7,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true',focusable:'false'});
   icon.append(node('path',{d:toolIcons[option.value]}));
   button.append(icon);
-  if(option.value==='bucket') button.title='Bucket: fill enclosed areas with lights, doors, or tokens. Not available for walls.';
+  if(option.value==='bucket') button.title='Bucket: fill enclosed areas with floors, lights, doors, or tokens. Not available for walls.';
   button.addEventListener('click',()=>{ toolInput.value=option.value; toolInput.dispatchEvent(new Event('change')); });
   $('tool-buttons').append(button);
 }
@@ -239,7 +251,7 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
   let recent=[input.value,...Object.keys(MATERIALS).filter(material=>material!==input.value)].slice(0,4);
   const more=document.createElement('select');
   more.className='material-more';
-  more.setAttribute('aria-label',`More ${palette.dataset.materialLayer==='walls'?'wall':'door'} materials`);
+  more.setAttribute('aria-label',`More ${palette.dataset.materialLayer} materials`);
   const initial=input.value;
   input.replaceChildren(...Object.keys(MATERIALS).map(material=>new Option(material,material)));
   input.value=initial;
@@ -302,6 +314,7 @@ floor.addEventListener('map-ready',()=>{
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
   model={width:imported.width,height:imported.height,
+    floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
     doors:imported.doors.map((d,i)=>({...d,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
@@ -326,7 +339,7 @@ $('edit-export').addEventListener('click',()=>{
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
   raw.portals=model.doors.map(d=>({...d.source,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
-  raw.geezvtt_editor={...raw.geezvtt_editor,wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || [])};
+  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || [])};
   const url=URL.createObjectURL(new Blob([JSON.stringify(raw)],{type:'application/json'})), link=document.createElement('a');
   link.href=url; link.download=floor.sourceName.replace(/\.dd2vtt$/i,'')+'-edited.dd2vtt'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   message('Exported map with edited objects and materials.');

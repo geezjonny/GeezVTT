@@ -117,3 +117,18 @@ This section supersedes earlier token and mouse-control descriptions.
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run for this work. Outstanding verification includes Firebase access and NPC loading, token tools and export/re-import, stationary right-click versus orbit dragging, 2D/3D camera controls, and deleting outside-map lights. Earlier lighting and floating-window verification remains outstanding as recorded above.
 
 Save requested with commit and push to `origin/main`. Include the pending save-workflow instruction in AGENTS.md and previous progress notes. Leave the unrelated README.md deletion unstaged.
+
+## Floors and compact palettes saved - 2026-11-22
+
+This section supersedes earlier palette layouts and floor-editing descriptions.
+
+- Adds Edit > Floors with its own floating material palette and the shared Select, Erase, Paint, Bucket, Replace, Apply/Delete, and Undo/Redo tools. Floors use one-square tiles and can be placed or moved outside the imported DD2VTT bounds, including negative coordinates. Other layers retain their existing placement bounds.
+- Floors coexist with the embedded map image at the same ground elevation in 3D. The image takes precedence where they overlap; drawn floors remain visible beyond its edges. The imported image is not moved or resized.
+- Saves floor coordinates and materials in `geezvtt_editor.floors` and restores them on import. Floor fills use one-square spacing, respect walls and closed doors, skip occupied centers, and retain the 2,000-object limit. Their finite fill area includes the image, existing floors, and clicked tile.
+- Extends the 2D grid around the current view. The 3D grid, Fit map, and directional shadow bounds include exterior floor tiles.
+- Removes Floors tips and Tokens tool instructions, NPC loading chatter, and successful loaded-count text. NPC loading failures and incomplete-list messages remain visible. Tokens uses a compact inline selector; Lights places Color, Range, and Intensity on one row in a wider window.
+- Adds regression cases for floor box selection outside the image and negative-coordinate bucket bounds with wall barriers and fill limits.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify floor tools and history, exterior and negative-coordinate drawing, fill bounds, export/re-import, image/floor coexistence in both views, expanded grids and 3D framing, and compact palettes at narrow window sizes. Existing verification items above remain outstanding.
+
+Save requested with commit and push to `origin/main`. Leave the unrelated README.md deletion unstaged.

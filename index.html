@@ -71,6 +71,7 @@
     .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
     #walls-panel { left: 15rem; }
+    #floors-panel { top: 11rem; left: 29rem; }
     #lights-panel { top: 11rem; left: 15rem; }
     #doors-panel { top: 21rem; left: 15rem; }
     .swatch-panel[data-active="true"] { border-color: #a2cbff; }
@@ -96,12 +97,20 @@
     .editor-panel fieldset > button, .editor-panel select, .editor-panel input[type="number"] { padding: .2rem .3rem; min-height: 24px; font-size: .75rem; }
     .editor-panel input[type="number"] { width: 4rem; }
     .editor-panel input[type="color"] { width: 2rem; height: 1.5rem; padding: 0; }
+    #lights-panel { width: min(24rem, calc(100vw - 2rem)); }
+    #lights-panel fieldset { flex-wrap: nowrap; }
+    #lights-panel label { white-space: nowrap; gap: .25rem; }
+    #lights-panel input[type="number"] { width: 3.25rem; }
     #editor-help { margin: .35rem 0 0; color: #b4c0ce; font-size: .7rem; line-height: 1.3; }
     #editor-help:empty { display: none; }
     #map-view { touch-action: none; user-select: none; }
     #edit-preview { pointer-events: none; }
     .edit-selected { filter: drop-shadow(0 0 3px #fff); stroke: #fff !important; }
     #tokens-panel { left: 15rem; }
+    #tokens-panel label { display: flex; align-items: center; gap: .3rem; }
+    #tokens-panel select { flex: 1; width: 0; }
+    #token-status { margin: .3rem 0 0; font-size: .75rem; }
+    #token-status:empty { display: none; }
     #token-properties-panel { left: 29rem; }
     .token-fields { display: grid; gap: .4rem; font-size: .75rem; }
     .token-fields label { display: grid; gap: .15rem; font-size: inherit; }
@@ -135,6 +144,7 @@
           <div class="menu-items">
             <button id="open-tools" type="button" disabled>Tools</button>
             <button type="button" data-edit-layer="walls" disabled>Walls</button>
+            <button type="button" data-edit-layer="floors" disabled>Floors</button>
             <button type="button" data-edit-layer="lights" disabled>Lights</button>
             <button type="button" data-edit-layer="doors" disabled>Doors</button>
             <button id="open-tokens" type="button" data-edit-layer="tokens" aria-controls="tokens-panel" disabled>Tokens</button>
@@ -164,7 +174,7 @@
       <div class="editor-body">
       <fieldset id="editor-controls" disabled>
         <legend>Object editing</legend>
-        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option></select></label>
+        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="floors">Floors</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option></select></label>
         <label hidden>Tool <select id="edit-tool"><option value="select">Select</option><option value="erase">Erase</option><option value="paint">Paint</option><option value="bucket">Bucket</option><option value="replace">Replace</option></select></label>
         <div class="editor-group" role="group" aria-labelledby="tools-title">
           <span id="tools-title" class="editor-group-title">Tools:</span>
@@ -188,6 +198,19 @@
           <legend>Wall material</legend>
           <select id="edit-material" aria-label="Wall material" hidden><option>wood</option><option selected>stone</option><option>cobble</option><option>brick</option><option>metal</option></select>
           <div id="material-swatches" class="material-swatches" data-material-layer="walls"></div>
+        </fieldset>
+      </div>
+    </section>
+    <section id="floors-panel" class="editor-panel swatch-panel" data-swatch-layer="floors" role="dialog" aria-modal="false" aria-labelledby="floors-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move floors window. Drag or use arrow keys.">
+        <h2 id="floors-title">Floors</h2>
+        <button class="editor-close" type="button" aria-label="Close floors">&times;</button>
+      </div>
+      <div class="editor-body">
+        <fieldset disabled>
+          <legend>Floor material</legend>
+          <select id="edit-floor-material" aria-label="Floor material" hidden><option selected>stone</option></select>
+          <div class="material-swatches" data-material-layer="floors"></div>
         </fieldset>
       </div>
     </section>
@@ -228,7 +251,6 @@
         <fieldset class="token-fields" disabled>
         <legend>Token settings</legend>
         <label>Token <select id="token-source"><option value="">Blank Token</option></select></label>
-        <p>Use Tools to select, erase, paint, fill, or replace tokens. Right-click a token to edit its properties.</p>
         </fieldset>
         <p id="token-status" role="status" aria-live="polite"></p>
       </div>
@@ -255,7 +277,8 @@
             <path d="M 1 0 H 0 V 1" fill="none" stroke="#dce6f2" stroke-opacity="0.55" stroke-width="1" vector-effect="non-scaling-stroke" />
           </pattern>
         </defs>
-        <image id="floor-image" x="0" y="0" preserveAspectRatio="none" />
+        <g id="floors"></g>
+        <image id="floor-image" x="0" y="0" preserveAspectRatio="none" pointer-events="none" />
         <rect id="grid" fill="url(#grid-pattern)" pointer-events="none" hidden />
         <g id="lights"></g>
         <g id="walls"></g>
