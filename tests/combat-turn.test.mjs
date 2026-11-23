@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initiativeState, startTurn, remainingMovement, takeTurnAction, attacksPerTurn } from '../js/initiative-model.js';
+import { initiativeState, startTurn, remainingMovement, takeTurnAction, attacksPerTurn, equipmentTurnCost } from '../js/initiative-model.js';
 import { playerDestination, reachableCells } from '../js/player-actions.js';
 import { npcCatalog, importedTokens } from '../js/token-model.js';
 import { changeCombat } from '../js/sheet-combat.js';
@@ -14,6 +14,35 @@ function combat() {
   startTurn(map.initiative, liora.id);
   return { map, liora, seris };
 }
+
+test('2014 weapon draws use a free interaction, swaps also need an action, and spent budgets reject changes', () => {
+  const { map, liora, seris } = combat();
+  const pc = { inventory: { sword: { name: 'Sword' }, bow: { name: 'Longbow' } }, equipped: {} };
+  const change = { type: 'equip', slot: 'main_hand', key: 'sword' };
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, change), { item: true, action: false });
+  pc.equipped.main_hand = 'Longbow';
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, change), { item: true, action: true });
+  map.initiative.turn.action = true;
+  assert.throws(() => equipmentTurnCost(map, liora.id, pc, change), /Not enough/);
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, { ...change, key: '' }), { item: true, action: false });
+  map.initiative.turn.action = false;
+  map.initiative.turn.item = true;
+  assert.throws(() => equipmentTurnCost(map, liora.id, pc, change), /Not enough/);
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, { ...change, key: '' }), { item: false, action: true });
+  assert.throws(() => equipmentTurnCost(map, seris.id, pc, change), /Wait for your turn/);
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, { ...change, key: 'bow' }), { item: false, action: false });
+});
+
+test('shields require an action and armor cannot be changed in one turn', () => {
+  const { map, liora } = combat();
+  const pc = { inventory: { shield: { name: 'Shield' }, armor: { name: 'Leather Armor' } } };
+  assert.deepEqual(equipmentTurnCost(map, liora.id, pc, { slot: 'shield', key: 'shield' }), { item: false, action: true });
+  assert.throws(() => equipmentTurnCost(map, liora.id, pc, { slot: 'armor', key: 'armor' }), /longer than one turn/);
+  map.initiative.turn.action = true;
+  assert.throws(() => equipmentTurnCost(map, liora.id, pc, { slot: 'shield', key: 'shield' }), /available action/);
+  delete map.initiative.turn;
+  assert.throws(() => equipmentTurnCost(map, liora.id, pc, { slot: 'shield', key: 'shield' }), /Wait for your turn/);
+});
 
 test('Liora splits first-turn movement around three attacks and one bonus action, then loses her first-turn bonuses', () => {
   const { map, liora, seris } = combat();

@@ -298,7 +298,10 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   const token = floor.tabletopMap?.tokens.find(token => token.id === selectedToken && token.kind === 'pc');
   if (!token || !canControlPC(token)) return;
-  if (step) sendAction({ type: 'move', tokenId: token.id, turnId: floor.tabletopMap?.initiative?.turn?.id ?? null, dx: step[0], dy: step[1] });
+  if (step) {
+    if (floor.initiativeActive && (!moving || movementToken?.id !== token.id || !movementCells.has(`${token.x + step[0]},${token.y + step[1]}`))) return;
+    sendAction({ type: 'move', tokenId: token.id, turnId: floor.tabletopMap?.initiative?.turn?.id ?? null, dx: step[0], dy: step[1] });
+  }
   else if (!step && !event.repeat) sendAction({ type: 'door', tokenId: token.id });
 });
 floor.addEventListener('session-ping', event => {

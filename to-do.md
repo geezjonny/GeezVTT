@@ -1,5 +1,12 @@
 # GeezVTT to-do
 
+## Requested additions - 2026-11-23
+
+- [ ] Traps and triggers.
+- [ ] Compartments/chests, including players taking contents into their own inventory.
+- [ ] Weight rules: item weight, carrying capacity, and encumbrance.
+- [ ] Consumable effects, including consuming an item and applying its effect.
+
 Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This is a documentation comparison, not verification of the application. Later progress entries supersede earlier descriptions.
 
 ## Already implemented, pending user verification

@@ -5,9 +5,62 @@ import { decodeTree } from '../js/firebase-codec.js';
 
 globalThis.window = { GEEZ_FIREBASE_CONFIG: { databaseURL: 'https://example.test' } };
 globalThis.location = { search: '?gm=jonny' };
-const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat, updatePCEffects, castPCSpell } = await import('../js/pc-inventory.js');
+const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell } = await import('../js/pc-inventory.js');
 const token = { npcId: 'v2:pc1' };
 const item = { name: 'Torch', equipment_category: { name: 'Adventuring Gear' }, desc: ['Light.'], special: ['Burns.'] };
+
+test('feat use saves the current charge count with a conditional write', async () => {
+  const original = globalThis.fetch;
+  let writes = 0;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://example.test/v2/worlds/gaia/entities/pc1.json');
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(options.headers['If-Match'], 'feat-version');
+      const entity = decodeTree(JSON.parse(options.body));
+      assert.equal(entity.data.abilities.wind.current, 1);
+      assert.equal(entity.data.abilities.wind.effect_desc, 'Heal.');
+      return { ok: true };
+    }
+    return { ok: true, headers: { get: () => 'feat-version' }, json: async () => ({ kind: 'pc', data: {
+      abilities: { wind: { label: 'Second Wind', max: 2, current: 2, effect_desc: 'Heal.' } }
+    } }) };
+  };
+  try {
+    await updatePCFeat(token, { type: 'use', id: 'abilities:wind' });
+    assert.equal(writes, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+test('combat equipment retries recheck the latest gear and spend turn resources only after a successful save', async () => {
+  const originalFetch = globalThis.fetch, originalDocument = globalThis.document;
+  const combatToken = { ...token, id: 'pc1' };
+  const map = { initiative: { currentId: 'pc1', turn: { id: 'turn', tokenId: 'pc1', item: false, action: false } } };
+  const floor = { initiativeActive: true, tabletopMap: map };
+  globalThis.document = { getElementById: () => floor };
+  let reads = 0, writes = 0;
+  globalThis.fetch = async (url, options) => {
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(map.initiative.turn.item, false);
+      assert.equal(map.initiative.turn.action, false);
+      return { ok: writes > 1, status: writes === 1 ? 412 : 200 };
+    }
+    reads++;
+    return { ok: true, headers: { get: () => `version-${reads}` }, json: async () => ({ kind: 'pc', data: {
+      inventory: { sword: { name: 'Sword', category: 'Weapon', qty: 1 } },
+      equipped: reads > 1 ? { main_hand: 'Longbow' } : {}
+    } }) };
+  };
+  try {
+    await updatePCInventory(combatToken, { type: 'equip', slot: 'main_hand', key: 'sword' }, {}, { map, turnId: 'turn' });
+    assert.equal(writes, 2);
+    assert.equal(map.initiative.turn.item, true);
+    assert.equal(map.initiative.turn.action, true);
+    await assert.rejects(updatePCInventory(combatToken, { type: 'equip', slot: 'main_hand', key: 'sword' }, {}, { map, turnId: 'stale' }), /Map or turn changed/);
+    assert.equal(writes, 2);
+  } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument; }
+});
 
 test('coin changes retry against the latest balance and return the saved sheet', async () => {
   const original = globalThis.fetch;
@@ -170,8 +223,8 @@ test('transfer saves both bags atomically with an ETag and retains unrelated ent
       writes++;
       assert.equal(options.headers['If-Match'], 'world-version');
       const entities = JSON.parse(options.body);
-      assert.deepEqual(decodeTree(entities.pc1.data.inventory), {});
-      assert.deepEqual(Object.values(entities.pc2.data.inventory), [{ name: 'Torch', qty: 3, notes: 'Gift' }]);
+      assert.deepEqual(decodeTree(entities.pc1.data.inventory), { item: { name: 'Torch', qty: 1, notes: 'Gift' } });
+      assert.deepEqual(Object.values(entities.pc2.data.inventory), [{ name: 'Torch', qty: 2, notes: 'Gift' }]);
       assert.equal(entities.npc.name, 'Shopkeeper');
       return { ok: true };
     }
@@ -180,7 +233,7 @@ test('transfer saves both bags atomically with an ETag and retains unrelated ent
       pc2: { kind: 'pc', data: {} }, npc: { kind: 'npc', name: 'Shopkeeper' }
     }) };
   };
-  try { await updatePCInventory(token, { type: 'transfer', key: 'item', to: 'pc2' }); assert.equal(writes, 1); }
+  try { await updatePCInventory(token, { type: 'transfer', key: 'item', to: 'pc2', qty: 2 }); assert.equal(writes, 1); }
   finally { globalThis.fetch = original; }
 });
 

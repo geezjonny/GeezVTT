@@ -60,6 +60,62 @@ test('Stats exposes roll actions, scores and accessible slot buttons; standalone
   assert.match(sheetHTML({ attacks: [{ name: '<Rapier>', to_hit: 0 }] }, 'Weapons', {}, true), /&lt;Rapier&gt;/);
 });
 
+test('Stats groups ability checks, saves and skills into compact grids without losing rolls', () => {
+  const skills = Object.fromEntries(Array.from({ length: 18 }, (_, index) => [`skill${index}`, {
+    index: `skill${index}`, name: `Skill ${index}`, url: `/skills/skill${index}`, ability_score: { index: 'dex' }
+  }]));
+  const html = sheetHTML({ stats: { dex: 14 } }, 'Stats', skills, true);
+  const grids = [...html.matchAll(/<div class="sheet-check-grid(?: sheet-skill-grid)?">([\s\S]*?)<\/div><\/div>/g)];
+  assert.equal(grids.length, 3);
+  for (const [index, count] of [6, 6, 18].entries()) {
+    assert.equal((grids[index][1].match(/data-sheet-roll=/g) || []).length, count);
+    assert.doesNotMatch(grids[index][1], /<small>/);
+  }
+  assert.match(html, /class="sheet-check-grid sheet-skill-grid"/);
+  assert.match(html, /aria-label="Dexterity" title="Dexterity · Score 14 · 1d20\+2"><span>DEX<\/span>/);
+  assert.match(html, /aria-label="Dexterity save"/);
+});
+
+test('Weapons shows one compact row per weapon with attack and damage dice in tooltips', () => {
+  const pc = { attacks: { rapier: { name: '<Rapier>', to_hit: 7, damage: '1d8+4', damage_type: 'piercing' },
+    bow: { name: 'Bow', to_hit: 5, damage: '1d6+3' } } };
+  const html = sheetHTML(pc, 'Weapons', {}, true);
+  assert.equal((html.match(/class="sheet-weapon"/g) || []).length, 2);
+  assert.match(html, /<strong>&lt;Rapier&gt;<\/strong>/);
+  assert.match(html, /data-sheet-roll="attack:rapier"[^>]*title="1d20\+7 · To hit">Attack<\/button>/);
+  assert.match(html, /data-sheet-roll="damage:rapier"[^>]*title="1d8\+4 · piercing">Damage<\/button>/);
+  assert.match(html, /data-sheet-roll="attack:bow"/);
+  assert.match(html, /data-sheet-roll="damage:bow"/);
+  assert.doesNotMatch(html, /<small>|<script>|sheet-roll/);
+  const readOnly = sheetHTML(pc, 'Weapons');
+  assert.doesNotMatch(readOnly, /data-sheet-roll/);
+  assert.equal((readOnly.match(/ disabled/g) || []).length, 4);
+});
+
+test('Stealth marks equipped armor disadvantage without changing its numerical bonus', () => {
+  const reference = {
+    stealth: { index: 'stealth', name: 'Stealth', url: '/skills/stealth', ability_score: { index: 'dex' } },
+    'chain mail': { stealth_disadvantage: true }
+  };
+  const pc = { stats: { dex: 14 }, equipped: { armor: 'Chain Mail' }, inventory: { armor: { name: 'Chain Mail', qty: 1 } } };
+  const roll = () => sheetRolls(pc, reference)['Skill Checks'][0];
+  assert.equal(roll().bonus, 2);
+  assert.equal(roll().disadvantage, true);
+  const html = sheetHTML(pc, 'Stats', reference, true);
+  assert.match(html, /data-sheet-roll="skill:stealth"/);
+  assert.match(html, /Disadvantage: Chain Mail/);
+  assert.match(html, /<strong>\+2<\/strong><small aria-label="Disadvantage">dis<\/small>/);
+  pc.inventory.armor.stealth_disadvantage = false;
+  assert.equal(roll().disadvantage, false);
+  delete pc.inventory.armor.stealth_disadvantage;
+  pc.inventory.armor.qty = 0;
+  assert.equal(roll().disadvantage, false);
+  pc.inventory.armor.qty = 1;
+  delete pc.equipped.armor;
+  assert.equal(roll().disadvantage, false);
+  assert.doesNotMatch(sheetHTML(pc, 'Stats', reference, true), /aria-label="Disadvantage"/);
+});
+
 test('slot clicks spend or restore one slot and preserve all other sheet data', () => {
   const pc = { spellcasting: { slots: { 1: 3, 2: 2 }, slots_used: { 1: 0, 2: 1 } }, combat: { hp_current: 10 } };
   changeSpellSlot(pc, 1, 2);

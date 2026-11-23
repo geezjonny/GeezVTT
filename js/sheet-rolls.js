@@ -1,5 +1,6 @@
 import { characterStats } from './equipment-modifiers.js';
 import { applyModifiers } from './effects-model.js';
+import { equippedName } from './inventory-model.js';
 export const ABILITIES = { str: 'Strength', dex: 'Dexterity', con: 'Constitution', int: 'Intelligence', wis: 'Wisdom', cha: 'Charisma' };
 const sign = value => value >= 0 ? `+${value}` : String(value);
 const number = (value, fallback) => value == null || value === '' ? fallback : Number(value);
@@ -13,6 +14,9 @@ export function sheetRolls(pc, reference = {}) {
   const proficiency = number(pc.combat?.proficiency_bonus, 2 + Math.floor((number(pc.level, 1) - 1) / 4));
   const check = (key, label, bonus, detail = '') => ({ key, label, bonus, detail, expression: `1d20${sign(bonus)}` });
   const proficientSaves = Object.values(pc.saves?.proficient || {});
+  const armorName = equippedName(pc, 'armor');
+  const armor = Object.values(pc.inventory || {}).find(item => item?.name?.toLowerCase() === armorName.toLowerCase() && Number(item.qty ?? 1) > 0);
+  const stealthDisadvantage = !!armor && (armor.stealth_disadvantage ?? reference[armorName.toLowerCase()]?.stealth_disadvantage) === true;
   return {
     'Ability Checks': Object.entries(ABILITIES).map(([key, label]) => check(`ability:${key}`, label, mod(key), `Score ${score(key)}`)),
     'Saving Throws': Object.entries(ABILITIES).map(([key, label]) => check(`save:${key}`, `${label} save`,
@@ -22,7 +26,8 @@ export function sheetRolls(pc, reference = {}) {
       const ability = skill.ability_score.index;
       const bonus = number(data.bonus, baseMod(ability) + (data.expertise ? 2 : data.proficient ? 1 : 0) * proficiency)
         + delta(ability);
-      return check(`skill:${key}`, `${skill.name}${data.expertise ? ' (expertise)' : data.proficient ? ' (proficient)' : ''}`, applyModifiers(bonus, `skill:${key}`, final.modifiers));
+      const disadvantage = key === 'stealth' && stealthDisadvantage;
+      return { ...check(`skill:${key}`, `${skill.name}${data.expertise ? ' (expertise)' : data.proficient ? ' (proficient)' : ''}`, applyModifiers(bonus, `skill:${key}`, final.modifiers), disadvantage ? `Disadvantage: ${armorName}` : ''), disadvantage };
     }),
     Initiative: [check('initiative', 'Initiative', applyModifiers(number(pc.combat?.initiative_bonus, baseMod('dex')) + delta('dex'), 'initiative', final.modifiers))],
     Weapons: Object.entries(pc.attacks || {}).flatMap(([key, attack]) => {

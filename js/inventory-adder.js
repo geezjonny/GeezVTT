@@ -3,6 +3,7 @@ import { addPCInventoryItem } from './pc-inventory.js';
 import { loadSheetReference } from './sheet-view.js';
 
 export function mountInventoryAdder(container, getToken, onSaved) {
+  if (!isGM) return () => {};
   const form = document.createElement('form');
   form.className = 'sheet-inventory-add';
   form.innerHTML = `<label>${isGM ? 'SRD or new item' : 'SRD item'} <input name="item" list="sheet-srd-items" autocomplete="off" maxlength="100" required></label>

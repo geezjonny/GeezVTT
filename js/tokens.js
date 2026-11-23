@@ -11,6 +11,7 @@ import { rollFromSheet } from './dice-roller.js';
 import { mountSpells } from './sheet-spells.js';
 import { mountSpellSlots } from './sheet-slots.js';
 import { mountEffects } from './effects-editor.js';
+import { mountFeats } from './sheet-feats.js';
 import { readPC } from './pc-inventory.js';
 import { decodeTree, decodeEvent } from './firebase-codec.js';
 
@@ -59,6 +60,11 @@ mountSpells($('sheet-spells-content'), {
   onSaved: (pc, token) => { const id = pcId(token); if (id && entities[id]) { entities[id].data = pc; applyPC(id); } },
   onRoll: (roll, token) => rollFromSheet(token.name, roll)
 });
+mountFeats($('sheet-feats-content'), () => tokens().find(token => token.id === sheetTokens.get('Feats')),
+  () => entities[pcId(tokens().find(token => token.id === sheetTokens.get('Feats')))]?.data, $('sheet-feats-status'), (pc, token) => {
+    const id = pcId(token);
+    if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
+  });
 mountEffects($('sheet-effects-content'), () => tokens().find(token => token.id === sheetTokens.get('Effects')),
   () => entities[pcId(tokens().find(token => token.id === sheetTokens.get('Effects')))]?.data, $('sheet-effects-status'), (pc, token) => {
     const id = pcId(token);

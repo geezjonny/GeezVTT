@@ -3,8 +3,10 @@ import { useSpell } from './spell-model.js';
 import { changeSpellSlot } from './sheet-rolls.js';
 import { changeEffects } from './effects-model.js';
 import { changeCombat } from './sheet-combat.js';
-import { canControlPC } from './session-role.js';
+import { changeFeat } from './feats-model.js';
+import { isGM, canControlPC } from './session-role.js';
 import { encodeTree, decodeTree } from './firebase-codec.js';
+import { equipmentTurnCost } from './initiative-model.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=(token,control=true)=>{
   if(control && !canControlPC(token)) throw new Error('Sign in as this PC to control it.');
@@ -27,10 +29,15 @@ export async function updatePCSpellSlot(token, level, pip) {
   return updatePCSheet(token, pc => changeSpellSlot(pc, level, pip));
 }
 export async function updatePCCombat(token, action) {
+  if (action.type === 'base-stat' && !isGM) throw new Error('Only the GM can change ability scores.');
+  if (!isGM && (action.type === 'ac-mode' || (action.type === 'set' && ['ac', 'speed', 'hp_max'].includes(action.field)))) throw new Error('Only the GM can change base AC, speed, or maximum HP.');
   return updatePCSheet(token, pc => changeCombat(pc, action));
 }
 export async function updatePCEffects(token, action) {
   return updatePCSheet(token, pc => changeEffects(pc, action));
+}
+export async function updatePCFeat(token, action) {
+  return updatePCSheet(token, pc => changeFeat(pc, action));
 }
 async function updatePCSheet(token, change) {
   const url = `${base}/${entityPath(token)}.json`;
@@ -51,7 +58,30 @@ async function updatePCSheet(token, change) {
 export function pcInventory(pc) {
   return Object.entries(pc.inventory || {}).flatMap(([id,item])=>item && typeof item.name==='string'?[{...item,id}]:[]);
 }
-export async function updatePCInventory(token, action, reference) {
+export async function updatePCInventory(token, action, reference, combatTurn = null) {
+  if (!isGM && ['add', 'edit'].includes(action.type)) throw new Error('Only the GM can add or edit items.');
+  const floor = globalThis.document?.getElementById('floor');
+  if (action.type === 'equip' && floor?.initiativeActive && !combatTurn) {
+    entityPath(token);
+    const requestId = crypto.randomUUID();
+    await new Promise((resolve, reject) => {
+      const finish = error => {
+        clearTimeout(timer);
+        floor.removeEventListener('session-equipment-result', received);
+        if (error) reject(new Error(error)); else resolve();
+      };
+      const received = event => {
+        if (event.detail.requestId === requestId) finish(event.detail.error);
+      };
+      const timer = setTimeout(() => finish('Equipment response timed out; check the bag before retrying.'), 25000);
+      floor.addEventListener('session-equipment-result', received);
+      floor.dispatchEvent(new CustomEvent('session-action', { detail: {
+        type: 'equip', requestId, tokenId: token.id, turnId: floor.tabletopMap?.initiative?.turn?.id,
+        slot: action.slot, key: action.key
+      } }));
+    });
+    return readPC(token);
+  }
   if (action.type === 'transfer') action = { ...action, targetKey: crypto.randomUUID() };
   const sourcePath = entityPath(token), id = token.npcId.slice(3);
   const path = action.type === 'transfer' ? 'v2/worlds/gaia/entities' : sourcePath;
@@ -62,6 +92,11 @@ export async function updatePCInventory(token, action, reference) {
     if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
     const value = decodeTree(await response.json());
     const entities = action.type === 'transfer' ? value || {} : { [id]: value };
+    let cost;
+    if (combatTurn) {
+      if (floor?.tabletopMap !== combatTurn.map || !floor.initiativeActive || combatTurn.map.initiative?.turn?.id !== combatTurn.turnId) throw new Error('Map or turn changed; try again.');
+      cost = equipmentTurnCost(combatTurn.map, token.id, entities[id]?.data || {}, action);
+    }
     changeInventory(entities, id, action, reference);
     // Transfer both bags together; reject concurrent equipment or inventory changes.
     const saved = await fetch(`${base}/${path}.json`, {
@@ -70,11 +105,18 @@ export async function updatePCInventory(token, action, reference) {
     });
     if (saved.status === 412) continue;
     if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
+    if (cost) {
+      const turn = combatTurn.map.initiative?.turn;
+      if (turn?.id !== combatTurn.turnId) throw new Error('Equipment saved, but the turn changed; ask the GM to adjust action use.');
+      if (cost.item) turn.item = true;
+      if (cost.action) turn.action = true;
+    }
     return entities[id].data;
   }
   throw new Error('Inventory changed elsewhere. Try again.');
 }
 export async function addPCInventoryItem(token, item, qty, key) {
+  if (!isGM) throw new Error('Only the GM can add items.');
   if (typeof item?.name !== 'string' || !item.name.trim()) throw new Error('Choose an SRD item.');
   if (!Number.isSafeInteger(qty) || qty < 1 || qty > 9999) throw new Error('Quantity must be 1–9999.');
   if (typeof key !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(key)) throw new Error('Invalid inventory key.');

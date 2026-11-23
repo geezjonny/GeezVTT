@@ -16,7 +16,13 @@ test('conditions exclude Firebase empty-list metadata and retain named condition
 test('editable stats show combat controls while read-only stats hide them', () => {
   const pc = { combat: { hp_current: 12, hp_max: 20, temp_hp: 3, ac: 16, exhaustion: 0, conditions: ['Poisoned', '<Custom>'] } };
   const html = sheetHTML(pc, 'Stats', {}, true, true);
-  for (const field of ['hp_current', 'hp_max', 'temp_hp', 'ac', 'exhaustion']) assert.ok(html.includes(`data-combat-field="${field}"`));
+  for (const field of ['hp_current', 'temp_hp', 'exhaustion']) assert.ok(html.includes(`data-combat-field="${field}"`));
+  assert.match(html, /value="12"> \/ 20/);
+  assert.match(html, /AC total<\/span><strong>16/);
+  assert.doesNotMatch(html, /data-combat-field="(?:ac|speed|hp_max)"|data-ac-mode|Maximum HP/);
+  const gmHTML = sheetHTML(pc, 'Stats', {}, true, true, true);
+  for (const field of ['ac', 'speed', 'hp_max']) assert.ok(gmHTML.includes(`data-combat-field="${field}"`));
+  assert.match(gmHTML, /data-ac-mode/);
   assert.match(html, /Decrease exhaustion" disabled/);
   assert.match(html, /data-condition-toggle/);
   assert.match(html, /value="Poisoned" data-enabled="false">Remove Poisoned/);

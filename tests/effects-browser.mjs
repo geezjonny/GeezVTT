@@ -95,7 +95,7 @@ try {
     return Object.fromEntries([...root.querySelectorAll('.sheet-row')].filter(row => row.querySelector('strong')).map(row => [row.querySelector('span').textContent, row.querySelector('strong').textContent]));
   })()`);
   const standalone = await totals('#sheet-content');
-  for (const [key, value] of Object.entries({ 'STR total': '12', 'DEX total': '7', 'CON total': '14', 'INT total': '12', 'WIS total': '12', 'CHA total': '18', 'AC total': '16', 'SPD (ft)': '17', 'Maximum HP total': '38' })) assert.equal(standalone[key], value, `sheet.html ${key}`);
+  for (const [key, value] of Object.entries({ 'STR': '12', 'DEX': '7', 'CON': '14', 'INT': '12', 'WIS': '12', 'CHA': '18', 'AC total': '16', 'SPD (ft)': '17', 'Maximum HP total': '38' })) assert.equal(standalone[key], value, `sheet.html ${key}`);
   await send('Page.navigate', { url: `${origin}/index.html?gm=jonny` });
   await wait(`typeof document.querySelector('#floor')?.loadMap === 'function' && document.querySelector('#map-view')?.tabIndex === 0`);
   await evaluate(`(async () => {
@@ -111,13 +111,13 @@ try {
   await evaluate(`[...document.querySelectorAll('#map-object-menu button')].find(button => button.textContent === 'Stats').click()`);
   await wait(`!document.querySelector('#sheet-stats-panel').hidden && document.querySelector('#sheet-stats-content').textContent.includes('Bark Arm')`);
   const popup = await totals('#sheet-stats-content');
-  for (const key of ['STR total', 'DEX total', 'CON total', 'INT total', 'WIS total', 'CHA total', 'AC total', 'SPD (ft)', 'Maximum HP total']) assert.equal(popup[key], standalone[key], `right-click Stats ${key}`);
+  for (const key of ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA', 'AC total', 'SPD (ft)', 'Maximum HP total']) assert.equal(popup[key], standalone[key], `right-click Stats ${key}`);
   assert.deepEqual(await evaluate(`(() => { const token = document.querySelector('#floor').tabletopMap.tokens[0]; return [token.ac, token.speed, token.hpMax]; })()`), [16, 17, 38]);
   await evaluate(`document.querySelector('#floor').dispatchEvent(new CustomEvent('token-sheet', { detail: { id: 'lark-token', section: 'Effects' } }))`);
   await wait(`!!document.querySelector('#sheet-effects-content [data-effect-time]')`);
   await evaluate(`const timeForm = document.querySelector('#sheet-effects-content [data-effect-time]'); timeForm.elements.namedItem('minutes').value = '60'; timeForm.requestSubmit()`);
   await wait(`document.querySelector('#floor').tabletopMap.tokens[0].speed === 35`);
-  assert.equal((await totals('#sheet-stats-content'))['DEX total'], '14');
+  assert.equal((await totals('#sheet-stats-content'))['DEX'], '14');
   assert.equal((await totals('#sheet-stats-content'))['Maximum HP total'], '33');
   await evaluate(`document.querySelector('#sheet-effects-content [data-effect-preset]').click(); document.querySelector('#sheet-effects-content [data-effect-form] [name="label"]').value = '<img src=x onerror=alert(1)>'; document.querySelector('#sheet-effects-content [data-effect-form]').requestSubmit()`);
   await wait(`document.querySelector('#sheet-effects-content').textContent.includes('<img src=x onerror=alert(1)>')`);

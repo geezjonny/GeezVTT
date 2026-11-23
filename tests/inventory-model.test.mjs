@@ -58,6 +58,22 @@ test('bag add increases quantity, transfer preserves metadata and rejects invali
   assert.equal(entities.b.data.inventory['new-key'], undefined);
 });
 
+test('transferring a quantity preserves metadata and leaves the remainder in the source bag', () => {
+  const entities = world();
+  entities.a.data.inventory.weapon = { name: 'Sword', qty: 5, notes: 'Engraved', modifiers: { ac: 1 } };
+  for (const qty of [0, -1, 1.5, 6, NaN, '2']) {
+    const before = structuredClone(entities);
+    assert.throws(() => changeInventory(entities, 'a', { type: 'transfer', key: 'weapon', to: 'b', targetKey: 'gift', qty }), /quantity/);
+    assert.deepEqual(entities, before);
+  }
+  changeInventory(entities, 'a', { type: 'transfer', key: 'weapon', to: 'b', targetKey: 'gift', qty: 2 });
+  assert.equal(entities.a.data.inventory.weapon.qty, 3);
+  assert.deepEqual(entities.b.data.inventory.gift, { name: 'Sword', qty: 2, notes: 'Engraved', modifiers: { ac: 1 } });
+  changeInventory(entities, 'a', { type: 'transfer', key: 'weapon', to: 'b', targetKey: 'rest', qty: 3 });
+  assert.equal(entities.a.data.inventory.weapon, undefined);
+  assert.equal(entities.b.data.inventory.rest.qty, 3);
+});
+
 test('editing items preserves extra metadata and protects equipped names and slots', () => {
   const entities = world();
   entities.a.data.inventory.weapon.notes = 'Engraved';

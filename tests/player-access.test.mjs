@@ -5,7 +5,18 @@ globalThis.location = { search: '' };
 globalThis.window = new EventTarget();
 window.GEEZ_FIREBASE_CONFIG = { databaseURL: 'https://example.test' };
 const { setPlayerIdentity, canControlPC } = await import('../js/session-role.js');
-const { readPC, updatePCSpellSlot, updatePCInventory, updatePCCombat, updatePCEffects, castPCSpell } = await import('../js/pc-inventory.js');
+const { readPC, addPCInventoryItem, updatePCSpellSlot, updatePCInventory, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell } = await import('../js/pc-inventory.js');
+
+test('players cannot add or edit items even in their own inventory', async () => {
+  setPlayerIdentity({ campaign: 'daddies', character: 'Seris', pcId: 'seris' });
+  const original = globalThis.fetch;
+  globalThis.fetch = () => { assert.fail('Blocked inventory actions must not make requests.'); };
+  try {
+    const token = { npcId: 'v2:seris' };
+    for (const type of ['add', 'edit']) await assert.rejects(updatePCInventory(token, { type, key: 'item' }), /Only the GM/);
+    await assert.rejects(addPCInventoryItem(token, { name: 'Torch' }, 1, 'key'), /Only the GM/);
+  } finally { globalThis.fetch = original; }
+});
 
 test('players can read another PC while every sheet mutation remains owner-only', async () => {
   const original = globalThis.fetch;
@@ -22,8 +33,20 @@ test('players can read another PC while every sheet mutation remains owner-only'
     await assert.rejects(updatePCInventory({ npcId: 'v2:liora' }, { type: 'remove', key: 'item' }), /Sign in/);
     await assert.rejects(updatePCCombat({ npcId: 'v2:liora' }, { type: 'set', field: 'hp_current', value: 1 }), /Sign in/);
     await assert.rejects(updatePCEffects({ npcId: 'v2:liora' }, { type: 'activate', id: 'effects:bark' }), /Sign in/);
+    await assert.rejects(updatePCFeat({ npcId: 'v2:liora' }, { type: 'use', id: 'abilities:wind' }), /Sign in/);
     await assert.rejects(castPCSpell({ npcId: 'v2:liora' }, 'spell', 1, {}), /Sign in/);
     assert.equal(requests, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+test('players cannot change base AC, speed, maximum HP or AC calculation', async () => {
+  setPlayerIdentity({ campaign: 'daddies', character: 'Seris', pcId: 'seris' });
+  const original = globalThis.fetch;
+  globalThis.fetch = () => { assert.fail('Blocked stat changes must not make requests.'); };
+  try {
+    const token = { npcId: 'v2:seris' };
+    for (const field of ['ac', 'speed', 'hp_max']) await assert.rejects(updatePCCombat(token, { type: 'set', field, value: 30 }), /Only the GM/);
+    await assert.rejects(updatePCCombat(token, { type: 'ac-mode', value: 'unarmored' }), /Only the GM/);
   } finally { globalThis.fetch = original; }
 });
 

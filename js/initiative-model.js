@@ -1,3 +1,5 @@
+import { equippedName } from './inventory-model.js';
+
 export function initiativeState(value, tokens) {
   const ids = new Set();
   const entries = (Array.isArray(value?.entries) ? value.entries : []).filter(entry => {
@@ -58,4 +60,23 @@ export function takeTurnAction(map, tokenId, turnId, command) {
 // shortcut: Extra Attack grants two attacks here; extend for higher-level Fighter and other attack-count features when needed.
 export function attacksPerTurn(map, token) {
   return (token?.turnFeatures?.extraAttack ? 2 : 1) + (map?.initiative?.turn?.firstTurn && token?.turnFeatures?.dreadAmbusher ? 1 : 0);
+}
+
+// shortcut: ordinary 2014 equipment interactions; add feat-specific exceptions when those features are supported.
+export function equipmentTurnCost(map, tokenId, pc, action) {
+  const turn = map.initiative?.turn;
+  if (!turn || map.initiative.currentId !== tokenId || turn.tokenId !== tokenId) throw new Error('Wait for your turn to change equipment.');
+  const current = equippedName(pc, action.slot);
+  const next = action.key ? pc.inventory?.[action.key]?.name : '';
+  if (current === next) return { item: false, action: false };
+  if (action.slot === 'armor') throw new Error('Donning or doffing armor takes longer than one turn.');
+  const interactions = Number(!!current) + Number(!!next);
+  if (action.slot === 'shield') {
+    if (turn.action || interactions > 1) throw new Error('Donning or doffing a shield requires an available action.');
+    return { item: false, action: true };
+  }
+  const free = !turn.item && interactions > 0;
+  const remaining = interactions - Number(free);
+  if (remaining > 1 || remaining && turn.action) throw new Error('Not enough object interactions or actions to change equipment.');
+  return { item: free, action: remaining > 0 };
 }

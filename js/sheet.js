@@ -5,6 +5,7 @@ import { mountSpells } from './sheet-spells.js';
 import { mountSpellSlots } from './sheet-slots.js';
 import { isGM, canControlPC } from './session-role.js';
 import { mountEffects } from './effects-editor.js';
+import { mountFeats } from './sheet-feats.js';
 import { decodeTree } from './firebase-codec.js';
 
 const $ = id => document.getElementById(id);
@@ -20,6 +21,7 @@ mountSpells($('sheet-content'), {
   onSaved: async saved => { pc = saved; draw(); }
 });
 mountEffects($('sheet-content'), () => id && pc ? { npcId: `v2:${id}` } : null, () => pc, $('sheet-status'), refresh);
+mountFeats($('sheet-content'), () => id && pc ? { npcId: `v2:${id}` } : null, () => pc, $('sheet-status'), saved => { pc = saved; draw(); });
 const inventoryAdder = mountInventoryTools($('sheet-content').parentElement, () => id && pc && section === 'Inventory' ? { npcId: `v2:${id}` } : null, async () => {
   const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
   const response = await fetch(`${base}/v2/worlds/gaia/entities.json`, { signal: AbortSignal.timeout(15000) });

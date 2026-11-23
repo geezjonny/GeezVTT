@@ -68,9 +68,12 @@ export function changeInventory(entities, sourceId, action, reference = {}) {
     if (target?.kind !== 'pc' || !target.data || target.data._sheetsDeleted) throw new Error('Recipient PC unavailable.');
     // Keyed objects preserve sparse array inventories and existing recipient items.
     if (typeof action.targetKey !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(action.targetKey)) throw new Error('Invalid transfer key.');
+    const available = Number(item.qty ?? 1), qty = action.qty ?? available;
+    if (!Number.isSafeInteger(available) || !Number.isSafeInteger(qty) || qty < 1 || qty > available) throw new Error('Transfer quantity must be a whole number within the available quantity.');
+    if (Object.hasOwn(target.data.inventory || {}, action.targetKey)) throw new Error('Recipient already has this item key.');
     target.data.inventory = { ...target.data.inventory };
-    if (Object.hasOwn(target.data.inventory, action.targetKey)) throw new Error('Recipient already has this item key.');
-    target.data.inventory[action.targetKey] = item;
+    target.data.inventory[action.targetKey] = { ...item, qty };
+    if (qty < available) { item.qty = available - qty; return; }
   }
   delete pc.inventory[action.key];
 }

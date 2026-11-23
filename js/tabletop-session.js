@@ -6,6 +6,8 @@ import { playerDestination, nearbyDoor } from './player-actions.js';
 import { watchTabletop } from './tabletop-stream.js';
 import { movementQueue } from './movement-queue.js';
 import { takeTurnAction } from './initiative-model.js';
+import { updatePCInventory } from './pc-inventory.js';
+import { loadSheetReference } from './sheet-view.js';
 import { livePatch } from './tabletop-live-model.js';
 
 const $ = id => document.getElementById(id);
@@ -17,6 +19,28 @@ let outgoing = Promise.resolve();
 let lastLive;
 const seen = new Set();
 const report = error => { status.textContent = `Sync failed: ${error.message}`; };
+async function equip(action, token) {
+  let error;
+  const map = floor.tabletopMap;
+  try {
+    if (floor.equipmentBusy) throw new Error('Another equipment change is saving. Try again.');
+    if (!floor.initiativeActive || action.turnId !== map.initiative?.turn?.id) throw new Error('Turn changed; reopen inventory.');
+    floor.equipmentBusy = true;
+    floor.dispatchEvent(new Event('map-changed'));
+    try {
+      const reference = await loadSheetReference();
+      const change = { type: 'equip', slot: action.slot, key: action.key };
+      await updatePCInventory(token, change, reference, { map, turnId: action.turnId });
+    } finally {
+      floor.equipmentBusy = false;
+      floor.dispatchEvent(new Event('map-changed'));
+    }
+  } catch (failure) { error = failure.message; }
+  const result = { requestId: action.requestId, ...(error ? { error } : {}) };
+  if (action.client === client) floor.dispatchEvent(new CustomEvent('session-equipment-result', { detail: result }));
+  else await write('actions', { type: 'equipment-result', ...result, target: action.client,
+    client, sceneId: action.sceneId, actor: { character: 'GM' }, time: Date.now() }, 'POST');
+}
 async function write(path, data, method = 'PUT') {
   const response = await fetch(`${base}/${path}.json`, {
     method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), signal: AbortSignal.timeout(15000)
@@ -107,7 +131,7 @@ if (isGM) {
 floor.addEventListener('session-action', event => {
   if (!sceneId) { status.textContent = 'Waiting for a shared map'; return; }
   if (!isGM && !playerIdentity) { status.textContent = 'Sign in first.'; return; }
-  if (!isGM && ['move', 'door', 'chest', 'turn'].includes(event.detail.type) &&
+  if (!isGM && ['move', 'door', 'chest', 'turn', 'equip'].includes(event.detail.type) &&
       !canControlPC(floor.tabletopMap?.tokens.find(token => token.id === event.detail.tokenId))) return;
   const action = { ...event.detail, client, sceneId, floorIndex: floor.activeFloorIndex, actor: isGM ? { character: 'GM' } : playerIdentity, time: Date.now() };
   if (action.type === 'move' && !floor.initiativeActive) sendMovement(action);
@@ -126,7 +150,11 @@ listen('actions', actions => {
     if (isGM) setTimeout(() => write(`actions/${id}`, null, 'DELETE').catch(report), 5000);
     if (!validPlayer(action.actor) && action.actor?.character !== 'GM') continue;
     if (!isGM && action.actor.character !== 'GM' && action.actor.campaign !== playerIdentity?.campaign) continue;
-    if (['ping', 'measure', 'move', 'door', 'chest', 'turn'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
+    if (action.type === 'equipment-result' && action.actor.character === 'GM' && action.target === client) {
+      floor.dispatchEvent(new CustomEvent('session-equipment-result', { detail: action }));
+      continue;
+    }
+    if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
     const by = action.actor.character;
     if (action.type === 'ping' && Number.isFinite(action.x) && Number.isFinite(action.y)) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y, by, client: action.client } }));
@@ -139,10 +167,15 @@ listen('actions', actions => {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-dice', { detail: action.text }));
     } else if (isGM && floor.tabletopMap && floor.getAttribute('aria-busy') !== 'true') {
       const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && (token.kind === 'pc' || action.client === client));
-      if (['move', 'chest', 'door', 'turn'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
+      if (['move', 'chest', 'door', 'turn', 'equip'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
         write(`actions/${id}`, null, 'DELETE').catch(report);
         continue;
       }
+      if (action.type === 'equip') {
+        equip(action, token).catch(report);
+        continue;
+      }
+      if (floor.equipmentBusy && ['move', 'turn'].includes(action.type)) continue;
       if (floor.initiativeActive && ['move', 'turn'].includes(action.type) && action.turnId !== map.initiative?.turn?.id) continue;
       if (action.type === 'turn') {
         if (floor.initiativeActive && takeTurnAction(map, token?.id, action.turnId, action.command)) floor.dispatchEvent(new Event('map-changed'));

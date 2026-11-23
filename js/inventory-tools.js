@@ -85,16 +85,28 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
   }
   async function transfer(token, key) {
     try {
+      const pc = await readPC(token), item = pc.inventory?.[key];
+      if (!item || typeof item.name !== 'string') throw new Error('Item is no longer in this bag.');
+      const available = Number(item.qty ?? 1);
+      if (!Number.isSafeInteger(available) || available < 1) throw new Error('No items available to transfer.');
       const entities = await getPCs();
       const recipients = Object.entries(entities || {}).filter(([id, pc]) => `v2:${id}` !== token.npcId && pc?.kind === 'pc' && pc.data && !pc.data._sheetsDeleted);
       if (!recipients.length) { status.textContent = 'No other PCs available.'; return; }
       transferForm?.remove();
       transferForm = document.createElement('form');
       transferForm.className = 'sheet-inventory-add';
-      transferForm.innerHTML = '<label>Transfer to <select name="recipient" required></select></label><button type="submit">Transfer stack</button><button type="button">Cancel</button>';
+      transferForm.innerHTML = '<label>Transfer to <select name="recipient" required></select></label><label>Quantity<input name="qty" type="number" min="1" step="1" value="1" required></label><button type="submit">Transfer</button><button type="button">Cancel</button>';
+      const form = transferForm;
+      const quantity = form.elements.namedItem('qty');
+      quantity.max = available;
       const select = transferForm.elements.namedItem('recipient');
       select.replaceChildren(...recipients.map(([id, pc]) => new Option(pc.name || id, id)));
-      transferForm.addEventListener('submit', event => { event.preventDefault(); run(token, { type: 'transfer', key, to: select.value }); });
+      form.addEventListener('submit', event => {
+        event.preventDefault();
+        if (!form.reportValidity()) return;
+        if (getToken()?.npcId !== token.npcId) { status.textContent = 'Character changed; reopen the transfer.'; return; }
+        run(token, { type: 'transfer', key, to: select.value, qty: Number(quantity.value) });
+      });
       transferForm.querySelector('[type="button"]').addEventListener('click', () => transferForm.remove());
       controls.append(transferForm); select.focus();
     } catch (error) { status.textContent = error.message; }
@@ -108,14 +120,14 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
     showMapMenu(event.clientX ?? rect.right, event.clientY ?? rect.top, [
       ...(isGM ? [{ label: 'Edit item', action: () => editItem(token, key) }] : []),
       { label: 'Remove', action: () => run(token, { type: 'remove', key }) },
-      { label: 'Add', action: () => run(token, { type: 'add', key }) },
+      ...(isGM ? [{ label: 'Add', action: () => run(token, { type: 'add', key }) }] : []),
       { label: 'Transfer', action: () => transfer(token, key) }
     ], row);
   }
   container.addEventListener('contextmenu', event => {
     const row = event.target.closest('[data-bag-key]');
     if (row && container.contains(row)) menu(event, row);
-    else if (event.target.closest('[data-bag]')) {
+    else if (isGM && event.target.closest('[data-bag]')) {
       event.preventDefault(); event.stopPropagation();
       showMapMenu(event.clientX, event.clientY, [{ label: 'Add', action: () => add() }], event.target);
     }

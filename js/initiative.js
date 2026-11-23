@@ -11,22 +11,22 @@ function render() {
   if (map) map.initiative = state;
   const token = map?.tokens.find(token => token.id === state.currentId);
   const active = floor.initiativeActive && !!state.turn;
-  const allowed = active && token && canControlPC(token);
+  const allowed = active && token?.kind === 'pc' && canControlPC(token);
   const turn = state.turn || {};
   $('player-turn-panel').hidden = !allowed;
   $('combat-status').textContent = token ? `${token.name}: ${remainingMovement(map, token)} ft left${token.speed == null ? ' (SPD unavailable)' : ''}` : '';
   for (const button of $('combat-controls').querySelectorAll('[data-turn-command]')) {
     const command = button.dataset.turnCommand;
-    button.disabled = !allowed || state.turn?.[command] === true;
+    button.disabled = !allowed || floor.equipmentBusy || state.turn?.[command] === true;
     if (command === 'attack') {
       const total = attacksPerTurn(map, token);
       button.textContent = `Attack (${Math.max(0, total - (turn.attacksUsed || 0))}/${total})`;
       button.title = turn.firstTurn && token?.turnFeatures?.dreadAmbusher ? 'Extra attack: +1d8 damage on a hit' : 'Spend one attack';
-      button.disabled = !allowed || turn.action && !turn.attacking || (turn.attacksUsed || 0) >= total;
+      button.disabled = !allowed || floor.equipmentBusy || turn.action && !turn.attacking || (turn.attacksUsed || 0) >= total;
     }
     if (command === 'hunters-mark') {
       button.hidden = !token?.turnFeatures?.huntersMark;
-      button.disabled = !allowed || turn.bonus;
+      button.disabled = !allowed || floor.equipmentBusy || turn.bonus;
     }
     if (command !== 'end') button.setAttribute('aria-pressed', String(command === 'hunters-mark' ? turn.bonus === true : command === 'attack' ? turn.attacking === true : turn[command] === true));
   }
@@ -48,7 +48,11 @@ function render() {
     }
     list.append(tile);
   }
-  $('initiative-next').disabled = !isGM || !state.entries.length;
+  $('initiative-start').disabled = !isGM || !state.entries.length && !floor.initiativeActive || floor.equipmentBusy;
+  $('initiative-start').setAttribute('aria-pressed', String(!!floor.initiativeActive));
+  $('initiative-start').title = $('initiative-start').ariaLabel = floor.initiativeActive ? 'End Initiative' : 'Start Initiative';
+  $('initiative-start').textContent = floor.initiativeActive ? 'End' : 'Start';
+  $('initiative-next').disabled = !isGM || !active || floor.equipmentBusy;
   floor.dispatchEvent(new Event('turn-changed'));
 }
 function changed() {
@@ -57,7 +61,7 @@ function changed() {
 }
 floor.addEventListener('initiative-add', event => {
   const map = floor.tabletopMap;
-  if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
+  if (!isGM || !map || floor.equipmentBusy || floor.getAttribute('aria-busy') === 'true') return;
   const token = map.tokens.find(token => token.id === event.detail);
   if (!token) return;
   const state = initiativeState(map.initiative, map.tokens);
@@ -73,12 +77,12 @@ floor.addEventListener('initiative-add', event => {
 });
 floor.addEventListener('initiative-remove', event => {
   const map = floor.tabletopMap;
-  if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
+  if (!isGM || !map || floor.equipmentBusy || floor.getAttribute('aria-busy') === 'true') return;
   const state = initiativeState(map.initiative, map.tokens);
   const order = initiativeOrder(state);
   state.entries = state.entries.filter(entry => entry.id !== event.detail);
   if (order[0]?.id === event.detail) {
-    if (order[1]) startTurn(state, order[1].id);
+    if (order[1] && floor.initiativeActive) startTurn(state, order[1].id);
     else { state.currentId = null; delete state.turn; }
   }
   map.initiative = state;
@@ -86,7 +90,7 @@ floor.addEventListener('initiative-remove', event => {
 });
 $('initiative-next').addEventListener('click', () => {
   const map = floor.tabletopMap;
-  if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
+  if (!isGM || !map || !floor.initiativeActive || floor.equipmentBusy || floor.getAttribute('aria-busy') === 'true') return;
   const order = initiativeOrder(initiativeState(map.initiative, map.tokens));
   if (!order.length) return;
   startTurn(map.initiative, (order[1] || order[0]).id);
@@ -98,6 +102,7 @@ floor.addEventListener('map-changed', render);
 render();
 
 $('initiative-active').addEventListener('change', () => {
+  if (!isGM || floor.equipmentBusy) { $('initiative-active').checked = !!floor.initiativeActive; return; }
   floor.initiativeActive = $('initiative-active').checked;
   if (isGM && floor.initiativeActive && floor.tabletopMap) {
     delete floor.tabletopMap.initiative.turn;
@@ -105,6 +110,18 @@ $('initiative-active').addEventListener('change', () => {
     floor.tabletopMap.initiative.currentId = null;
   }
   changed();
+});
+$('initiative-start').addEventListener('click', () => {
+  if (!isGM || !floor.tabletopMap || floor.equipmentBusy || floor.getAttribute('aria-busy') === 'true') return;
+  if (!floor.initiativeActive && !floor.tabletopMap.initiative?.entries.length) return;
+  $('initiative-active').checked = !floor.initiativeActive;
+  $('initiative-active').dispatchEvent(new Event('change'));
+});
+$('combat-inventory').addEventListener('click', () => {
+  const token = floor.tabletopMap?.tokens.find(token => token.id === floor.tabletopMap.initiative?.currentId);
+  if (floor.initiativeActive && token?.kind === 'pc' && canControlPC(token)) {
+    floor.dispatchEvent(new CustomEvent('token-sheet', { detail: { id: token.id, section: 'Inventory' } }));
+  }
 });
 $('combat-controls').addEventListener('click', event => {
   const button = event.target.closest('[data-turn-command]');

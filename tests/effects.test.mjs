@@ -51,17 +51,21 @@ test('Bark Arm computes every final score and dependent roll without rewriting b
 
 test('sheet.html and right-click Stats render the same final values, separate from editable bases', () => {
   const pc = lark(); activate(pc);
-  for (const editable of [false, true]) {
-    const html = sheetHTML(pc, 'Stats', reference, true, editable);
-    for (const [label, value] of [['STR total', 12], ['DEX total', 7], ['CON total', 14], ['INT total', 12], ['WIS total', 12], ['CHA total', 18], ['SPD (ft)', 17]]) {
+  for (const [editable, gm] of [[false, false], [true, false], [true, true]]) {
+    const html = sheetHTML(pc, 'Stats', reference, true, editable, gm);
+    for (const [label, value] of [['STR', 12], ['DEX', 7], ['CON', 14], ['INT', 12], ['WIS', 12], ['CHA', 18], ['SPD (ft)', 17]]) {
       assert.ok(html.includes(`${label}</span><strong>${value}</strong>`), label);
     }
     assert.match(html, /AC(?: total)?<\/span><strong>16/);
     assert.match(html, /Bark Arm/);
-    if (editable) {
-      assert.match(html, /data-base-stat="dex"[^>]*value="14"/);
+    if (editable && gm) assert.match(html, /data-base-stat="dex"[^>]*value="14"/);
+    else assert.doesNotMatch(html, /data-base-stat/);
+    if (editable && gm) {
       assert.match(html, /Maximum HP total<\/span><strong>38/);
       assert.match(html, /data-combat-field="speed"[^>]*value="35"/);
+    } else if (editable) {
+      assert.match(html, /value="25"> \/ 38/);
+      assert.doesNotMatch(html, /data-combat-field="(?:speed|ac|hp_max)"|data-ac-mode/);
     } else assert.match(html, /25 \/ 38/);
   }
   assert.match(sheetHTML(pc, 'Effects', reference, false, true, true), /1\/2 uses/);

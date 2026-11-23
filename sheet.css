@@ -5,10 +5,19 @@
 .sheet-content small { display: block; color: #c0ccda; }
 .sheet-row { display: flex; justify-content: space-between; gap: .5rem; padding: .2rem 0; }
 .sheet-row strong { text-align: right; }
+.sheet-abilities { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 .8rem; }
+.sheet-check-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem; }
+.sheet-skill-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sheet-check-grid .sheet-row { flex-direction: column; align-items: center; justify-content: center; gap: .1rem; height: 100%; box-sizing: border-box; text-align: center; padding: .3rem .15rem; }
+.sheet-check-grid .sheet-row span { min-width: 0; max-width: 100%; }
+.sheet-abilities .sheet-row, .sheet-check-grid .sheet-row { border: 1px solid #61758f; border-radius: .35rem; background: #293544; }
+.sheet-abilities { gap: .3rem; }
+.sheet-abilities .sheet-row { padding: .25rem; }
 .sheet-row input[type="number"] { width: 5rem; min-width: 0; }
 .sheet-exhaustion { display: flex; align-items: center; gap: .3rem; }
 .sheet-exhaustion label { flex: 1; }
 .sheet-roll { width: 100%; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.sheet-weapon { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: .4rem; padding: .2rem 0; }
 .sheet-slots { display: grid; gap: .25rem; margin-bottom: .5rem; }
 .sheet-pips { display: flex; flex-wrap: wrap; gap: .3rem; }
 .sheet-pip { width: 1.25rem; height: 1.25rem; padding: 0; border: 1px solid #a2cbff; border-radius: 50%; background: #a2cbff; cursor: pointer; }
