@@ -465,6 +465,21 @@ floor.addEventListener('token-update',event=>{
     remember(); Object.assign(token,props); render();
   } catch(error) { event.detail.error=error.message; }
 });
+floor.addEventListener('vtt-door-toggle',event=>{
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  const door=model.doors[event.detail];
+  if(!door || door.type==='window' || (!door.open && door.locked)) return;
+  cancelGesture(); remember(); door.open=!door.open; render();
+});
+floor.addEventListener('vtt-token-move',event=>{
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  const {id,x,y}=event.detail, token=model.tokens.find(item=>item.id===id);
+  if(!token || !Number.isFinite(x) || !Number.isFinite(y)) return;
+  const destination={x:Math.max(0,Math.min(model.width,x)),y:Math.max(0,Math.min(model.height,y))};
+  if(crossesWindow(token,destination,model.doors)) return;
+  if(token.x===destination.x && token.y===destination.y) return;
+  cancelGesture(); remember(); Object.assign(token,destination); render();
+});
 svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});
 svg.tabIndex=0;

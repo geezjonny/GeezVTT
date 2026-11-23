@@ -6,6 +6,19 @@ const fit = document.querySelector('#fit-3d');
 const help = document.querySelector('#view-help');
 let view, active = false;
 
+export function tabletopPoint(event) {
+  return active ? view?.tabletopPoint(event) : null;
+}
+export function screenPoint(point) {
+  return active ? view?.screenPoint(point) : null;
+}
+export function tabletopHit(event) {
+  return active ? view?.tabletopHit(event) : null;
+}
+export function previewToken(id, point) {
+  if (active) view?.previewToken(id, point);
+}
+
 function layers() {
   view?.setLayers({ grid: document.querySelector('#toggle-grid').checked });
 }

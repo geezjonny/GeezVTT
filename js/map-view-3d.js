@@ -69,6 +69,30 @@ export function createMapView3D(host) {
     }));
   });
   const invalidate = () => { dirty = true; };
+  function aim(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
+      -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
+  }
+  function tabletopPoint(event) {
+    aim(event);
+    const point = raycaster.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+    return point && { x: point.x, y: point.z };
+  }
+  function screenPoint(point) {
+    const p = new THREE.Vector3(point.x, .05, point.y).project(camera);
+    if (p.z < -1 || p.z > 1) return null;
+    const rect = renderer.domElement.getBoundingClientRect();
+    return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2 };
+  }
+  function tabletopHit(event) {
+    aim(event);
+    return raycaster.intersectObjects([...groups.tokens.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...fogGroup.children], true)[0]?.object.userData;
+  }
+  function previewToken(id, point) {
+    const mesh = groups.tokens.children.find(item => item.userData.tokenId === id);
+    if (mesh) { mesh.position.set(point.x, .03, point.y); invalidate(); }
+  }
   controls.addEventListener('change', invalidate);
 
   function disposeContents() {
@@ -360,5 +384,5 @@ export function createMapView3D(host) {
     renderer.forceContextLoss();
     renderer.domElement.remove();
   }
-  return { setMap, setEnvironment, setLayers, setActive, fit, destroy };
+  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken };
 }

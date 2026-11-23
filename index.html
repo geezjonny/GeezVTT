@@ -79,6 +79,14 @@
     .editor-titlebar h2 { margin: 0; font-size: inherit; }
     .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
+    #vtt-panel { top: auto; bottom: 2rem; }
+    #vtt-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
+    #vtt-controls button { display: grid; justify-items: center; gap: .2rem; padding: .3rem .1rem; font-size: .65rem; }
+    #vtt-controls svg { width: 20px; height: 20px; pointer-events: none; }
+    #vtt-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: hidden; }
+    #vtt-overlay line, #vtt-overlay circle { fill: none; stroke: #ffd86b; stroke-width: 3; }
+    #vtt-overlay text { fill: #ffd86b; stroke: #15191f; stroke-width: 4; paint-order: stroke; font-size: 14px; font-weight: 600; text-anchor: middle; }
+    #map-view[data-vtt-tool="measure"], #map-view[data-vtt-tool="ping"], #view-3d[data-vtt-tool="measure"], #view-3d[data-vtt-tool="ping"] { cursor: crosshair; }
     #walls-panel { left: 15rem; }
     #floors-panel { top: 11rem; left: 29rem; }
     #lights-panel { top: 11rem; left: 15rem; }
@@ -189,6 +197,7 @@
             <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
             <button id="fit-3d" type="button" hidden>Fit map</button>
             <button id="open-environment" type="button" aria-controls="environment-panel" disabled>Environment</button>
+            <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -204,6 +213,18 @@
       <button id="floor-up-control" type="button" aria-label="Floor up" title="Floor up; create a blank floor at the top">&#9650;</button>
       <span id="scene-state" role="status" aria-live="polite"></span>
     </header>
+    <section id="vtt-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="vtt-title">
+      <div class="editor-titlebar" tabindex="0" aria-label="Move VTT controls. Drag or use arrow keys.">
+        <h2 id="vtt-title">VTT Controls</h2>
+        <button id="vtt-collapse" class="editor-close" type="button" aria-label="Collapse VTT controls" aria-expanded="true" aria-controls="vtt-controls">&minus;</button>
+      </div>
+      <div id="vtt-controls" class="editor-body" role="group" aria-label="VTT tools">
+        <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg>Select</button>
+        <button type="button" data-vtt-tool="measure" aria-pressed="false" title="Drag to measure distance (5 feet per square)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21Zm10-10 3 3m-6 0 2 2m-5 1 3 3"/></svg>Measure</button>
+        <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg>Ping</button>
+        <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg>Roll</button>
+      </div>
+    </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
       <div id="editor-titlebar" class="editor-titlebar" tabindex="0" aria-label="Move tools window. Drag or use arrow keys.">
         <h2 id="editor-title">Tools — Walls</h2>
@@ -375,6 +396,7 @@
       <canvas id="weather-overlay" aria-hidden="true"></canvas>
       <p id="view-help" hidden>Middle-drag: pan · Scroll: zoom · Right-drag: orbit · Right-click token: edit · Touch: one finger orbit, two fingers pan/zoom</p>
       <div id="dice-overlay" aria-hidden="true"></div>
+      <svg id="vtt-overlay" aria-hidden="true"></svg>
     </section>
     <section id="dice-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="dice-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move dice window. Drag or use arrow keys.">
@@ -608,5 +630,6 @@
   <script type="module" src="js/tokens.js"></script>
   <script type="module" src="js/scenes.js"></script>
   <script type="module" src="js/environment.js"></script>
+  <script type="module" src="js/vtt-controls.js"></script>
 </body>
 </html>

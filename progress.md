@@ -229,3 +229,15 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise all light and portal appearance choices in both views, default restoration, right-click and keyboard menus, selection and movement, Undo/Redo, map/scene round trips across floors, retained lighting/fog and portal travel, and 3D grid visibility above images and painted floors at different zoom levels with the Grid toggle. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## VTT controls saved - 2026-11-23
+
+- Adds a compact floating VTT Controls menu using the standard editor-panel width, existing window dragging/snapping, and a collapse/expand button. View > VTT Controls brings it forward.
+- Select opens/closes unlocked doors and drags tokens directly in 2D and 3D without opening map editing tools. Token drags preview their positions, snap movement to whole squares, remain within map bounds, and preserve the existing window collision restriction. Door changes and completed token moves use editor history and scene persistence.
+- Measure snaps both endpoints to cell centers in both views. Adjacent horizontal or vertical cells measure exactly 5 ft; diagonals use straight-line distance. Measurements remain visible until the next interaction or Escape.
+- Ping briefly highlights a map location in either view. Roll opens the existing dice roller.
+- Map editing and fog brushes take input back from VTT tools. Selecting a VTT tool closes the map Tools window and turns the fog brush off. Cancelled gestures, map loads, and view changes clear temporary overlays and restore token previews.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise collapse/expand and window dragging/snapping; door toggles and locked doors; token dragging, cancellation, bounds, window collisions, Undo/Redo, and scene/map round trips; cell-center measurements and diagonals; ping and dice access in both views; and switching between VTT tools, editing, and fog brushes. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
