@@ -241,3 +241,12 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise collapse/expand and window dragging/snapping; door toggles and locked doors; token dragging, cancellation, bounds, window collisions, Undo/Redo, and scene/map round trips; cell-center measurements and diagonals; ping and dice access in both views; and switching between VTT tools, editing, and fog brushes. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## Dice and measurement cleanup saved - 2026-11-23
+
+- Measurements now disappear three seconds after releasing the measuring drag in either view. Active drags remain visible, and existing cancellation and tool/map/view changes still clear the overlay immediately. This supersedes the previous persistent-measurement behavior.
+- On-map dice and their result tags clear three seconds after the roll settles. Roll history remains available. Starting another roll, clearing the tray, or disabling animated dice cancels any pending cleanup timer so it cannot clear a later roll.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm measurement expiry in both views, active measurement drags lasting longer than three seconds, dice cleanup after settling, retained history, and timer handling when clearing, rerolling, or disabling animation. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.

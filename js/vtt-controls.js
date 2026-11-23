@@ -26,6 +26,7 @@ function project(p) {
 }
 function draw(now) {
   overlay.replaceChildren();
+  if (measurement?.expiresAt <= now) measurement = null;
   if (measurement) {
     const a = project(measurement.start), b = project(measurement.end);
     if (a && b) {
@@ -132,6 +133,7 @@ floor.addEventListener('pointerup', event => {
     floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: previous.token.id, ...previous.destination } }));
   } else {
     gesture = null;
+    if (measurement) measurement.expiresAt = performance.now() + 3000;
     if (previous.target.hasPointerCapture(event.pointerId)) previous.target.releasePointerCapture(event.pointerId);
   }
 }, true);

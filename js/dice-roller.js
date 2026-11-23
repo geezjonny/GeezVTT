@@ -8,7 +8,7 @@ const animated = document.querySelector('#dice-animated');
 const rollButton = document.querySelector('#roll-dice');
 const status = document.querySelector('#dice-status');
 const history = document.querySelector('#dice-history');
-let tray, busy = false, version = 0;
+let tray, busy = false, version = 0, clearTimer;
 
 function updateOptions() {
   mode.disabled = Number(sides.value) !== 20;
@@ -23,6 +23,7 @@ mode.addEventListener('change', updateOptions);
 updateOptions();
 
 function clearTray() {
+  clearTimeout(clearTimer);
   version++;
   tray?.clear();
 }
@@ -61,7 +62,10 @@ form.addEventListener('submit', async event => {
       const { createDiceTray3D } = await import('./dice3d.js');
       tray = await createDiceTray3D(document.querySelector('#dice-overlay'));
     }
-    if (token === version && animated.checked) await tray.throwGroup([roll]);
+    if (token === version && animated.checked) {
+      await tray.throwGroup([roll]);
+      if (token === version && animated.checked) clearTimer = setTimeout(clearTray, 3000);
+    }
   } catch (error) {
     console.warn('3D dice unavailable:', error);
     tray?.destroy();
