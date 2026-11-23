@@ -108,7 +108,6 @@ document.getElementById('vtt-new-scene').addEventListener('click', async () => {
     window.alert('Enter dimensions such as 20x20, with each side from 1 to 1000.'); return;
   }
   if(!await floor.loadMap({name:'Blank scene.dd2vtt'},{map:blankMap(width,height),newScene:true})) return;
-  if(document.getElementById('toggle-3d').getAttribute('aria-pressed')==='true') document.getElementById('toggle-3d').click();
   const grid=document.getElementById('toggle-grid'); grid.checked=true; grid.dispatchEvent(new Event('change'));
   document.querySelector('[data-vtt-tool="select"]').click();
 });

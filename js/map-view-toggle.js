@@ -71,6 +71,7 @@ floor.addEventListener('map-ready', () => {
     if (active) show(true);
   } catch (error) { fallback(error); }
 });
+floor.addEventListener('map-ready', () => toggle.click(), { once: true });
 floor.addEventListener('map-changed', () => {
   try {
     view?.setMap(floor.tabletopMap, false);

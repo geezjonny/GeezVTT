@@ -2,6 +2,14 @@
 
 Updated: 2026-11-23
 
+## Default 3D starting view — 2026-11-23
+
+- Opens 3D automatically when the first map loads, using the existing toggle and 2D fallback if 3D initialization fails.
+- New scenes preserve the selected view instead of forcing 2D. Manual switching remains available.
+- Verification: left to the user. No tests, browser checks, visual inspections, or validation commands were run.
+- Outstanding: user verification of initial 3D loading, manual switching, new scenes, and fallback behavior.
+- Unrelated existing workspace changes are excluded from this commit.
+
 ## Initiative five-tile layout and immediate miniature updates — 2026-11-23
 
 - Replaced Initiative name rows with exactly five square tiles: four turn slots and Next Turn. Turn tiles show the first letter of the name, or `token/<exact character name>.png` when that image loads. Missing pictures retain the letter. Empty turn slots remain visible, the current turn is highlighted, and full names appear on hover and in accessible labels.
