@@ -1,5 +1,5 @@
-import { MATERIALS, clone, segments, distance, inBox, bucketCells } from './map-editor-model.js';
-import { importedTokens, tokenProperties } from './token-model.js';
+import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
+import { importedTokens, tokenProperties, crossesWindow } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 
 const $ = id => document.getElementById(id);
@@ -35,7 +35,7 @@ function settings() {
     if(!Number.isFinite(range) || range<.25 || range>100 || !Number.isFinite(intensity) || intensity<0 || intensity>10) throw new Error('Use a light range of 0.25–100 and intensity of 0–10.');
     return {color:$('edit-color').value, range, intensity, opacity:1};
   }
-  return {material:materialInput().value, ...(layer()==='doors'?{open:$('edit-door').value==='open'}:{})};
+  return {material:materialInput().value, ...(layer()==='doors'?{type:$('edit-door-type').value,open:$('edit-door-type').value==='door' && $('edit-door').value==='open'}:{})};
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
@@ -57,10 +57,10 @@ function render(notify=true) {
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.opacity,class:'light-range'}));
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color,class:'light-source'}));
       } else {
-        el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.open?' open':''}`:''}`});
-        if(obj.material) el.style.stroke=MATERIALS[obj.material] || MATERIALS.stone;
+        el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
+        if(obj.material && obj.type!=='window') el.style.stroke=MATERIALS[obj.material] || MATERIALS.stone;
       }
-      const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':'Door'} · ${obj.material || 'imported'}${name==='doors'?obj.open?' · open':' · closed':''}`;
+      const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':obj.type==='window'?'Window':'Door'} · ${obj.material || 'imported'}${name==='doors' && obj.type!=='window'?obj.open?' · open':' · closed':''}`;
       el.append(title);
       if(name===layer() && selected.has(index)) {
         if(name==='lights' || name==='tokens') el.querySelector(name==='lights'?'.light-source':'circle').classList.add('edit-selected');
@@ -182,6 +182,10 @@ svg.addEventListener('pointermove',event=>{
         dx=Math.max(-Math.min(...pts.map(p=>p.x)),Math.min(model.width-Math.max(...pts.map(p=>p.x)),dx));
         dy=Math.max(-Math.min(...pts.map(p=>p.y)),Math.min(model.height-Math.max(...pts.map(p=>p.y)),dy));
       }
+      if(layer()==='tokens' && originals.some(token=>crossesWindow(token,{x:token.x+dx,y:token.y+dy},model.doors))) {
+        for(const i of selected) model.tokens[i]=clone(gesture.before.tokens[i]);
+        render(false); message('Windows block token movement.'); return;
+      }
       for(const i of selected) {
         const obj=clone(gesture.before[layer()][i]);
         if(pointLayer()) { obj.x+=dx; obj.y+=dy; } else obj.points=obj.points.map(p=>({x:p.x+dx,y:p.y+dy}));
@@ -204,7 +208,7 @@ svg.addEventListener('pointerup',event=>{
     if(selected.size===1) {
       const obj=model[layer()][[...selected][0]];
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
-      else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') $('edit-door').value=obj.open?'open':'closed'; }
+      else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') { $('edit-door-type').value=obj.type || 'door'; $('edit-door').value=obj.open?'open':'closed'; doorTypeChanged(); } }
     }
     render(false); message(`Selected ${selected.size} ${layer()}. Drag selected objects to move, or apply settings.`);
   } else attempt(()=>apply(indices,tool()));
@@ -228,6 +232,8 @@ svg.tabIndex=0;
 svg.setAttribute('role','group');
 svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
+function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
+$('edit-door-type').addEventListener('change',doorTypeChanged);
 const toolIcons={
   select:'M4 3 19 13l-7 1-3 7Z',
   erase:'m4 13 9-9a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-9 9H8l-4-4a2 2 0 0 1 0-3Zm5-5 8 8M11 20h10',
@@ -315,10 +321,13 @@ floor.addEventListener('map-ready',()=>{
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
   imported.environment=environmentSettings(saved?.environment,imported);
+  const sceneEnvironment=environmentSettings(floor.sceneDocument.environment || imported.environment,imported);
+  floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather};
+  Object.assign(imported.environment,floor.sceneDocument.environment);
   model={width:imported.width,height:imported.height,
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
-    doors:imported.doors.map((d,i)=>({...d,material:saved?.doorMaterials?.[i]})),
+    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
@@ -340,7 +349,7 @@ export function serializeMap() {
   const raw=clone(floor.sourceMap), origin=raw.resolution?.map_origin || {x:0,y:0};
   const offset=p=>({x:p.x+(Number.isFinite(origin.x)?origin.x:0),y:p.y+(Number.isFinite(origin.y)?origin.y:0)});
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
-  raw.portals=model.doors.map(d=>({...d.source,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
+  raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;

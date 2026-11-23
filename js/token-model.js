@@ -1,3 +1,11 @@
+import { crosses, distance, segments } from './map-editor-model.js';
+
+export function crossesWindow(token, destination, doors) {
+  return doors.filter(door => door.type === 'window').some(door => segments(door.points).some(([a, b]) =>
+    crosses(token, destination, a, b) || Math.min(distance(token, a, b), distance(destination, a, b),
+      distance(a, token, destination), distance(b, token, destination)) < token.size / 2));
+}
+
 export function tokenProperties(name, size, hp) {
   if (typeof name !== 'string' || !name.trim() || name.trim().length > 100) throw new Error('Enter a name of 1–100 characters.');
   if (!Number.isFinite(size) || size < .5 || size > 20 || !Number.isInteger(size * 2)) throw new Error('Size must be 0.5–20 grid squares, in half-square steps.');

@@ -29,6 +29,7 @@ $('open-environment').addEventListener('click', () => {
 });
 for (const field of ['time', 'weather']) $('environment-' + field).addEventListener('change', event => {
   floor.tabletopMap.environment[field] = event.target.value;
+  floor.sceneDocument.environment[field] = event.target.value;
   changed();
 });
 for (const covered of [true, false]) $(covered ? 'fog-cover' : 'fog-reveal').addEventListener('click', () => {

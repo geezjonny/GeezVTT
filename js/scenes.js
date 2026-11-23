@@ -130,7 +130,7 @@ save.addEventListener('click', () => {
   if (!name.value.trim()) { name.setCustomValidity('Enter a scene name.'); name.reportValidity(); name.focus(); return; }
   try {
     floor.captureFloor();
-    const scene = { format: 'geezvtt', version: 2, name: name.value.trim(), activeFloorIndex: floor.activeFloorIndex, floors: floor.sceneDocument.floors };
+    const scene = { format: 'geezvtt', version: 2, name: name.value.trim(), activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment, floors: floor.sceneDocument.floors };
     const url = URL.createObjectURL(new Blob([JSON.stringify(scene)], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;

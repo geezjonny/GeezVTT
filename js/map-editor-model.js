@@ -1,5 +1,8 @@
 export const MATERIALS = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
 export const clone = value => JSON.parse(JSON.stringify(value));
+export function portalType(portal) {
+  return ['door','window'].includes(portal?.geezvtt_type) ? portal.geezvtt_type : portal?.closed === false ? 'window' : 'door';
+}
 export function segments(points) { return points.slice(1).map((b, i) => [points[i], b]); }
 export function distance(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -22,12 +25,12 @@ export function inBox(object, a, b, layer) {
   const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
   return object.points.some(inside) || segments(object.points).some(([p,q]) => corners.some((c,i)=>crosses(p,q,c,corners[(i+1)%4])));
 }
-// Flood cell centers, with imported wall and closed-door segments as barriers.
+// Flood cell centers, with walls, windows, and closed doors as barriers.
 // Refuse oversized fills atomically, including maps without enclosing walls.
 export function bucketCells(model, seed, spacing, limit=2000, bounds={left:0,top:0,right:model.width,bottom:model.height}) {
   const cols=Math.ceil((bounds.right-bounds.left)/spacing), rows=Math.ceil((bounds.bottom-bounds.top)/spacing);
   const center=(x,y)=>({x:bounds.left+(x+.5)*spacing,y:bounds.top+(y+.5)*spacing});
-  const barriers=[...model.walls, ...model.doors.filter(d=>!d.open)].flatMap(o=>segments(o.points));
+  const barriers=[...model.walls, ...model.doors.filter(d=>d.type==='window' || !d.open)].flatMap(o=>segments(o.points));
   const start=[Math.floor((seed.x-bounds.left)/spacing),Math.floor((seed.y-bounds.top)/spacing)];
   const queue=[start], seen=new Set([start.join(',')]), result=[];
   for(let i=0;i<queue.length;i++) {

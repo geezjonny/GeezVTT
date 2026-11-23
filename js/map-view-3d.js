@@ -104,7 +104,7 @@ export function createMapView3D(host) {
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, 0.12), material);
-      mesh.castShadow = mesh.receiveShadow = true;
+      mesh.castShadow = mesh.receiveShadow = !material.transparent;
       mesh.position.set((a.x + b.x) / 2, 1, (a.y + b.y) / 2);
       mesh.rotation.y = -Math.atan2(dz, dx);
       if (open) {
@@ -164,7 +164,12 @@ export function createMapView3D(host) {
       groups.floors.add(mesh);
     }
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], '#a7aabb'), groups.walls));
-    model.doors.forEach(door => slabs(door.points, material(door.material, door.open ? '#75b89a' : '#b47c42'), groups.doors, door.open));
+    model.doors.forEach(door => {
+      const window = door.type === 'window';
+      const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
+        : material(door.material, door.open ? '#75b89a' : '#b47c42');
+      slabs(door.points, surface, groups.doors, !window && door.open);
+    });
     for (const token of model.tokens || []) {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 256;

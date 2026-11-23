@@ -25,7 +25,7 @@ export function fogRectangles(map) {
   const fog = map.environment.fog, cells = new Set(fog.cells), size = fogSize(map), rectangles = [];
   const lights = (map.lights || []).filter(light => Number.isFinite(light.x) && Number.isFinite(light.y) &&
     Number.isFinite(light.range) && light.range > 0 && (light.intensity ?? 1) > 0 && (light.opacity ?? 1) > 0);
-  const barriers = [...(map.walls || []), ...(map.doors || []).filter(door => !door.open).map(door => door.points)].flatMap(segments);
+  const barriers = [...(map.walls || []), ...(map.doors || []).filter(door => door.type !== 'window' && !door.open).map(door => door.points)].flatMap(segments);
   const lit = (x, y) => {
     const center = { x: Math.min((x + .5) * size, (x * size + map.width) / 2), y: Math.min((y + .5) * size, (y * size + map.height) / 2) };
     return lights.some(light => Math.hypot(center.x - light.x, center.y - light.y) <= light.range &&

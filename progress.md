@@ -179,3 +179,14 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise positive and negative floor numbering, blank-floor drawing, importing onto selected floors, switching with edits, rename/remove behavior, v1 migration, v2 save/open round trips with every floor's tokens and environment, and failure handling for invalid imports. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## Scene environment and windows saved - 2026-11-23
+
+- Weather and time of day now apply across every map in a scene, including added and replaced floor maps. Scene saves persist these shared settings; fog remains per map. Older scenes initialize shared weather and time from their selected map.
+- Adds Door and Window types under Edit > Doors, alongside the door's open/closed state. Unmarked open DD2VTT portals import as windows and closed portals as doors. Explicit portal types persist in map exports and scene saves so an opened door remains a door on reimport.
+- Windows use a distinct blue dashed appearance in 2D and transparent panes without opaque shadows in 3D. Windows transmit map light for fog reveal, block token dragging with token-size clearance, and enclose bucket fills.
+- Adds unrun regression coverage for portal classification, light transmission, bucket barriers, and token movement across windows and near endpoints. Automatic token vision is still not implemented.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify scene-wide environment settings when switching, adding, and replacing maps; scene and map export/reimport; Door/Window editing and history; window appearance and lighting in both views; and token movement near windows. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
