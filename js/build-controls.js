@@ -18,10 +18,10 @@ $('build-collapse').addEventListener('click',()=>{
   $('build-collapse').textContent=collapsed?'+':'\u2212';
 });
 function start(layer) {
-  if(!isGM || !floor.tabletopMap || $('map-view').hidden || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !floor.tabletopMap || floor.getAttribute('aria-busy')==='true') return;
   for(const settings of document.querySelectorAll('[data-swatch-layer]')) settings.hidden=true;
   floor.dispatchEvent(new CustomEvent('build-start',{detail:layer}));
-  $('map-view').focus({preventScroll:true});
+  ($('map-view').hidden ? $('view-3d').querySelector('canvas') : $('map-view'))?.focus({preventScroll:true});
 }
 for(const button of buttons) {
   const layer=button.dataset.buildLayer;
@@ -48,7 +48,7 @@ for(const button of buttons) {
 }
 $('vtt-tokens').addEventListener('click',()=>$('open-tokens').click());
 function state() {
-  const disabled=!floor.tabletopMap || $('map-view').hidden;
+  const disabled=!floor.tabletopMap;
   for(const button of buttons) {
     button.disabled=disabled;
     button.setAttribute('aria-pressed',String(floor.buildLayer===button.dataset.buildLayer));

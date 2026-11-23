@@ -1,7 +1,7 @@
 import { readPC, pcInventory, takeChestItem } from './pc-inventory.js';
 import { buildRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
-import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
+import { MATERIALS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { isGM } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
@@ -10,13 +10,15 @@ import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
-import { PROPS, importedProps, propProperties, propDistance, propAppearance } from './prop-model.js';
+import { PROPS, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
+import { tabletopPoint, previewPlacement } from './map-view-toggle.js';
 
 const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
 const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('edit-tool');
 const panel=$('editor-panel');
+const host=$('view-3d');
 const showHiddenPortals=()=>isGM || !panel.hidden && !$('portals-panel').hidden && layer()==='portals';
 const showHiddenProps=()=>isGM || !panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
@@ -160,7 +162,7 @@ function render(notify=true) {
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
 function updateTools() {
-  chain=[]; hover=null; gesture=null; preview.replaceChildren(); selected.clear();
+  chain=[]; hover=null; gesture=null; clearPreview(); selected.clear();
   $('editor-title').textContent=`Tools — ${layerInput.selectedOptions[0].textContent}`;
   document.querySelectorAll('[data-swatch-layer]').forEach(panel=>{
     panel.dataset.active=String(panel.dataset.swatchLayer===layer());
@@ -190,7 +192,8 @@ function hit(p) {
   return index;
 }
 function point(event,snap=false) {
-  const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  const p=svg.hidden?tabletopPoint(event):new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  if(!p) return null;
   if(!snap) return {x:p.x,y:p.y};
   if(['floors','portals','props'].includes(layer())) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
@@ -207,7 +210,27 @@ function point(event,snap=false) {
 }
 function contains(p) { return p.x>=-1e-7 && p.y>=-1e-7 && p.x<=model.width+1e-7 && p.y<=model.height+1e-7; }
 function drawPreview() {
-  preview.replaceChildren();
+  clearPreview();
+  if(svg.hidden) {
+    if(!floor.buildLayer || !hover) return;
+    const lines=[];
+    if(chain.length) lines.push([...chain,hover]);
+    if(layer()==='props') attempt(()=>{
+      const corners=propCorners({...hover,...settings()});
+      lines.push([...corners,corners[0]]);
+    });
+    else if(layer()==='floors') lines.push([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5],[-.5,-.5]].map(([x,y])=>({x:hover.x+x,y:hover.y+y})));
+    else {
+      const radius=layer()==='tokens'?settings().size/2:layer()==='portals'?.42:.12;
+      lines.push(Array.from({length:33},(_,i)=>({x:hover.x+Math.cos(i*Math.PI/16)*radius,y:hover.y+Math.sin(i*Math.PI/16)*radius})));
+      if(layer()==='portals') {
+        const first=pendingNode();
+        if(first?.index===floor.activeFloorIndex) lines.push([first.portal,hover]);
+      }
+    }
+    previewPlacement(lines);
+    return;
+  }
   if(layer()==='props' && tool()==='paint' && hover) {
     attempt(()=>{ const marker=propMarker({...hover,...settings()}); marker.setAttribute('opacity','.55'); preview.append(marker); });
   }
@@ -218,6 +241,10 @@ function drawPreview() {
   }
   if(chain.length) preview.append(node('polyline',{points:[...chain,...(hover?[hover]:[])].map(p=>`${p.x},${p.y}`).join(' '),fill:'none',stroke:'#fff','stroke-width':3,'stroke-dasharray':'6 4','vector-effect':'non-scaling-stroke'}));
   if(gesture?.box && hover) preview.append(node('rect',{x:Math.min(gesture.start.x,hover.x),y:Math.min(gesture.start.y,hover.y),width:Math.abs(hover.x-gesture.start.x),height:Math.abs(hover.y-gesture.start.y),fill:'#a2cbff','fill-opacity':.15,stroke:'#a2cbff','stroke-width':1,'vector-effect':'non-scaling-stroke'}));
+}
+function clearPreview() {
+  preview.replaceChildren();
+  previewPlacement();
 }
 function apply(indices,action) {
   if(!indices.length) { message('No objects found in the active layer.'); return; }
@@ -230,11 +257,15 @@ function apply(indices,action) {
   selected.clear(); render(); message(`${action==='erase'?'Erased':'Replaced'} ${indices.length} ${layer()}.`);
 }
 function addPoint(p,props) { return {x:p.x,y:p.y,...props,...(['tokens','props'].includes(layer())?{id:crypto.randomUUID()}:{})}; }
+function addSegment(points,props) {
+  model[layer()].push({points:clone(points),...props});
+  if(layer()==='doors') model.walls=cutDoorOpening(model.walls,points);
+}
 function placeChain() {
   if(chain.length<2) { message('Choose at least two distinct points, then press Enter.'); return; }
   const props=settings(); remember();
-  for(const pair of segments(chain)) model[layer()].push({points:clone(pair),...props});
-  chain=[]; hover=null; preview.replaceChildren(); render(); message('Placed segments. Click to begin another chain.');
+  for(const pair of segments(chain)) addSegment(pair,props);
+  chain=[]; hover=null; clearPreview(); render(); message('Placed segments. Click to begin another chain.');
 }
 function paint(p) {
   if(layer()==='portals') {
@@ -278,9 +309,31 @@ function bucket(p,room=false) {
   const fresh=cells.filter(c=>!model[layer()].some(o=>pointLayer()?Math.hypot(o.x-c.x,o.y-c.y)<.01:distance(c,o.points[0],o.points[1])<.01));
   if(!fresh.length) { message('This area is already filled.'); return; }
   remember();
-  for(const c of fresh) model[layer()].push(pointLayer()?addPoint(c,props):{points:[{x:Math.max(0,c.x-.5),y:c.y},{x:Math.min(model.width,c.x+.5),y:c.y}],...props});
+  for(const c of fresh) {
+    if(pointLayer()) model[layer()].push(addPoint(c,props));
+    else addSegment([{x:Math.max(0,c.x-.5),y:c.y},{x:Math.min(model.width,c.x+.5),y:c.y}],props);
+  }
   render(); message(`Filled area with ${fresh.length} ${layer()}.`);
 }
+host.addEventListener('pointermove',event=>{
+  if(!isGM || !model || !floor.buildLayer || host.hidden) return;
+  const raw=point(event);
+  hover=raw && (['floors','portals','props'].includes(layer()) || contains(raw))?point(event,true):null;
+  drawPreview();
+});
+host.addEventListener('pointerleave',()=>{ hover=null; clearPreview(); });
+host.addEventListener('pointercancel',cancelGesture);
+host.addEventListener('pointerdown',event=>{
+  if(!isGM || !model || !floor.buildLayer || host.hidden || event.button!==0 || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  const raw=point(event);
+  if(!raw || (!['floors','portals','props'].includes(layer()) && !contains(raw))) return;
+  event.preventDefault(); host.querySelector('canvas').focus({preventScroll:true});
+  attempt(()=>{
+    if(floor.buildLayer==='floors' && leftShift && event.shiftKey) bucket(raw,true);
+    else paint(point(event,true));
+  });
+  hover=point(event,true); drawPreview();
+});
 svg.addEventListener('pointerdown',event=>{
   if(!isGM) return;
   if(!model || (panel.hidden && !floor.buildLayer) || event.button!==0 || svg.hidden) return;
@@ -348,7 +401,7 @@ svg.addEventListener('pointerup',event=>{
 });
 function cancelGesture() {
   if(gesture?.before) { Object.assign(model,gesture.before); render(false); }
-  gesture=null; chain=[]; hover=null; preview.replaceChildren();
+  gesture=null; chain=[]; hover=null; clearPreview();
 }
 function addObjectLight(object) {
   const propId=model.props.includes(object)?object.id:null;
@@ -742,15 +795,18 @@ function stopBuild() {
 }
 floor.addEventListener('build-stop',stopBuild);
 floor.addEventListener('build-start',event=>{
-  if(!isGM || !model || svg.hidden || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   const name=event.detail;
-  if(!['walls','floors','lights','doors','portals','props'].includes(name)) return;
+  if(!['walls','floors','lights','doors','portals','props','tokens'].includes(name)) return;
   cancelGesture(); floor.buildLayer=name; panel.hidden=true; $('fog-tool').value='off';
   layerInput.value=name; toolInput.value='paint';
   if(name==='doors') { $('edit-door-type').value='door'; $('edit-door').value='closed'; doorTypeChanged(); }
   updateTools(); floor.dispatchEvent(new Event('build-state'));
 });
-for(const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click',stopBuild);
+for(const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click',()=>{
+  stopBuild();
+  if(svg.hidden && button.dataset.editLayer==='tokens') floor.dispatchEvent(new CustomEvent('build-start',{detail:'tokens'}));
+});
 $('fog-tool').addEventListener('change',()=>{if($('fog-tool').value!=='off') stopBuild();});
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
@@ -889,7 +945,7 @@ document.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey) && !event.altKey && ['z','y'].includes(event.key.toLowerCase())) {
     event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); return;
   }
-  if(!model || (panel.hidden && !floor.buildLayer) || svg.hidden || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
+  if(!model || (panel.hidden && !floor.buildLayer) || (svg.hidden && !floor.buildLayer) || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
   if(event.key==='Escape') { cancelGesture(); selected.clear(); render(false); }
   else if(event.key==='Enter' && tool()==='paint' && !pointLayer()) { event.preventDefault(); attempt(placeChain); }
   else if(event.key==='Backspace' && chain.length) { event.preventDefault(); chain.pop(); drawPreview(); }
@@ -897,7 +953,7 @@ document.addEventListener('keydown',event=>{
 });
 floor.addEventListener('map-ready',()=>{
   stopBuild(); closeMapMenu();
-  gesture=null; chain=[]; hover=null; preview.replaceChildren();
+  gesture=null; chain=[]; hover=null; clearPreview();
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
   imported.environment=environmentSettings(saved?.environment,imported);
@@ -914,18 +970,18 @@ floor.addEventListener('map-ready',()=>{
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
-  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled && !fieldset.closest('#tokens-panel'); });
   imported.initiative=initiativeState(saved?.initiative,model.tokens);
   updateTools(); render();
   $('edit-export').disabled=false;
-  if(controls.disabled) message('Switch to 2D view to edit. Your changes are visible in 3D.');
+  if(controls.disabled) message('Use Build controls to place objects in 3D.');
 });
 function viewState() {
   stopBuild(); closeMapMenu();
   const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
   cancelGesture(); controls.disabled=!model || on;
-  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
-  if(on) message('Switch to 2D view to edit. Your changes are visible in 3D.'); else if(model) updateTools();
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=!model || on && !fieldset.closest('#tokens-panel'); });
+  if(on) message('Use Build controls to place objects in 3D.'); else if(model) updateTools();
 }
 new MutationObserver(viewState).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});
 export function serializeMap() {

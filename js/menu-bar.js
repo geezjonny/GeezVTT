@@ -110,6 +110,11 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
   button.addEventListener('click', () => {
     const input = document.querySelector('#edit-layer');
     const swatches = document.querySelector(`#${button.dataset.editLayer}-panel`);
+    if (button.dataset.editLayer === 'tokens' && document.querySelector('#map-view').hidden) {
+      openPanel(swatches);
+      swatches.querySelector('select').focus();
+      return;
+    }
     openPanel(editor);
     openPanel(swatches);
     input.value = button.dataset.editLayer;
@@ -127,7 +132,7 @@ document.querySelector('#open-tools').addEventListener('click', () => {
 });
 function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
-  document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
+  document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = button.dataset.editLayer === 'tokens' ? !floor.tabletopMap : disabled; });
   document.querySelector('#open-tools').disabled = disabled;
   if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel', 'initiative-panel', 'scene-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
@@ -271,3 +276,55 @@ window.addEventListener('resize', () => {
     group.forEach(member => moved.add(member));
   });
 });
+
+const layoutKey = `geezvtt-window-layout-${isGM ? 'gm' : 'player'}`;
+try {
+  const layout = JSON.parse(localStorage.getItem(layoutKey) || '{}');
+  for (const panel of panels) {
+    const saved = layout?.[panel.id];
+    if (!saved || typeof saved !== 'object') continue;
+    for (const key of ['left', 'top', 'width', 'height']) {
+      if (Number.isFinite(saved[key]) && (key === 'left' || key === 'top' || saved[key] > 0)) {
+        panel.style[key] = saved[key] + 'px';
+      }
+    }
+    if (Number.isFinite(saved.left)) panel.style.right = 'auto';
+    if (Number.isFinite(saved.top)) panel.style.bottom = 'auto';
+    const collapse = panel.querySelector('.editor-close[aria-expanded]');
+    if (collapse && typeof saved.collapsed === 'boolean') {
+      document.getElementById(collapse.getAttribute('aria-controls')).hidden = saved.collapsed;
+      collapse.setAttribute('aria-expanded', String(!saved.collapsed));
+      collapse.setAttribute('aria-label', collapse.getAttribute('aria-label').replace(/^(Expand|Collapse)/, saved.collapsed ? 'Expand' : 'Collapse'));
+      collapse.textContent = saved.collapsed ? '+' : '\u2212';
+    }
+    if (!panel.hidden) positionPanel(panel, panel.offsetLeft, panel.offsetTop);
+  }
+} catch (error) { console.warn('Could not restore window layout.', error); }
+
+let layoutTimer;
+function saveLayout() {
+  clearTimeout(layoutTimer);
+  const layout = {};
+  for (const panel of panels) {
+    const saved = {};
+    for (const key of ['left', 'top', 'width', 'height']) {
+      const value = parseFloat(panel.style[key]);
+      if (Number.isFinite(value)) saved[key] = value;
+    }
+    const collapse = panel.querySelector('.editor-close[aria-expanded]');
+    if (collapse) saved.collapsed = collapse.getAttribute('aria-expanded') === 'false';
+    layout[panel.id] = saved;
+  }
+  try { localStorage.setItem(layoutKey, JSON.stringify(layout)); }
+  catch (error) { console.warn('Could not save window layout.', error); }
+}
+const layoutObserver = new MutationObserver(() => {
+  clearTimeout(layoutTimer);
+  layoutTimer = setTimeout(saveLayout, 150);
+});
+for (const panel of panels) {
+  layoutObserver.observe(panel, { attributes: true, attributeFilter: ['style'] });
+  const collapse = panel.querySelector('.editor-close[aria-expanded]');
+  if (collapse) layoutObserver.observe(collapse, { attributes: true, attributeFilter: ['aria-expanded'] });
+}
+window.addEventListener('pagehide', saveLayout);

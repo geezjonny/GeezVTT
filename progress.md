@@ -377,3 +377,16 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify narrow single-column layouts, tall resizing, scrolling, dice dropdown usability, title truncation, and collapse/expand behavior. Earlier verification items remain outstanding. Window sizes are still not persisted across reloads.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## 3D placement, remembered window layouts, and door openings saved - 2026-11-23
+
+- Enables Build Controls placement in 3D for walls, floors, doors, lights, portals, and props using the existing map model, snapping, room fills, and undo history. Adds flat floor placement indicators for prop footprints, floor tiles, points, and wall/door chains. Enter finishes chains and Escape cancels. Advanced editor selection remains in 2D.
+- Enables the Tokens button and character picker in 3D, entering token placement through the existing build input handling. Shows a floor circle matching the selected token size and retains character templates, snapping, undo, and synchronization.
+- Automatically remembers floating window positions, explicit resized dimensions, and VTT/Build collapsed states in localStorage, separately for GM and player views. Restores visible windows within the viewport; reopening hidden windows also clamps their positions. Layouts are local to the browser and are not part of map/scene files.
+- Drawing doors or windows now removes the collinear overlapping wall span, preserving the remaining wall segments and material. Applies to chained placement and bucket-created segments; door insertion and wall cuts share one undo step. Adds unrun regression cases for wall splitting, full removal, unrelated/crossing walls, reversed endpoints, diagonals, and zero-length openings.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: exercise 3D Build and token placement, previews, snapping, chained doors/walls, keyboard completion/cancellation, room fills, undo/redo, and shared synchronization; confirm token picker loading and template sizes; check window layout restoration after refresh, collapsed/resized states, GM/player separation, smaller viewports, and unavailable browser storage; verify door/window wall cuts in both views and saved/reloaded maps. Earlier verification items remain outstanding.
+
+Known limits: advanced selection tools remain in 2D; placement indicators are flat outlines rather than full object ghosts. Door openings cut only overlapping collinear walls, preserving crossing walls; deleting a door leaves its cut opening, while undo restores the original wall. Browser layout storage does not sync between devices and is lost when site data is cleared.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

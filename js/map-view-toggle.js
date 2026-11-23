@@ -23,6 +23,10 @@ export function previewObject(kind,id,index,point) {
   if(active) view?.previewObject(kind,id,index,point);
 }
 
+export function previewPlacement(lines = []) {
+  view?.previewPlacement(lines);
+}
+
 function layers() {
   view?.setLayers({ grid: document.querySelector('#toggle-grid').checked });
 }

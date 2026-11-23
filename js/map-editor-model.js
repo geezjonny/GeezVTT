@@ -6,6 +6,23 @@ export function portalType(portal) {
   return ['door','window'].includes(portal?.geezvtt_type) ? portal.geezvtt_type : portal?.closed === false ? 'window' : 'door';
 }
 export function segments(points) { return points.slice(1).map((b, i) => [points[i], b]); }
+export function cutDoorOpening(walls, [a,b]) {
+  const epsilon=1e-7;
+  return walls.flatMap(wall=>{
+    const [c,d]=wall.points, dx=d.x-c.x, dy=d.y-c.y, length=Math.hypot(dx,dy);
+    if(length<epsilon) return [wall];
+    // Only cut walls along the doorway; crossing walls at corners stay intact.
+    if([a,b].some(p=>Math.abs((p.x-c.x)*dy-(p.y-c.y)*dx)>epsilon*length)) return [wall];
+    const project=p=>((p.x-c.x)*dx+(p.y-c.y)*dy)/(length*length);
+    const start=Math.max(0,Math.min(project(a),project(b))), end=Math.min(1,Math.max(project(a),project(b)));
+    if((end-start)*length<epsilon) return [wall];
+    const at=t=>({x:c.x+dx*t,y:c.y+dy*t});
+    const pieces=[];
+    if(start*length>epsilon) pieces.push({...wall,points:[c,at(start)]});
+    if((1-end)*length>epsilon) pieces.push({...wall,points:[at(end),d]});
+    return pieces;
+  });
+}
 export function distance(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx+dy*dy || 1)));

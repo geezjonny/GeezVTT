@@ -1,6 +1,30 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { segments, distance, crosses, inBox, bucketCells } from '../js/map-editor-model.js';
+import { segments, cutDoorOpening, distance, crosses, inBox, bucketCells } from '../js/map-editor-model.js';
+
+test('door openings split overlapping walls while preserving material and unrelated walls',()=>{
+  const wall={points:[{x:0,y:0},{x:4,y:0}],material:'brick'};
+  const corner={points:[{x:2,y:0},{x:2,y:2}],material:'stone'};
+  const offset={points:[{x:0,y:.1},{x:4,y:.1}]};
+  const walls=[wall,corner,offset];
+  assert.deepEqual(cutDoorOpening(walls,[{x:3,y:0},{x:1,y:0}]),[
+    {...wall,points:[{x:0,y:0},{x:1,y:0}]},
+    {...wall,points:[{x:3,y:0},{x:4,y:0}]},corner,offset
+  ]);
+  assert.equal(wall.points[1].x,4);
+  assert.deepEqual(cutDoorOpening([wall],[{x:-1,y:0},{x:5,y:0}]),[]);
+  assert.deepEqual(cutDoorOpening([wall],[{x:4,y:0},{x:5,y:0}]),[wall]);
+  assert.deepEqual(cutDoorOpening([wall],[{x:2,y:0},{x:2,y:0}]),[wall]);
+});
+
+test('door openings handle diagonal and reversed walls without removing the remaining span',()=>{
+  const wall={points:[{x:4,y:4},{x:0,y:0}],material:'wood'};
+  const pieces=cutDoorOpening([wall],[{x:1,y:1},{x:3,y:3}]);
+  assert.equal(pieces.length,2);
+  assert.ok(Math.hypot(pieces[0].points[1].x-3,pieces[0].points[1].y-3)<1e-7);
+  assert.ok(Math.hypot(pieces[1].points[0].x-1,pieces[1].points[0].y-1)<1e-7);
+  assert.ok(pieces.every(piece=>piece.material==='wood'));
+});
 
 test('segment picking and crossing handle endpoints, degenerate and collinear edges',()=>{
   const a={x:0,y:0}, b={x:4,y:0};

@@ -43,6 +43,9 @@ export function createMapView3D(host) {
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
+  const placement = new THREE.Group();
+  const placementMaterial = new THREE.LineBasicMaterial({ color: '#d4a0ff', transparent: true, opacity: .85, depthTest: false, depthWrite: false });
+  scene.add(placement);
   const fogGroup = new THREE.Group();
   scene.add(fogGroup);
   const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10', transparent: isGM, opacity: isGM ? .55 : 1 });
@@ -76,6 +79,17 @@ export function createMapView3D(host) {
     }));
   });
   const invalidate = () => { dirty = true; };
+  function previewPlacement(lines = []) {
+    placement.children.forEach(line => line.geometry.dispose());
+    placement.clear();
+    for (const points of lines) {
+      const geometry = new THREE.BufferGeometry().setFromPoints(points.map(p => new THREE.Vector3(p.x, .05, p.y)));
+      const line = new THREE.Line(geometry, placementMaterial);
+      line.renderOrder = 10;
+      placement.add(line);
+    }
+    invalidate();
+  }
   function aim(event) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
@@ -425,6 +439,8 @@ export function createMapView3D(host) {
   }
   function destroy() {
     setActive(false);
+    previewPlacement();
+    placementMaterial.dispose();
     removeRightClick();
     observer.disconnect();
     controls.dispose();
@@ -437,5 +453,5 @@ export function createMapView3D(host) {
     renderer.forceContextLoss();
     renderer.domElement.remove();
   }
-  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject };
+  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, previewPlacement };
 }
