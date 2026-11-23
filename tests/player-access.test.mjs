@@ -5,22 +5,28 @@ globalThis.location = { search: '' };
 globalThis.window = new EventTarget();
 window.GEEZ_FIREBASE_CONFIG = { databaseURL: 'https://example.test' };
 const { setPlayerIdentity, canControlPC } = await import('../js/session-role.js');
-const { readPC, updatePCSpellSlot, updatePCInventory } = await import('../js/pc-inventory.js');
+const { readPC, updatePCSpellSlot, updatePCInventory, updatePCCombat, updatePCEffects, castPCSpell } = await import('../js/pc-inventory.js');
 
-test('players cannot read or change another PC through the sheet transport', async () => {
+test('players can read another PC while every sheet mutation remains owner-only', async () => {
   const original = globalThis.fetch;
   let requests = 0;
-  globalThis.fetch = async () => { requests++; throw new Error('Unexpected request'); };
+  globalThis.fetch = async url => {
+    requests++; assert.equal(url, 'https://example.test/v2/worlds/gaia/entities/liora.json');
+    return { ok: true, json: async () => ({ kind: 'pc', data: { name: 'Liora' } }) };
+  };
   try {
-    await assert.rejects(readPC({ npcId: 'v2:seris' }), /Sign in/);
     setPlayerIdentity({ campaign: 'daddies', character: 'Seris', pcId: 'seris' });
-    assert.equal(canControlPC({ npcId: 'v2:seris' }), true);
+    assert.equal((await readPC({ npcId: 'v2:liora' })).name, 'Liora');
     assert.equal(canControlPC({ npcId: 'v2:liora' }), false);
     await assert.rejects(updatePCSpellSlot({ npcId: 'v2:liora' }, 1, 0), /Sign in/);
     await assert.rejects(updatePCInventory({ npcId: 'v2:liora' }, { type: 'remove', key: 'item' }), /Sign in/);
-    assert.equal(requests, 0);
+    await assert.rejects(updatePCCombat({ npcId: 'v2:liora' }, { type: 'set', field: 'hp_current', value: 1 }), /Sign in/);
+    await assert.rejects(updatePCEffects({ npcId: 'v2:liora' }, { type: 'activate', id: 'effects:bark' }), /Sign in/);
+    await assert.rejects(castPCSpell({ npcId: 'v2:liora' }, 'spell', 1, {}), /Sign in/);
+    assert.equal(requests, 1);
   } finally { globalThis.fetch = original; }
 });
+
 test('the signed-in player can save their own spell pips in Gaia format', async () => {
   const original = globalThis.fetch;
   setPlayerIdentity({ campaign: 'daddies', character: 'Seris', pcId: 'seris' });

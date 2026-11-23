@@ -8,7 +8,9 @@ import { mountInventoryTools } from './inventory-tools.js';
 import { applyFirebaseEvent } from './firebase-events.js';
 import { sheetRolls } from './sheet-rolls.js';
 import { rollFromSheet } from './dice-roller.js';
+import { mountSpells } from './sheet-spells.js';
 import { mountSpellSlots } from './sheet-slots.js';
+import { mountEffects } from './effects-editor.js';
 import { readPC } from './pc-inventory.js';
 import { decodeTree, decodeEvent } from './firebase-codec.js';
 
@@ -25,13 +27,10 @@ function drawSheet(section) {
   const token = tokens().find(token => token.id === sheetTokens.get(section));
   if (!token) return;
   const entity = entities[pcId(token)];
-  if (!canControlPC(token)) {
-    $(`${sheetId(section)}-content`).replaceChildren();
-    return;
-  }
+  if (section === 'Inventory') inventoryTools.hidden = !canControlPC(token);
   $(`${sheetId(section)}-title`).textContent = `${entity?.name || token.name} · ${section}`;
   $(`${sheetId(section)}-content`).innerHTML = entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted
-    ? sheetHTML(entity.data, section, sheetReference, canControlPC(token), canControlPC(token)) : '<p>Linked PC unavailable.</p>';
+    ? sheetHTML(entity.data, section, sheetReference, canControlPC(token), canControlPC(token), isGM) : '<p>Linked PC unavailable.</p>';
 }
 for (const section of ['Stats', 'Weapons']) {
   $(`${sheetId(section)}-content`).addEventListener('click', event => {
@@ -48,8 +47,25 @@ mountSpellSlots($('sheet-stats-content'), () => tokens().find(token => token.id 
     const id = pcId(token);
     if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
   });
+mountSpellSlots($('sheet-spells-content'), () => tokens().find(token => token.id === sheetTokens.get('Spells')),
+  $('sheet-spells-status'), (pc, token) => {
+    const id = pcId(token);
+    if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
+  });
+mountSpells($('sheet-spells-content'), {
+  getToken: () => tokens().find(token => token.id === sheetTokens.get('Spells')),
+  getPC: () => entities[pcId(tokens().find(token => token.id === sheetTokens.get('Spells')))]?.data,
+  getReference: () => sheetReference, status: $('sheet-spells-status'), openGlossary: openPanel,
+  onSaved: (pc, token) => { const id = pcId(token); if (id && entities[id]) { entities[id].data = pc; applyPC(id); } },
+  onRoll: (roll, token) => rollFromSheet(token.name, roll)
+});
+mountEffects($('sheet-effects-content'), () => tokens().find(token => token.id === sheetTokens.get('Effects')),
+  () => entities[pcId(tokens().find(token => token.id === sheetTokens.get('Effects')))]?.data, $('sheet-effects-status'), (pc, token) => {
+    const id = pcId(token);
+    if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
+  });
 async function openSheet(token, section) {
-  if (!canControlPC(token)) return;
+  if (!pcId(token)) return;
   sheetTokens.set(section, token.id);
   const panel = $(`${sheetId(section)}-panel`);
   $(`${sheetId(section)}-status`).textContent = '';
@@ -58,6 +74,7 @@ async function openSheet(token, section) {
   panel.querySelector('.editor-titlebar').focus();
   try {
     sheetReference = await loadSheetReference();
+    for (const id of knownPCs) applyPC(id);
     drawSheet(section);
   } catch (error) {
     $(`${sheetId(section)}-status`).textContent = error.message;
@@ -75,7 +92,7 @@ const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcI
 window.addEventListener('player-signed-in', () => {
   for (const section of SHEET_SECTIONS) drawSheet(section);
 });
-mountInventoryTools($('sheet-inventory-content').parentElement,
+const inventoryTools = mountInventoryTools($('sheet-inventory-content').parentElement,
   () => tokens().find(token => token.id === sheetTokens.get('Inventory')), () => entities, async (token, pc) => {
     const id = pcId(token);
     if (id && entities[id]) { entities[id].data = pc ?? await readPC(token); applyPC(id); }
@@ -95,7 +112,7 @@ $('token-source').addEventListener('change', () => { template(); syncPCs(); });
 template();
 
 function applyPC(id) {
-  const character = entities[id]?.kind === 'pc' ? npcCatalog({ [id]: entities[id] })[0] : null;
+  const character = entities[id]?.kind === 'pc' ? npcCatalog({ [id]: entities[id] }, null, sheetReference)[0] : null;
   npcs = npcs.filter(npc => npc.npcId !== `v2:${id}`);
   if (character) npcs.push(character);
   const option = Array.from($('token-source').options).find(option => option.value === `v2:${id}`);
@@ -154,11 +171,12 @@ async function loadNPCs() {
   loading = true;
   status('');
   try {
+    try { sheetReference = await loadSheetReference(); } catch { /* Stored AC and custom item formulas remain available. */ }
     const results = await Promise.allSettled([read('v2/worlds/gaia/entities'), read('characters/npcs')]);
     if (results.every(result => result.status === 'rejected')) throw results[0].reason;
     if (results[0].status === 'fulfilled') entities = results[0].value || {};
     for (const [id, entity] of Object.entries(entities)) if (entity?.kind === 'pc') knownPCs.add(id);
-    npcs = npcCatalog(results[0].value, results[1].value);
+    npcs = npcCatalog(results[0].value, results[1].value, sheetReference);
     const previous = $('token-source').value;
     $('token-source').replaceChildren(new Option('Blank Token', ''), ...npcs.map(npc => new Option(npc.name, npc.npcId)));
     $('token-source').value = npcs.some(npc => npc.npcId === previous) ? previous : '';
@@ -185,7 +203,7 @@ function editToken(token) {
   $('token-name').focus();
 }
 function tokenMenu(token, x, y, origin) {
-  if (!isGM && (!pcId(token) || !canControlPC(token))) return;
+  if (!isGM && !pcId(token)) return;
   showMapMenu(x, y, [
     ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
     ...(isGM ? [
@@ -201,7 +219,7 @@ function tokenMenu(token, x, y, origin) {
 floor.addEventListener('token-sheet', event => {
   const token = tokens().find(token => token.id === event.detail?.id);
   const section = event.detail?.section;
-  if (token && pcId(token) && canControlPC(token) && SHEET_SECTIONS.includes(section)) openSheet(token, section);
+  if (token && pcId(token) && SHEET_SECTIONS.includes(section)) openSheet(token, section);
 });
 onMapRightClick(svg, event => {
   if (svg.hidden) return;
@@ -287,6 +305,7 @@ floor.addEventListener('map-ready', () => {
   editingId = null; properties.hidden = true;
   for (const section of SHEET_SECTIONS) $(`${sheetId(section)}-panel`).hidden = true;
   sheetTokens.clear();
+  $('spell-glossary-panel').hidden = true;
   loadNPCs();
 });
 floor.addEventListener('map-changed', () => {

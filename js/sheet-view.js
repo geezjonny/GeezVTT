@@ -1,9 +1,11 @@
 import { EQUIPMENT_SLOTS, COIN_TYPES, fitsEquipment, equippedName, itemEquipped } from './inventory-model.js';
 import { modifierText } from './item-modifiers.js';
-import { equippedAC } from './equipment-modifiers.js';
+import { characterStats, baseSpeed } from './equipment-modifiers.js';
+import { spellsHTML, spellSlotsHTML } from './spell-view.js';
 import { sheetRolls } from './sheet-rolls.js';
+import { effectsHTML } from './effects-view.js';
 import { CONDITIONS, conditionNames } from './sheet-combat.js';
-export const SHEET_SECTIONS = ['Stats', 'Weapons', 'Inventory', 'Feats', 'Spells'];
+export const SHEET_SECTIONS = ['Stats', 'Weapons', 'Inventory', 'Feats', 'Spells', 'Effects'];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const list = value => Object.values(value && typeof value === 'object' ? value : {});
 const text = value => Array.isArray(value) ? value.join('\n\n') : value;
@@ -22,8 +24,10 @@ export function loadSheetReference() {
   });
 }
 
-export function sheetHTML(pc, section, reference = {}, rollable = false, editableCombat = false) {
-  const combat = pc.combat || {}, casting = pc.spellcasting || {};
+export function sheetHTML(pc, section, reference = {}, rollable = false, editableCombat = false, gm = false) {
+  const combat = pc.combat || {};
+  const final = characterStats(pc, reference);
+  if (section === 'Effects') return effectsHTML(pc, editableCombat, reference, gm);
   const lookup = name => reference[String(name).toLowerCase()] || {};
   const rollRow = roll => {
     const unavailable = !roll.expression || (roll.bonus !== undefined && !Number.isFinite(roll.bonus));
@@ -35,18 +39,29 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
   if (section === 'Weapons') return sheetRolls(pc, reference).Weapons.map(rollRow).join('') || '<p>No weapon attacks recorded.</p>';
   if (section === 'Stats') {
     const edit = (label, field, value, max = 999999, min = 0) => `<label class="sheet-row"><span>${esc(label)}</span><input type="number" data-combat-field="${field}" aria-label="${esc(label)}" min="${min}" max="${max}" step="1" value="${esc(value ?? '')}"></label>`;
-    let html = row('HP', `${combat.hp_current ?? 0} / ${combat.hp_max ?? '—'}`)
+    let html = row('HP', `${combat.hp_current ?? 0} / ${final.hpMax ?? '—'}`)
       + row('Temporary HP', combat.temp_hp ?? 0)
-      + row('AC', equippedAC(pc))
+      + row('AC', final.ac)
       + row('Exhaustion', combat.exhaustion ?? pc.exhaustion ?? 0);
     if (editableCombat) {
       const exhaustion = Number(combat.exhaustion ?? pc.exhaustion ?? 0);
       html = edit('HP', 'hp_current', combat.hp_current ?? 0)
-        + edit('Maximum HP', 'hp_max', combat.hp_max, 999999, 1)
+        + edit('Maximum HP (base)', 'hp_max', combat.hp_max, 999999, 1) + row('Maximum HP total', final.hpMax)
         + edit('Temporary HP', 'temp_hp', combat.temp_hp ?? 0)
-        + edit('AC (base)', 'ac', combat.ac ?? combat.armor_class ?? pc.ac, 999) + row('AC total', equippedAC(pc))
+        + edit('AC (base)', 'ac', combat.ac ?? combat.armor_class ?? pc.ac, 999) + row('AC total', final.ac)
         + `<div class="sheet-exhaustion"><button type="button" data-exhaustion-delta="-1" aria-label="Decrease exhaustion"${exhaustion <= 0 ? ' disabled' : ''}>−</button>${edit('Exhaustion', 'exhaustion', exhaustion, 6)}<button type="button" data-exhaustion-delta="1" aria-label="Increase exhaustion"${exhaustion >= 6 ? ' disabled' : ''}>+</button></div>`;
     }
+    if (editableCombat) {
+      html += `<label class="sheet-equipment">AC calculation<select data-ac-mode>${['stored', 'unarmored', 'armor'].map(mode => `<option value="${mode}"${(combat.ac_mode || 'stored') === mode ? ' selected' : ''}>${{ stored: 'Stored AC + effects', unarmored: '10 + DEX + effects', armor: 'Equipped armor + DEX + effects' }[mode]}</option>`).join('')}</select></label>`;
+      html += edit('SPD base (ft)', 'speed', baseSpeed(pc), 1000);
+    }
+    html += row('SPD (ft)', final.speed);
+    html += heading('Ability scores');
+    for (const [key, label] of Object.entries({ str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' })) {
+      if (editableCombat) html += `<label class="sheet-row"><span>${label} base</span><input type="number" data-base-stat="${key}" aria-label="${label} base" min="0" max="999" step="1" value="${esc(final.base.stats[key])}"></label>`;
+      html += row(`${label} total`, final.stats[key]);
+    }
+    if (final.effects.length) html += row('Active effects', final.effects.map(effect => effect.label).join(', '));
     const conditions = conditionNames(combat.conditions);
     html += row('Conditions', conditions.join(', ') || 'None');
     if (editableCombat) {
@@ -57,13 +72,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
       if (label !== 'Weapons') html += heading(label) + rolls.map(rollRow).join('');
     }
     html += heading('Spell slots');
-    let slots = '';
-    for (let level = 1; level <= 9; level++) {
-      const max = Number(casting.slots?.[level]), used = Math.max(0, Math.min(max, Number(casting.slots_used?.[level]) || 0));
-      if (!Number.isSafeInteger(max) || max <= 0 || max > 100) continue;
-      slots += `<div class="sheet-slots"><span>Level ${level}: ${max - used}/${max}</span><span class="sheet-pips" role="group" aria-label="${max - used} of ${max} spell slots remaining">${Array.from({ length: max }, (_, i) => `<button type="button" class="sheet-pip${i < used ? ' used' : ''}" data-slot-level="${level}" data-slot-pip="${i}" aria-pressed="${i < used}" aria-label="${i < used ? 'Restore' : 'Spend'} level ${level} slot ${i + 1}"></button>`).join('')}</span></div>`;
-    }
-    html += slots || '<p>No spell slots.</p>';
+    html += spellSlotsHTML(pc, editableCombat);
     return html;
   }
   if (section === 'Inventory') {
@@ -73,14 +82,14 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
       const name = equippedName(pc, slot);
       const options = items.filter(([, item]) => Number(item.qty ?? 1) > 0 && fitsEquipment(slot, item, reference));
       const selected = options.find(([, item]) => item.name === name)?.[0];
-      html += `<label class="sheet-equipment">${esc(label)}<select data-equipment-slot="${slot}" data-current-key="${esc(selected ?? '')}"><option value="">Unequip</option>${name && selected === undefined ? `<option value="" selected disabled>${esc(name)}</option>` : ''}${options.map(([key, item]) => `<option value="${esc(key)}"${key === selected ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>`;
+      html += `<label class="sheet-equipment">${esc(label)}<select data-equipment-slot="${slot}" data-current-key="${esc(selected ?? '')}"${editableCombat ? '' : ' disabled'}><option value="">Unequip</option>${name && selected === undefined ? `<option value="" selected disabled>${esc(name)}</option>` : ''}${options.map(([key, item]) => `<option value="${esc(key)}"${key === selected ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>`;
       const equippedItem = items.find(([, item]) => item.name === name)?.[1];
       const description = equippedItem?.desc ?? lookup(name).desc;
       if (name && description) html += card(name, description, modifierText(equippedItem?.modifiers));
     }
     html += heading('Bag');
-    html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}" tabindex="0" aria-label="${esc(item.name)} bag actions"><button type="button" data-bag-menu aria-label="${esc(item.name)} actions">⋯</button>${card(`${item.name} ×${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc ?? lookup(item.name).desc,
-      [item.category, modifierText(item.modifiers), item.notes].filter(Boolean).join(' · '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
+    html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}"${editableCombat ? ' tabindex="0"' : ''} aria-label="${esc(item.name)}${editableCombat ? ' bag actions' : ''}">${editableCombat ? `<button type="button" data-bag-menu aria-label="${esc(item.name)} actions">\u22ef</button>` : ''}${card(`${item.name} \u00d7${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc ?? lookup(item.name).desc,
+      [item.category, modifierText(item.modifiers), item.notes].filter(Boolean).join(' \u00b7 '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
     html += heading('Coins');
     for (const [coin, label] of Object.entries(COIN_TYPES)) {
       const amount = pc.coin_purse?.[coin] ?? 0;
@@ -99,19 +108,6 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     if (pc.text_blocks?.proficiencies_languages) html += card('Proficiencies & languages', pc.text_blocks.proficiencies_languages);
     return html || '<p>No feats or features recorded.</p>';
   }
-  if (section === 'Spells') {
-    let html = row('Ability', casting.ability) + row('Save DC', casting.spell_save_dc) + row('Attack bonus', casting.spell_attack_bonus);
-    const spells = list(casting.spells).filter(spell => spell?.name);
-    for (const [label, cantrip] of [['Cantrips', true], ['Spells', false]]) {
-      html += heading(label);
-      html += spells.filter(spell => (spell.level === 0 || spell.prepared_type === 'cantrip') === cantrip).map(spell => {
-        const data = lookup(spell.name);
-        const meta = [cantrip ? 'Cantrip' : `Level ${spell.level ?? data.level ?? 1}`, spell.prepared_type,
-          data.casting_time, data.range, data.duration].filter(Boolean).join(' · ');
-        return card(spell.name, spell.desc || spell.description || data.desc || spell.notes, meta) + (spell.beginner_tip ? card('Tip', spell.beginner_tip) : '');
-      }).join('') || '<p>None recorded.</p>';
-    }
-    return html;
-  }
+  if (section === 'Spells') return spellsHTML(pc, reference, editableCombat);
   return '';
 }

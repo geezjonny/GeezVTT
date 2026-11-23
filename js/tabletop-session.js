@@ -5,6 +5,7 @@ import { sharedMapState, applySharedMap } from './map-editor.js';
 import { playerDestination, nearbyDoor } from './player-actions.js';
 import { watchTabletop } from './tabletop-stream.js';
 import { movementQueue } from './movement-queue.js';
+import { takeTurnAction } from './initiative-model.js';
 import { livePatch } from './tabletop-live-model.js';
 
 const $ = id => document.getElementById(id);
@@ -106,10 +107,10 @@ if (isGM) {
 floor.addEventListener('session-action', event => {
   if (!sceneId) { status.textContent = 'Waiting for a shared map'; return; }
   if (!isGM && !playerIdentity) { status.textContent = 'Sign in first.'; return; }
-  if (!isGM && ['move', 'door', 'chest'].includes(event.detail.type) &&
+  if (!isGM && ['move', 'door', 'chest', 'turn'].includes(event.detail.type) &&
       !canControlPC(floor.tabletopMap?.tokens.find(token => token.id === event.detail.tokenId))) return;
   const action = { ...event.detail, client, sceneId, floorIndex: floor.activeFloorIndex, actor: isGM ? { character: 'GM' } : playerIdentity, time: Date.now() };
-  if (action.type === 'move') sendMovement(action);
+  if (action.type === 'move' && !floor.initiativeActive) sendMovement(action);
   else outgoing = outgoing.then(() => write('actions', action, 'POST')).catch(report);
 });
 listen('actions', actions => {
@@ -125,7 +126,7 @@ listen('actions', actions => {
     if (isGM) setTimeout(() => write(`actions/${id}`, null, 'DELETE').catch(report), 5000);
     if (!validPlayer(action.actor) && action.actor?.character !== 'GM') continue;
     if (!isGM && action.actor.character !== 'GM' && action.actor.campaign !== playerIdentity?.campaign) continue;
-    if (['ping', 'measure', 'move', 'door', 'chest'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
+    if (['ping', 'measure', 'move', 'door', 'chest', 'turn'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
     const by = action.actor.character;
     if (action.type === 'ping' && Number.isFinite(action.x) && Number.isFinite(action.y)) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y, by, client: action.client } }));
@@ -137,13 +138,18 @@ listen('actions', actions => {
     } else if (action.type === 'dice' && typeof action.text === 'string' && action.text.length <= 500) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-dice', { detail: action.text }));
     } else if (isGM && floor.tabletopMap && floor.getAttribute('aria-busy') !== 'true') {
-      const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && token.kind === 'pc');
-      if (['move', 'chest', 'door'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
+      const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && (token.kind === 'pc' || action.client === client));
+      if (['move', 'chest', 'door', 'turn'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
         write(`actions/${id}`, null, 'DELETE').catch(report);
         continue;
       }
-      if (action.type === 'move') {
-        const next = playerDestination(map, token, action.dx, action.dy, floor.initiativeActive);
+      if (floor.initiativeActive && ['move', 'turn'].includes(action.type) && action.turnId !== map.initiative?.turn?.id) continue;
+      if (action.type === 'turn') {
+        if (floor.initiativeActive && takeTurnAction(map, token?.id, action.turnId, action.command)) floor.dispatchEvent(new Event('map-changed'));
+      } else if (action.type === 'move') {
+        const dx = Number.isFinite(action.x) && token ? action.x-token.x : action.dx;
+        const dy = Number.isFinite(action.y) && token ? action.y-token.y : action.dy;
+        const next = playerDestination(map, token, dx, dy, floor.initiativeActive);
         if (next) {
           floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next } }));
           if (timer && !sending) { clearTimeout(timer); flush(); }

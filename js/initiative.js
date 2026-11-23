@@ -1,13 +1,35 @@
-import { isGM } from './session-role.js';
+import { isGM, canControlPC } from './session-role.js';
 import { openPanel } from './menu-bar.js';
-import { initiativeState, initiativeOrder } from './initiative-model.js';
+import { initiativeState, initiativeOrder, startTurn, remainingMovement, attacksPerTurn } from './initiative-model.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), panel = $('initiative-panel'), list = $('initiative-list');
 function render() {
   const map = floor.tabletopMap;
   const state = initiativeState(map?.initiative, map?.tokens || []);
+  if (isGM && floor.initiativeActive && state.entries.length && !state.turn) startTurn(state, state.currentId || state.entries[0].id);
   if (map) map.initiative = state;
+  const token = map?.tokens.find(token => token.id === state.currentId);
+  const active = floor.initiativeActive && !!state.turn;
+  const allowed = active && token && canControlPC(token);
+  const turn = state.turn || {};
+  $('player-turn-panel').hidden = !allowed;
+  $('combat-status').textContent = token ? `${token.name}: ${remainingMovement(map, token)} ft left${token.speed == null ? ' (SPD unavailable)' : ''}` : '';
+  for (const button of $('combat-controls').querySelectorAll('[data-turn-command]')) {
+    const command = button.dataset.turnCommand;
+    button.disabled = !allowed || state.turn?.[command] === true;
+    if (command === 'attack') {
+      const total = attacksPerTurn(map, token);
+      button.textContent = `Attack (${Math.max(0, total - (turn.attacksUsed || 0))}/${total})`;
+      button.title = turn.firstTurn && token?.turnFeatures?.dreadAmbusher ? 'Extra attack: +1d8 damage on a hit' : 'Spend one attack';
+      button.disabled = !allowed || turn.action && !turn.attacking || (turn.attacksUsed || 0) >= total;
+    }
+    if (command === 'hunters-mark') {
+      button.hidden = !token?.turnFeatures?.huntersMark;
+      button.disabled = !allowed || turn.bonus;
+    }
+    if (command !== 'end') button.setAttribute('aria-pressed', String(command === 'hunters-mark' ? turn.bonus === true : command === 'attack' ? turn.attacking === true : turn[command] === true));
+  }
   list.replaceChildren();
   const order = initiativeOrder(state).slice(0, 4);
   for (let i = 0; i < 4; i++) {
@@ -26,7 +48,8 @@ function render() {
     }
     list.append(tile);
   }
-  $('initiative-next').disabled = !isGM || state.entries.length < 2;
+  $('initiative-next').disabled = !isGM || !state.entries.length;
+  floor.dispatchEvent(new Event('turn-changed'));
 }
 function changed() {
   render();
@@ -54,7 +77,10 @@ floor.addEventListener('initiative-remove', event => {
   const state = initiativeState(map.initiative, map.tokens);
   const order = initiativeOrder(state);
   state.entries = state.entries.filter(entry => entry.id !== event.detail);
-  if (order[0]?.id === event.detail) state.currentId = order[1]?.id ?? null;
+  if (order[0]?.id === event.detail) {
+    if (order[1]) startTurn(state, order[1].id);
+    else { state.currentId = null; delete state.turn; }
+  }
   map.initiative = state;
   changed();
 });
@@ -62,11 +88,33 @@ $('initiative-next').addEventListener('click', () => {
   const map = floor.tabletopMap;
   if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
   const order = initiativeOrder(initiativeState(map.initiative, map.tokens));
-  if (order.length < 2) return;
-  map.initiative.currentId = order[1].id;
+  if (!order.length) return;
+  startTurn(map.initiative, (order[1] || order[0]).id);
   changed();
 });
 $('open-initiative').addEventListener('click', () => openPanel(panel));
 floor.addEventListener('map-ready', render);
 floor.addEventListener('map-changed', render);
 render();
+
+$('initiative-active').addEventListener('change', () => {
+  floor.initiativeActive = $('initiative-active').checked;
+  if (isGM && floor.initiativeActive && floor.tabletopMap) {
+    delete floor.tabletopMap.initiative.turn;
+    delete floor.tabletopMap.initiative.completedIds;
+    floor.tabletopMap.initiative.currentId = null;
+  }
+  changed();
+});
+$('combat-controls').addEventListener('click', event => {
+  const button = event.target.closest('[data-turn-command]');
+  const state = floor.tabletopMap?.initiative;
+  const token = floor.tabletopMap?.tokens.find(token => token.id === state?.currentId);
+  if (!button || button.disabled || !state?.turn || !canControlPC(token)) return;
+  floor.dispatchEvent(new CustomEvent('session-action', { detail: {
+    type: 'turn', tokenId: token.id, turnId: state.turn.id, command: button.dataset.turnCommand
+  } }));
+  const section = { item: 'Inventory', attack: 'Weapons', 'hunters-mark': 'Spells' }[button.dataset.turnCommand];
+  if (section) floor.dispatchEvent(new CustomEvent('token-sheet', { detail: { id: token.id, section } }));
+});
+window.addEventListener('player-signed-in', render);

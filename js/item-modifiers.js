@@ -18,7 +18,14 @@ export function validateItemEdit(value, original) {
     }
   }
   if (!Number.isSafeInteger(modifiers.ac) || Math.abs(modifiers.ac) > 999) throw new Error('AC modifier must be a whole number from -999 to 999.');
-  return { name: value.name.trim(), category: value.category, qty: value.qty, desc: value.desc, modifiers };
+  const result = { name: value.name.trim(), category: value.category, qty: value.qty, desc: value.desc, modifiers };
+  if (value.armor_class !== undefined) {
+    const armor = value.armor_class;
+    if (armor !== null && (!Number.isSafeInteger(armor.base) || armor.base < 0 || armor.base > 999 || typeof armor.dex_bonus !== 'boolean' ||
+        armor.max_bonus != null && (!Number.isSafeInteger(armor.max_bonus) || armor.max_bonus < 0 || armor.max_bonus > 999))) throw new Error('Invalid armor calculation.');
+    result.armor_class = armor === null ? null : { base: armor.base, dex_bonus: armor.dex_bonus, ...(armor.max_bonus != null ? { max_bonus: armor.max_bonus } : {}) };
+  }
+  return result;
 }
 
 export function modifierText(modifiers = {}) {

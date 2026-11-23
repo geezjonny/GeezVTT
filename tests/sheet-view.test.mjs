@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spellInfo } from '../js/spell-model.js';
+import { spellGlossaryHTML } from '../js/spell-view.js';
 import { sheetHTML, SHEET_SECTIONS } from '../js/sheet-view.js';
 
 test('Stats reads sheet combat values and renders used and remaining spell pips', () => {
@@ -24,10 +26,14 @@ test('Feats includes sheet abilities, charges, origin feat and feature notes', (
   for (const expected of ['Second Wind', '0/2 charges', 'Heal.', 'Alert', 'Dwarf traits']) assert.ok(html.includes(expected));
 });
 
-test('Spells supports sparse Firebase lists and escapes reference text', () => {
-  const html = sheetHTML({ spellcasting: { spell_save_dc: 15, spells: { a: { name: 'Light', level: 0 }, b: null, c: { name: 'Bless', level: 1, beginner_tip: 'Help allies.' } } } }, 'Spells', { bless: { desc: ['<script>bad()</script>'], range: '30 feet' } });
-  for (const expected of ['15', 'Cantrip', 'Light', 'Bless', '30 feet', 'Help allies.', '&lt;script&gt;']) assert.ok(html.includes(expected));
-  assert.ok(!html.includes('<script>'));
+test('Spells lists cantrips and spells with glossary actions and escaped descriptions in the glossary', () => {
+  const pc = { spellcasting: { spell_save_dc: 15, spells: { a: { name: 'Light', level: 0 }, b: null, c: { name: 'Bless', level: 1, beginner_tip: 'Help allies.' } } } };
+  const reference = { bless: { desc: ['<script>bad()</script>'], range: '30 feet' } };
+  const html = sheetHTML(pc, 'Spells', reference);
+  for (const expected of ['15', 'Cantrips', 'Light', 'Bless', 'data-spell-glossary']) assert.ok(html.includes(expected));
+  const glossary = spellGlossaryHTML(spellInfo(pc, 'c', reference));
+  for (const expected of ['30 feet', '&lt;script&gt;']) assert.ok(glossary.includes(expected));
+  assert.ok(!glossary.includes('<script>'));
   for (const section of SHEET_SECTIONS) assert.ok(sheetHTML({}, section));
 });
 
@@ -46,7 +52,7 @@ test('Stats includes all referenced skills with expertise and explicit bonuses',
 test('Inventory renders slot-appropriate dropdowns, unequip, and keyed accessible bag menus', () => {
   const html = sheetHTML({ equipped: { main_hand: 'Rapier' }, inventory: {
     a: { name: 'Rapier', qty: 1 }, b: { name: 'Shield', qty: 1 }, c: { name: 'Torch', qty: 1 }
-  } }, 'Inventory', { rapier: { weapon_category: 'Martial' }, shield: { armor_category: 'Shield' } });
+  } }, 'Inventory', { rapier: { weapon_category: 'Martial' }, shield: { armor_category: 'Shield' } }, false, true);
   assert.match(html, /data-equipment-slot="main_hand"[\s\S]*?<option value="a" selected>Rapier/);
   assert.match(html, /data-equipment-slot="shield"[^<]*><option value="">Unequip<\/option><option value="b">Shield/);
   assert.doesNotMatch(html, /<option value="c">Torch/);

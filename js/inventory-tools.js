@@ -45,6 +45,9 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
         <details><summary>Skill modifiers</summary><div class="sheet-modifiers">${modifierFields('skills', ITEM_SKILLS)}</div></details>
         <label>Description<textarea name="desc" maxlength="20000" rows="4"></textarea></label>
         <button type="submit">Save item</button><button type="button">Cancel</button>`;
+      const armorFields = document.createElement('details');
+      armorFields.innerHTML = '<summary>Armor calculation</summary><label>Armor base AC (blank = reference)<input name="armorBase" type="number" min="0" max="999" step="1"></label><label><input name="armorDex" type="checkbox">Add DEX modifier</label><label>Maximum DEX bonus (blank = uncapped)<input name="armorCap" type="number" min="0" max="999" step="1"></label>';
+      form.insertBefore(armorFields, form.querySelector('[type="submit"]'));
       const field = name => form.elements.namedItem(name);
       field('name').value = item.name;
       const categories = [...new Set([...ITEM_CATEGORIES, item.category || ''])];
@@ -53,6 +56,9 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       field('qty').value = item.qty ?? 1;
       field('desc').value = Array.isArray(item.desc) ? item.desc.join('\n\n') : item.desc || '';
       field('ac').value = item.modifiers?.ac ?? 0;
+      field('armorBase').value = item.armor_class?.base ?? '';
+      field('armorDex').checked = item.armor_class?.dex_bonus ?? true;
+      field('armorCap').value = item.armor_class?.max_bonus ?? '';
       for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
         for (const key of keys) field(`${group}:${key}`).value = item.modifiers?.[group]?.[key] ?? 0;
       }
@@ -64,7 +70,9 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
         for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
           for (const key of keys) modifiers[group][key] = Number(field(`${group}:${key}`).value);
         }
-        const value = { name: field('name').value, category: field('category').value, qty: Number(field('qty').value), desc: field('desc').value, modifiers };
+        const value = { name: field('name').value, category: field('category').value, qty: Number(field('qty').value), desc: field('desc').value, modifiers,
+          armor_class: field('armorBase').value.trim() ? { base: Number(field('armorBase').value), dex_bonus: field('armorDex').checked,
+            ...(field('armorCap').value.trim() ? { max_bonus: Number(field('armorCap').value) } : {}) } : null };
         const buttons = [...form.querySelectorAll('button')];
         buttons.forEach(button => { button.disabled = true; });
         const saved = await run(token, { type: 'edit', key, value });
@@ -129,7 +137,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
   container.addEventListener('change', async event => {
     const select = event.target.closest('[data-equipment-slot]');
     const token = getToken();
-    if (select && token) {
+    if (select && token && canControlPC(token)) {
       select.disabled = true;
       const saved = await run(token, { type: 'equip', slot: select.dataset.equipmentSlot, key: select.value });
       if (!saved) select.value = select.dataset.currentKey;

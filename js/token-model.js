@@ -1,5 +1,6 @@
 import { crosses, distance, segments } from './map-editor-model.js';
-import { equippedAC } from './equipment-modifiers.js';
+import { applyModifiers } from './effects-model.js';
+import { characterStats } from './equipment-modifiers.js';
 
 export const TOKEN_ICONS = ['Generic', 'Fighter', 'Hunter', 'Druid', 'Wizard', 'Sorcerer', 'Bard', 'Monk', 'Rogue', 'Barbarian', 'Cleric', 'Paladin', 'Ranger', 'Warlock', 'Artificer', 'Lark', 'Liora', 'Ashara', 'Rurik', 'Seris'];
 export const TOKEN_SYMBOLS = { lark: '♬', liora: '➹', ashara: '☀', rurik: '🍺', seris: '⚔', fighter: '⚔', hunter: '➶', druid: '❧', wizard: '✦', sorcerer: 'ϟ', bard: '♫', monk: '☯', rogue: '†', barbarian: '⚒', cleric: '✚', paladin: '⛨', ranger: '➹', warlock: '☾', artificer: '⚙' };
@@ -28,6 +29,29 @@ function pcStats(hpMax, ac) {
     ac: Number.isSafeInteger(ac) && ac >= 0 && ac <= 999 ? ac : null };
 }
 
+export function tokenSpeed(value) {
+  const speed = typeof value === 'string' && value.trim() ? Number(value.trim().replace(/\s*(ft\.?|feet)\s*$/i, '')) : value;
+  return Number.isFinite(speed) && speed >= 0 && speed <= 1000 ? speed : null;
+}
+
+export function characterSpeed(data) {
+  return characterStats(data).speed;
+}
+
+export function characterTurnFeatures(data) {
+  const abilities = Object.entries(data.abilities || {});
+  const has = name => abilities.some(([key, ability]) => key === name || ability?.label?.toLowerCase() === name.replace(/_/g, ' '));
+  const features = { extraAttack: has('extra_attack'), dreadAmbusher: has('dread_ambusher'),
+    huntersMark: has('hunters_mark') || Object.values(data.spellcasting?.spells || {}).some(spell => spell?.name === "Hunter's Mark") };
+  return Object.values(features).some(Boolean) ? features : null;
+}
+
+function importedTurnFeatures(value) {
+  return value && typeof value === 'object' ? { extraAttack: value.extraAttack === true,
+    dreadAmbusher: value.dreadAmbusher === true, huntersMark: value.huntersMark === true,
+    ...(Number.isFinite(value.firstTurnSpeedBonus) && value.firstTurnSpeedBonus >= 0 && value.firstTurnSpeedBonus <= 1000 ? { firstTurnSpeedBonus: value.firstTurnSpeedBonus } : {}) } : null;
+}
+
 export function pcTokenStatus(token) {
   if (token.kind !== 'pc') return null;
   const fraction = token.hpMax > 0 ? Math.max(0, Math.min(1, token.hp / token.hpMax)) : 0;
@@ -35,7 +59,7 @@ export function pcTokenStatus(token) {
     label: `${token.hp}/${token.hpMax ?? '—'} · AC ${token.ac ?? '—'}` };
 }
 
-export function npcCatalog(entities, legacy) {
+export function npcCatalog(entities, legacy, reference = {}) {
   const npcs = [], mirrored = new Set();
   const add = (id, name, data, kind) => {
     if (!data || typeof data !== 'object') return;
@@ -43,10 +67,19 @@ export function npcCatalog(entities, legacy) {
     const rawSize = data.size ?? data.basic?.size;
     const size = sizes[String(rawSize).toLowerCase()] ?? Number(rawSize);
     const hp = Number(data.combat?.hp_current ?? data.combat?.hp_max ?? 0);
+    const final = characterStats(data, reference);
+    const speed = final.speed;
+    const turnFeatures = kind === 'pc' ? characterTurnFeatures(data) : null;
+    if (turnFeatures?.dreadAmbusher && final.base.speed !== null) {
+      const bonus = applyModifiers(final.base.speed + 10, 'speed', final.modifiers) - final.speed;
+      if (bonus !== 10) turnFeatures.firstTurnSpeedBonus = bonus;
+    }
     npcs.push({ npcId: id, name: (typeof name === 'string' && name.trim() ? name.trim() : id).slice(0, 100),
       size: Number.isFinite(size) && size >= .5 && size <= 20 && Number.isInteger(size * 2) ? size : 1,
+      ...(speed !== null ? { speed } : {}),
+      ...(turnFeatures ? { turnFeatures } : {}),
       hp: Number.isSafeInteger(hp) && hp >= 0 && hp <= 999999 ? hp : 0,
-      ...(kind === 'pc' ? pcStats(data.combat?.hp_max, equippedAC(data)) : {}) });
+      ...(kind === 'pc' ? pcStats(final.hpMax, final.ac) : {}) });
   };
   for (const [id, entity] of Object.entries(entities || {})) {
     if (!['npc', 'pc'].includes(entity?.kind)) continue;
@@ -70,7 +103,8 @@ export function importedTokens(value, width, height) {
       if (!Number.isFinite(token.x) || !Number.isFinite(token.y) || token.x < 0 || token.y < 0 || token.x > width || token.y > height) return [];
       const id = typeof token.id === 'string' && token.id.length > 0 && token.id.length <= 100 && !ids.has(token.id) ? token.id : crypto.randomUUID();
       ids.add(id);
-      return [{ id, ...props, x: token.x, y: token.y,
+      return [{ id, ...props, x: token.x, y: token.y, ...(tokenSpeed(token.speed) !== null ? { speed: tokenSpeed(token.speed) } : {}),
+        ...(importedTurnFeatures(token.turnFeatures) ? { turnFeatures: importedTurnFeatures(token.turnFeatures) } : {}),
         ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
         ...(Number.isFinite(token.rotation) ? { rotation: ((token.rotation % 360) + 360) % 360 } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),

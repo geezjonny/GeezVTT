@@ -6,6 +6,7 @@ import { isGM } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
+import { playerDestination } from './player-actions.js';
 import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
@@ -747,9 +748,9 @@ for(const element of [panel,$('portals-panel'),$('props-panel')]) new MutationOb
 }).observe(element,{attributes:true,attributeFilter:['hidden']});
 floor.addEventListener('map-changed',closeMapMenu);
 floor.addEventListener('token-sync',event=>{
-  const {npcId,name,size,hp,kind,hpMax,ac}=event.detail;
-  const props={name,size,hp,kind,hpMax,ac};
-  if(!model?.tokens.some(token=>token.npcId===npcId && Object.keys(props).some(key=>token[key]!==props[key]))) return;
+  const {npcId,name,size,hp,kind,hpMax,ac,speed,turnFeatures}=event.detail;
+  const props={name,size,hp,kind,hpMax,ac,speed,turnFeatures};
+  if(!model?.tokens.some(token=>token.npcId===npcId && Object.keys(props).some(key=>JSON.stringify(token[key])!==JSON.stringify(props[key])))) return;
   cancelGesture();
   for(const token of model.tokens) if(token.npcId===npcId) Object.assign(token,props);
   render();
@@ -793,10 +794,15 @@ floor.addEventListener('vtt-token-move',event=>{
   if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   const {id,x,y}=event.detail, token=model.tokens.find(item=>item.id===id);
   if(!token || !Number.isFinite(x) || !Number.isFinite(y)) return;
-  const destination={x:Math.max(0,Math.min(model.width,x)),y:Math.max(0,Math.min(model.height,y))};
-  if(crossesWindow(token,destination,model.doors)) return;
+  const destination=floor.initiativeActive
+    ? playerDestination(floor.tabletopMap,token,x-token.x,y-token.y,true)
+    : {x:Math.max(0,Math.min(model.width,x)),y:Math.max(0,Math.min(model.height,y))};
+  if(!destination) return;
+  if(!floor.initiativeActive && crossesWindow(token,destination,model.doors)) return;
   if(token.x===destination.x && token.y===destination.y) return;
-  cancelGesture(); remember(); Object.assign(token,destination); render();
+  cancelGesture(); remember();
+  if(floor.initiativeActive) floor.tabletopMap.initiative.turn.movementSpent+=destination.cost;
+  Object.assign(token,{x:destination.x,y:destination.y}); render();
 });
 svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});

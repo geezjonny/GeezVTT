@@ -3,6 +3,7 @@ import { isGM, canControlPC, playerIdentity, sessionClient } from './session-rol
 import { fogRectangles } from './environment-model.js';
 import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, firstPersonYaw } from './map-view-toggle.js';
 import { cameraStep } from './first-person-model.js';
+import { reachableCells } from './player-actions.js';
 import { pcTokenStatus } from './token-model.js';
 
 const $ = id => document.getElementById(id);
@@ -13,6 +14,24 @@ let tool = 'select', enabled = true, gesture, measurement, ping, frame;
 const remoteMeasurements = new Map(), remotePings = new Map();
 let lastMeasureSent = 0;
 let selectedToken;
+let movementCells = new Map(), movementToken, displayedTurn, moving = true;
+function updateMovement() {
+  const model = floor.tabletopMap;
+  const turnId = model?.initiative?.turn?.id;
+  if (displayedTurn !== turnId) { displayedTurn = turnId; moving = true; }
+  movementToken = floor.initiativeActive && model?.tokens.find(token => token.id === model.initiative?.currentId);
+  movementCells = moving && movementToken && canControlPC(movementToken) ? reachableCells(model, movementToken) : new Map();
+  if (movementCells.size && !isGM) {
+    const fog = fogRectangles(model);
+    for (const [key, cell] of movementCells) if (fog.some(rect => cell.x >= rect.x && cell.x < rect.x + rect.width && cell.y >= rect.y && cell.y < rect.y + rect.height)) movementCells.delete(key);
+  }
+  $('combat-move').disabled = !movementToken || !canControlPC(movementToken);
+  $('combat-move').setAttribute('aria-pressed', String(moving));
+  redraw();
+}
+$('combat-move').addEventListener('click', () => { moving = !moving; updateMovement(); });
+for (const type of ['turn-changed', 'environment-changed']) floor.addEventListener(type, updateMovement);
+window.addEventListener('player-signed-in', updateMovement);
 function currentCharacter() {
   const tokens = floor.tabletopMap?.tokens || [];
   return tokens.find(token => token.id === floor.selectedTokenId && (isGM || canControlPC(token))) ||
@@ -92,6 +111,12 @@ function project(p) {
 }
 function draw(now) {
   overlay.replaceChildren();
+  for (const cell of movementCells.values()) {
+    const corners = [[-.46,-.46],[.46,-.46],[.46,.46],[-.46,.46]].map(([x,y]) => project({ x: cell.x+x, y: cell.y+y }));
+    if (corners.every(Boolean)) svgNode('polygon', {
+      points: corners.map(p => `${p.x},${p.y}`).join(' '), fill: '#58bfff', 'fill-opacity': '.22', stroke: '#72ceff', 'stroke-width': '1'
+    });
+  }
   if (measurement?.expiresAt <= now) measurement = null;
   if (measurement && gesture && now - lastMeasureSent > 1000) shareMeasurement();
   for (const [client, value] of remoteMeasurements) if (value.expiresAt <= now) remoteMeasurements.delete(client);
@@ -118,7 +143,7 @@ function draw(now) {
       svgNode('text', { x: p.x, y: p.y - 18 }).textContent = value.by || (isGM ? 'GM' : playerIdentity?.character);
     }
   }
-  frame = measurement || ping || gesture || remoteMeasurements.size || remotePings.size ? requestAnimationFrame(draw) : null;
+  frame = movementCells.size || measurement || ping || gesture || remoteMeasurements.size || remotePings.size ? requestAnimationFrame(draw) : null;
 }
 function redraw() { if (!frame) frame = requestAnimationFrame(draw); }
 function clear() {
@@ -133,7 +158,7 @@ function clear() {
   if (previous?.token) previewToken(previous.token.id, previous.token);
   if (previous?.target.hasPointerCapture(previous.pointerId)) previous.target.releasePointerCapture(previous.pointerId);
   cancelAnimationFrame(frame); frame = null; overlay.replaceChildren();
-  if (remoteMeasurements.size || remotePings.size) redraw();
+  if (movementCells.size || remoteMeasurements.size || remotePings.size) redraw();
 }
 function shareMeasurement(finished = false) {
   if (!measurement || !finished && performance.now() - lastMeasureSent < 200) return;
@@ -186,6 +211,15 @@ floor.addEventListener('pointerdown', event => {
     sendAction({ type: 'ping', x: p.x, y: p.y }); return;
   }
   const token = tool === 'select' ? floor.tabletopMap.tokens.find(item => item.id === hit?.tokenId) : null;
+  if (tool === 'select' && floor.initiativeActive) {
+    const destination = movementToken && [...movementCells.values()].find(cell => Math.abs(cell.x-p.x) <= .5 && Math.abs(cell.y-p.y) <= .5);
+    if (destination && visible(destination) && (!token || token.id === movementToken.id)) {
+      sendAction({ type: 'move', tokenId: movementToken.id, turnId: floor.tabletopMap.initiative.turn.id,
+        x: destination.x, y: destination.y, dx: destination.x-movementToken.x, dy: destination.y-movementToken.y });
+    } else if (token) selectToken(token);
+    (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
+    return;
+  }
   if (!isGM && tool === 'select') {
     if (token || firstPersonYaw() === null) selectToken(token?.kind === 'pc' && visible(token) ? token : null);
     (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
@@ -264,7 +298,7 @@ document.addEventListener('keydown', event => {
   event.preventDefault();
   const token = floor.tabletopMap?.tokens.find(token => token.id === selectedToken && token.kind === 'pc');
   if (!token || !canControlPC(token)) return;
-  if (step && !floor.initiativeActive) sendAction({ type: 'move', tokenId: token.id, dx: step[0], dy: step[1] });
+  if (step) sendAction({ type: 'move', tokenId: token.id, turnId: floor.tabletopMap?.initiative?.turn?.id ?? null, dx: step[0], dy: step[1] });
   else if (!step && !event.repeat) sendAction({ type: 'door', tokenId: token.id });
 });
 floor.addEventListener('session-ping', event => {

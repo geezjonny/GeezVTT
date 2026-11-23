@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { BARK_ARM } from '../js/effects-model.js';
 import { decodeTree } from '../js/firebase-codec.js';
 
 globalThis.window = { GEEZ_FIREBASE_CONFIG: { databaseURL: 'https://example.test' } };
 globalThis.location = { search: '?gm=jonny' };
-const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat } = await import('../js/pc-inventory.js');
+const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat, updatePCEffects, castPCSpell } = await import('../js/pc-inventory.js');
 const token = { npcId: 'v2:pc1' };
 const item = { name: 'Torch', equipment_category: { name: 'Adventuring Gear' }, desc: ['Light.'], special: ['Burns.'] };
 
@@ -181,4 +182,65 @@ test('transfer saves both bags atomically with an ETag and retains unrelated ent
   };
   try { await updatePCInventory(token, { type: 'transfer', key: 'item', to: 'pc2' }); assert.equal(writes, 1); }
   finally { globalThis.fetch = original; }
+});
+
+
+test('effect activation saves uses, item consumption and active state in one conditional write', async () => {
+  const original = globalThis.fetch;
+  let conflict = false, writes = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(options.headers['If-Match'], 'effects-version');
+      const entity = decodeTree(JSON.parse(options.body));
+      assert.equal(entity.data.effects.bark.current, 1);
+      assert.equal(entity.data.inventory.potion.qty, 0);
+      assert.equal(entity.data.activeEffects['effects:bark'].remainingMinutes, 60);
+      assert.equal(entity.data.combat.hp_current, 25);
+      return { ok: !conflict, status: conflict ? 412 : 200 };
+    }
+    return { ok: true, headers: { get: () => 'effects-version' }, json: async () => ({ kind: 'pc', data: {
+      combat: { hp_current: 25 }, inventory: { potion: { name: 'Potion', qty: 1 } },
+      effects: { bark: { ...BARK_ARM, current: 2, consume: true, inventoryKey: 'potion' } }
+    } }) };
+  };
+  try {
+    await updatePCEffects(token, { type: 'activate', id: 'effects:bark' });
+    conflict = true;
+    await assert.rejects(updatePCEffects(token, { type: 'activate', id: 'effects:bark' }), /changed elsewhere/);
+    assert.equal(writes, 2);
+  } finally { globalThis.fetch = original; }
+});
+
+
+test('spell use spends one pip conditionally, preserves other sheet data and rejects exhausted slots', async () => {
+  const original = globalThis.fetch;
+  let writes = 0, used = 0, conflict = false;
+  globalThis.fetch = async (url, options = {}) => {
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(options.headers['If-Match'], 'cast-version');
+      const data = decodeTree(JSON.parse(options.body)).data;
+      assert.equal(data.spellcasting.slots_used[1], 1);
+      assert.equal(data.inventory.potion.qty, 2);
+      assert.equal(data.combat.hp_current, 25);
+      return { ok: !conflict, status: conflict ? 412 : 200 };
+    }
+    return { ok: true, headers: { get: () => 'cast-version' }, json: async () => ({ kind: 'pc', data: {
+      combat: { hp_current: 25 }, inventory: { potion: { name: 'Potion', qty: 2 } },
+      spellcasting: { spell_save_dc: 13, slots: { 1: 1 }, slots_used: { 1: used },
+        spells: { flame: { name: 'Custom flame', level: 1, damage: '1d6', save_stat: 'dex' } } }
+    } }) };
+  };
+  try {
+    const result = await castPCSpell(token, 'flame', 1, {});
+    assert.equal(result.pc.spellcasting.slots_used[1], 1);
+    assert.equal(result.cast.rolls[0].expression, '1d6');
+    assert.match(result.cast.message, /DC 13/);
+    conflict = true;
+    await assert.rejects(castPCSpell(token, 'flame', 1, {}), /changed elsewhere/);
+    used = 1;
+    await assert.rejects(castPCSpell(token, 'flame', 1, {}), /No spell slot/);
+    assert.equal(writes, 2);
+  } finally { globalThis.fetch = original; }
 });

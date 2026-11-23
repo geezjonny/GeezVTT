@@ -1,26 +1,36 @@
 import { changeInventory } from './inventory-model.js';
+import { useSpell } from './spell-model.js';
 import { changeSpellSlot } from './sheet-rolls.js';
+import { changeEffects } from './effects-model.js';
 import { changeCombat } from './sheet-combat.js';
 import { canControlPC } from './session-role.js';
 import { encodeTree, decodeTree } from './firebase-codec.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
-const entityPath=token=>{
-  if(!canControlPC(token)) throw new Error('Sign in as this PC to control it.');
+const entityPath=(token,control=true)=>{
+  if(control && !canControlPC(token)) throw new Error('Sign in as this PC to control it.');
   if(!token?.npcId?.startsWith('v2:')) throw new Error('Select a linked PC.');
   return `v2/worlds/gaia/entities/${encodeURIComponent(token.npcId.slice(3))}`;
 };
 export async function readPC(token) {
-  const response=await fetch(`${base}/${entityPath(token)}.json`,{signal:AbortSignal.timeout(15000)});
+  const response=await fetch(`${base}/${entityPath(token,false)}.json`,{signal:AbortSignal.timeout(15000)});
   if(!response.ok) throw new Error(`Firebase returned ${response.status}`);
   const entity=decodeTree(await response.json());
   if(entity?.kind!=='pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
   return entity.data;
+}
+export async function castPCSpell(token, key, level, reference) {
+  let cast;
+  const pc = await updatePCSheet(token, pc => { cast = useSpell(pc, key, level, reference); });
+  return { pc, cast };
 }
 export async function updatePCSpellSlot(token, level, pip) {
   return updatePCSheet(token, pc => changeSpellSlot(pc, level, pip));
 }
 export async function updatePCCombat(token, action) {
   return updatePCSheet(token, pc => changeCombat(pc, action));
+}
+export async function updatePCEffects(token, action) {
+  return updatePCSheet(token, pc => changeEffects(pc, action));
 }
 async function updatePCSheet(token, change) {
   const url = `${base}/${entityPath(token)}.json`;
@@ -70,6 +80,7 @@ export async function addPCInventoryItem(token, item, qty, key) {
   if (typeof key !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(key)) throw new Error('Invalid inventory key.');
   await readPC(token);
   const entry = { name: item.name, qty, category: item.equipment_category?.name || item.gear_category?.name || '',
+    ...(item.armor_class ? { armor_class: item.armor_class, armor_category: item.armor_category } : {}),
     desc: [...(item.desc || []), ...(item.special || [])].join('\n\n') };
   // A new stable key preserves existing bag items and makes a failed request safe to retry.
   const response = await fetch(`${base}/${entityPath(token)}/data/inventory/${key}.json`, {
