@@ -368,3 +368,12 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: advantage/disadvantage applies to one d20; d100 quantity is capped at six. Initiative is stored per map/floor. Remaining top-bar-only actions and fields are no longer exposed, including window reopening from View, scene/floor naming, floor selection, Save Scene As, floor removal, and the initiative-active switch; this was accepted by the user. Window sizes are not persisted across reloads.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Vertical control resizing saved - 2026-11-23
+
+- Lowers VTT, Build, and Scene Controls minimum width to 2.5rem so their existing responsive grids can form a single vertical column.
+- Lowers Dice Controls minimum width to 4rem and makes its icon grid responsive down to one column. Quantity and mode fields flex and shrink to fit narrow layouts.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify narrow single-column layouts, tall resizing, scrolling, dice dropdown usability, title truncation, and collapse/expand behavior. Earlier verification items remain outstanding. Window sizes are still not persisted across reloads.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

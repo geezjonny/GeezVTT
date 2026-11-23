@@ -61,9 +61,10 @@
     :is(button, select, input):focus-visible { outline: 2px solid #a2cbff; outline-offset: 3px; }
     #dice-panel { left: auto; right: 1rem; }
     #dice-form { display: flex; flex-wrap: wrap; align-items: end; gap: .4rem; }
-    #dice-form label { display: grid; gap: .15rem; }
+    #dice-form label { display: grid; gap: .15rem; flex: 1 1 4rem; min-width: 0; }
+    #dice-form select { width: 100%; min-width: 0; }
     #dice-form input[type="number"] { width: 3.5rem; }
-    #dice-icons { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; width: 100%; }
+    #dice-icons { display: grid; grid-template-columns: repeat(auto-fit, minmax(2.5rem, 1fr)); gap: .25rem; width: 100%; }
     #dice-icons button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; padding: .15rem; }
     #dice-icons svg { width: 28px; height: 28px; pointer-events: none; }
     #dice-icons text { fill: currentColor; stroke: none; font: bold 8px system-ui, sans-serif; text-anchor: middle; dominant-baseline: central; }
@@ -84,6 +85,8 @@
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
     .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
+    #vtt-panel, #build-panel, #scene-panel { min-width: 2.5rem; }
+    #dice-panel { min-width: 4rem; }
     .editor-panel:has(.editor-close[aria-expanded="false"]) { resize: none; height: auto !important; min-height: 0; }
     .editor-panel > .editor-titlebar { flex-shrink: 0; }
     .editor-panel > .editor-body { flex: 1; align-content: start; }
