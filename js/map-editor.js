@@ -85,6 +85,14 @@ function hit(p) {
 function point(event,snap=false) {
   const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
+  if(snap && layer()==='walls') {
+    const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
+    const x=round(p.x,model.width), y=round(p.y,model.height);
+    if(!event.shiftKey) return {x,y};
+    const horizontal={x:round(p.x,model.width,.5),y};
+    const vertical={x,y:round(p.y,model.height,.5)};
+    return Math.hypot(p.x-horizontal.x,p.y-horizontal.y)<=Math.hypot(p.x-vertical.x,p.y-vertical.y)?horizontal:vertical;
+  }
   return {x:clamp(snap && $('edit-snap').checked?Math.round(p.x):p.x,model.width),y:clamp(snap && $('edit-snap').checked?Math.round(p.y):p.y,model.height)};
 }
 function contains(p) { return p.x>=-1e-7 && p.y>=-1e-7 && p.x<=model.width+1e-7 && p.y<=model.height+1e-7; }
@@ -171,7 +179,7 @@ svg.addEventListener('pointerup',event=>{
     if(selected.size===1) {
       const obj=model[layer()][[...selected][0]];
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
-      else { if(obj.material) materialInput().value=obj.material; if(layer()==='doors') $('edit-door').value=obj.open?'open':'closed'; }
+      else { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') $('edit-door').value=obj.open?'open':'closed'; }
     }
     render(false); message(`Selected ${selected.size} ${layer()}. Drag selected objects to move, or apply settings.`);
   } else attempt(()=>apply(indices,tool()));
@@ -184,7 +192,7 @@ svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});
 svg.tabIndex=0;
 svg.setAttribute('role','group');
-svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Enter finishes painting; Escape cancels.');
+svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-click and drag to pan. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 const toolIcons={
   select:'M4 3 19 13l-7 1-3 7Z',
@@ -206,15 +214,38 @@ for(const option of toolInput.options) {
   $('tool-buttons').append(button);
 }
 for(const palette of document.querySelectorAll('[data-material-layer]')) {
+  const input=materialInput(palette.dataset.materialLayer), swatches=new Map();
+  let recent=[input.value,...Object.keys(MATERIALS).filter(material=>material!==input.value)].slice(0,4);
+  const more=document.createElement('select');
+  more.className='material-more';
+  more.setAttribute('aria-label',`More ${palette.dataset.materialLayer==='walls'?'wall':'door'} materials`);
+  const initial=input.value;
+  input.replaceChildren(...Object.keys(MATERIALS).map(material=>new Option(material,material)));
+  input.value=initial;
+  function updatePalette() {
+    recent=[input.value,...recent.filter(material=>material!==input.value)].slice(0,4);
+    for(const [material,button] of swatches) button.hidden=!recent.includes(material);
+    for(const material of recent) palette.append(swatches.get(material));
+    more.replaceChildren(new Option('More…',''),...Object.keys(MATERIALS).filter(material=>!recent.includes(material)).map(material=>new Option(material,material)));
+    more.disabled=recent.length===Object.keys(MATERIALS).length;
+    palette.append(more);
+  }
   for(const [material,color] of Object.entries(MATERIALS)) {
     const button=document.createElement('button'), swatch=document.createElement('span');
     button.type='button'; button.dataset.material=material; button.title=material;
     button.setAttribute('aria-label',material);
     swatch.className='material-swatch'; swatch.style.setProperty('--material-color',color); swatch.setAttribute('aria-hidden','true');
     button.append(swatch);
-    button.addEventListener('click',()=>{ materialInput(palette.dataset.materialLayer).value=material; buttons(); });
+    button.addEventListener('click',()=>{ input.value=material; input.dispatchEvent(new Event('change')); button.focus(); });
+    swatches.set(material,button);
     palette.append(button);
   }
+  input.addEventListener('change',()=>{ updatePalette(); buttons(); });
+  more.addEventListener('change',()=>{
+    if(!more.value) return;
+    input.value=more.value; input.dispatchEvent(new Event('change')); swatches.get(input.value).focus();
+  });
+  updatePalette();
 }
 for(const swatches of document.querySelectorAll('[data-swatch-layer]')) {
   const activate=event=>{

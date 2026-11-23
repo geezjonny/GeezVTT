@@ -1,10 +1,47 @@
 const floor = document.querySelector('#floor');
 const map = document.querySelector('#map-view');
+let pan;
+
+function endPan() {
+  if (!pan) return;
+  const { pointerId } = pan;
+  pan = null;
+  map.style.cursor = '';
+  if (map.hasPointerCapture(pointerId)) map.releasePointerCapture(pointerId);
+}
+map.addEventListener('pointerdown', event => {
+  if (event.button !== 1 || !floor.tabletopMap || map.hidden) return;
+  const matrix = map.getScreenCTM();
+  if (!matrix) return;
+  event.preventDefault();
+  const box = map.viewBox.baseVal;
+  pan = { pointerId: event.pointerId, clientX: event.clientX, clientY: event.clientY,
+    matrix: matrix.inverse(), x: box.x, y: box.y, width: box.width, height: box.height };
+  map.setPointerCapture(event.pointerId);
+  map.style.cursor = 'grabbing';
+});
+map.addEventListener('pointermove', event => {
+  if (!pan || event.pointerId !== pan.pointerId) return;
+  if (map.hidden) { endPan(); return; }
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  const start = new DOMPoint(pan.clientX, pan.clientY).matrixTransform(pan.matrix);
+  const current = new DOMPoint(event.clientX, event.clientY).matrixTransform(pan.matrix);
+  map.setAttribute('viewBox', `${pan.x + start.x - current.x} ${pan.y + start.y - current.y} ${pan.width} ${pan.height}`);
+}, true);
+for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) {
+  map.addEventListener(type, event => { if (event.pointerId === pan?.pointerId) endPan(); });
+}
+map.addEventListener('auxclick', event => {
+  if (event.button === 1 && floor.tabletopMap && !map.hidden) event.preventDefault();
+});
+floor.addEventListener('map-ready', endPan);
 
 map.addEventListener('wheel', event => {
   if (!floor.tabletopMap || map.hidden) return;
   const matrix = map.getScreenCTM();
   if (!matrix) return;
+  endPan();
   event.preventDefault();
   const pointer = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
   const box = map.viewBox.baseVal;

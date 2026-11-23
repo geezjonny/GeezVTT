@@ -70,7 +70,7 @@ try {
   const clickButton=id=>evaluate(`document.getElementById(${JSON.stringify(id)}).click()`);
   const count=type=>evaluate(`document.getElementById('floor').tabletopMap.${type}.length`);
   const point=async(x,y)=>evaluate(`(()=>{const p=new DOMPoint(${x},${y}).matrixTransform(document.getElementById('map-view').getScreenCTM());return {x:p.x,y:p.y};})()`);
-  const mouse=async(type,p)=>send('Input.dispatchMouseEvent',{type,...p,button:type==='mouseMoved'?'none':'left',clickCount:1,buttons:type==='mousePressed'?1:0});
+  const mouse=async(type,p,modifiers=0)=>send('Input.dispatchMouseEvent',{type,...p,modifiers,button:type==='mouseMoved'?'none':'left',clickCount:1,buttons:type==='mousePressed'?1:0});
   const click=async(x,y)=>{const p=await point(x,y);await mouse('mousePressed',p);await mouse('mouseReleased',p);};
   const drag=async(x,y,xx,yy)=>{await mouse('mousePressed',await point(x,y));await mouse('mouseMoved',await point(xx,yy));await mouse('mouseReleased',await point(xx,yy));};
   const key=async key=>{await send('Input.dispatchKeyEvent',{type:'keyDown',key});await send('Input.dispatchKeyEvent',{type:'keyUp',key});};
@@ -82,6 +82,17 @@ try {
   // Swatches stay open together, retain separate settings, and share one tool selection.
   await evaluate(`document.querySelectorAll('[data-edit-layer]').forEach(button=>button.click())`);
   assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),3);
+  const recentMaterials=layer=>evaluate(`[...document.querySelectorAll('[data-material-layer="${layer}"] button:not([hidden])')].map(button=>button.dataset.material)`);
+  assert.deepEqual(await recentMaterials('walls'),['stone','wood','cobble','brick']);
+  await evaluate(`(()=>{const select=document.querySelector('[data-material-layer="walls"] .material-more');select.value='metal';select.dispatchEvent(new Event('change'));})()`);
+  assert.deepEqual(await recentMaterials('walls'),['metal','stone','wood','cobble'],'dropdown choice becomes the most recent swatch');
+  assert.equal(await evaluate(`document.getElementById('edit-material').value`),'metal');
+  assert.deepEqual(await evaluate(`[...document.querySelector('[data-material-layer="walls"] .material-more').options].map(option=>option.value)`),['','brick'],'older choices move to the dropdown');
+  assert.deepEqual(await recentMaterials('doors'),['stone','wood','cobble','brick'],'wall recents do not change door recents');
+  await evaluate(`(()=>{const select=document.querySelector('[data-material-layer="walls"] .material-more');select.value='brick';select.dispatchEvent(new Event('change'));})()`);
+  assert.deepEqual(await recentMaterials('walls'),['brick','metal','stone','wood']);
+  await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="wood"]').click()`);
+  assert.deepEqual(await recentMaterials('walls'),['wood','brick','metal','stone'],'using a swatch promotes it without duplicates');
   await change('edit-tool','replace');
   await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="brick"]').click()`);
   assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'walls');
@@ -97,6 +108,27 @@ try {
   await evaluate(`document.querySelectorAll('.swatch-panel .editor-close').forEach(button=>button.click())`);
   assert.equal(await evaluate(`document.getElementById('editor-panel').hidden`),false);
   await change('edit-layer','walls');
+  await change('edit-tool','paint');
+  await evaluate(`document.getElementById('edit-snap').checked=false`);
+  for(const [x,y,shiftKey,expected] of [
+    [2.4,2.2,false,{x:2,y:2}],
+    [3.45,2.1,true,{x:3.5,y:2}],
+    [4.1,3.45,true,{x:4,y:3.5}],
+    [5.5,4.5,true,{x:5.5,y:5}],
+    [6.1,5.1,true,{x:6,y:5}]
+  ]) {
+    const screen=await point(x,y);
+    await evaluate(`(()=>{const svg=document.getElementById('map-view');const event={clientX:${screen.x},clientY:${screen.y},shiftKey:${shiftKey},bubbles:true};svg.dispatchEvent(new PointerEvent('pointermove',event));svg.dispatchEvent(new PointerEvent('pointerdown',{...event,button:0}));})()`);
+    assert.equal(await evaluate(`document.querySelector('#edit-preview polyline').getAttribute('points').split(' ').at(-1)`),`${expected.x},${expected.y}`,'wall preview snaps to intersections or grid-line midpoints');
+  }
+  await key('Enter');
+  assert.deepEqual(await evaluate(`document.getElementById('floor').tabletopMap.walls`),[
+    [{x:2,y:2},{x:3.5,y:2}],
+    [{x:3.5,y:2},{x:4,y:3.5}],
+    [{x:4,y:3.5},{x:5.5,y:5}],
+    [{x:5.5,y:5},{x:6,y:5}]
+  ],'wall placement matches the snapped preview even with the checkbox off');
+  await evaluate(`document.getElementById('map-view').dispatchEvent(new KeyboardEvent('keydown',{key:'z',ctrlKey:true,bubbles:true,cancelable:true}));document.getElementById('edit-snap').checked=true`);
   await change('edit-tool','paint');await click(2,2);await click(5,2);await click(5,5);
   assert.equal(await count('walls'),0,'preview must not commit before Enter');
   await key('Enter');assert.equal(await count('walls'),2);
@@ -158,6 +190,61 @@ try {
   assert.equal(originExport.lights[0].shadows,false);
   assert.equal(originExport.lights[0].custom,'keep-light');
   assert.equal(originExport.portals[0].custom,'keep-door');
+  // Middle-button drags pan the 2D view without painting or changing zoom.
+  const panStart=await evaluate(`(()=>{const svg=document.getElementById('map-view'),r=svg.getBoundingClientRect();return {x:r.right-120,y:r.bottom-120,viewBox:svg.getAttribute('viewBox'),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height};})()`);
+  const beforePan=await point(1,1), beforePanWalls=await count('walls');
+  await change('edit-tool','paint');
+  await send('Input.dispatchMouseEvent',{type:'mousePressed',x:panStart.x,y:panStart.y,button:'middle',buttons:4,clickCount:1});
+  await send('Input.dispatchMouseEvent',{type:'mouseMoved',x:panStart.x+60,y:panStart.y+40,button:'none',buttons:4});
+  await send('Input.dispatchMouseEvent',{type:'mouseReleased',x:panStart.x+60,y:panStart.y+40,button:'middle',buttons:0,clickCount:1});
+  const afterPan=await point(1,1);
+  assert.ok(Math.abs(afterPan.x-beforePan.x-60)<.001 && Math.abs(afterPan.y-beforePan.y-40)<.001,'middle drag moves the map with the pointer');
+  assert.deepEqual(await evaluate(`(()=>{const b=document.getElementById('map-view').viewBox.baseVal;return {width:b.width,height:b.height};})()`),{width:panStart.width,height:panStart.height},'panning preserves zoom');
+  assert.equal(await count('walls'),beforePanWalls,'middle drag does not paint');
+  await mouse('mouseMoved',{x:panStart.x+80,y:panStart.y+60});
+  assert.deepEqual(await point(1,1),afterPan,'releasing the middle button ends panning');
+  await evaluate(`document.getElementById('map-view').setAttribute('viewBox',${JSON.stringify(panStart.viewBox)})`);
+  // Every floating window shares a width and snaps only to nearby visible windows.
+  const panelSize=await evaluate(`(()=>{
+    const panels=[...document.querySelectorAll('.editor-panel')];panels.forEach(p=>p.hidden=false);
+    const widths=panels.map(p=>p.getBoundingClientRect().width);
+    panels.forEach(p=>p.hidden=!['editor-panel','walls-panel'].includes(p.id));
+    const editor=document.getElementById('editor-panel'), walls=document.getElementById('walls-panel');
+    editor.style.left='400px';editor.style.top='300px';walls.style.left='800px';walls.style.top='100px';
+    return {widths,width:walls.offsetWidth,height:walls.offsetHeight};
+  })()`);
+  assert.equal(new Set(panelSize.widths).size,1,'all floating windows have the same width');
+  const moveWindow=async(left,top,shift=false)=>{
+    const start=await evaluate(`(()=>{const r=document.getElementById('walls-panel').getBoundingClientRect();return {x:r.left+10,y:r.top+10};})()`);
+    await mouse('mousePressed',start,shift?8:0);
+    await mouse('mouseMoved',{x:left+10,y:top+10},shift?8:0);
+    await mouse('mouseReleased',{x:left+10,y:top+10},shift?8:0);
+    return evaluate(`(()=>{const p=document.getElementById('walls-panel');return {left:p.offsetLeft,top:p.offsetTop};})()`);
+  };
+  assert.deepEqual(await moveWindow(400-panelSize.width+7,305),{left:400-panelSize.width,top:300},'windows snap side by side and align their tops');
+  assert.deepEqual(await moveWindow(440-panelSize.width,340),{left:440-panelSize.width,top:340});
+  assert.deepEqual(await evaluate(`(()=>{const p=document.getElementById('editor-panel');return {left:p.offsetLeft,top:p.offsetTop};})()`),{left:440,top:340},'dragging a snapped window moves its neighbor');
+  assert.deepEqual(await moveWindow(440-panelSize.width-5,340,true),{left:440-panelSize.width-5,top:340},'Shift-drag disables snapping even within the snap distance');
+  await moveWindow(800,100,true);
+  assert.deepEqual(await evaluate(`(()=>{const p=document.getElementById('editor-panel');return {left:p.offsetLeft,top:p.offsetTop};})()`),{left:440,top:340},'Shift-drag leaves the neighbor in place');
+  await evaluate(`(()=>{const editor=document.getElementById('editor-panel');editor.style.left='400px';editor.style.top='300px';})()`);
+  assert.deepEqual(await moveWindow(405,300-panelSize.height+7),{left:400,top:300-panelSize.height},'windows stack and align their sides');
+  assert.deepEqual(await moveWindow(400-panelSize.width-30,300,true),{left:400-panelSize.width-30,top:300},'Shift-drag detaches a stacked window');
+  await evaluate(`document.getElementById('editor-panel').hidden=true`);
+  assert.deepEqual(await moveWindow(400-panelSize.width+7,305),{left:400-panelSize.width+7,top:305},'hidden windows do not attract other windows');
+  await evaluate(`(()=>{
+    const editor=document.getElementById('editor-panel'),walls=document.getElementById('walls-panel'),doors=document.getElementById('doors-panel');
+    editor.hidden=doors.hidden=false;
+    editor.style.left='400px';editor.style.top='300px';
+    walls.style.left=(400-walls.offsetWidth)+'px';walls.style.top='300px';
+    doors.style.left=(400+editor.offsetWidth)+'px';doors.style.top='300px';
+  })()`);
+  assert.deepEqual(await moveWindow(430-panelSize.width,330),{left:430-panelSize.width,top:330});
+  assert.deepEqual(await evaluate(`['editor-panel','doors-panel'].map(id=>{const p=document.getElementById(id);return {left:p.offsetLeft,top:p.offsetTop};})`),[
+    {left:430,top:330},{left:430+panelSize.width,top:330}
+  ],'snapped connections carry through a chain of three windows');
+  await moveWindow(-50,330);
+  assert.deepEqual(await evaluate(`['walls-panel','editor-panel','doors-panel'].map(id=>document.getElementById(id).offsetLeft)`),[0,panelSize.width,2*panelSize.width],'viewport limits preserve group spacing');
   assert.deepEqual(errors,[]);
   console.log('Browser checks passed: all map imports, chain creation/cancel, box selection, group movement, material replacement, segment/area erase, undo/redo, enclosed fills, doors, export/re-import.');
 } finally {

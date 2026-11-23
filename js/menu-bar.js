@@ -47,7 +47,7 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
     openPanel(swatches);
     input.value = button.dataset.editLayer;
     input.dispatchEvent(new Event('change'));
-    swatches.querySelector('button[data-material], input').focus();
+    swatches.querySelector('button[data-material]:not([hidden]), input').focus();
   });
 });
 document.querySelector('#open-tools').addEventListener('click', () => {
@@ -73,9 +73,59 @@ document.querySelector('#open-dice').addEventListener('click', () => {
   document.querySelector('#dice-sides').focus();
 });
 
-function positionPanel(panel, left, top) {
-  panel.style.left = Math.max(0, Math.min(window.innerWidth - panel.offsetWidth, left)) + 'px';
-  panel.style.top = Math.max(0, Math.min(window.innerHeight - panel.offsetHeight, top)) + 'px';
+function connectedPanels(panel) {
+  const group = [panel];
+  for (const member of group) {
+    const a = member.getBoundingClientRect();
+    for (const other of panels) {
+      if (other.hidden || group.includes(other)) continue;
+      const b = other.getBoundingClientRect();
+      const vertical = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
+      const horizontal = Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1;
+      if (vertical && (Math.abs(a.right - b.left) <= 1 || Math.abs(a.left - b.right) <= 1) ||
+          horizontal && (Math.abs(a.bottom - b.top) <= 1 || Math.abs(a.top - b.bottom) <= 1)) group.push(other);
+    }
+  }
+  return group;
+}
+function positionPanel(panel, left, top, snap = false, group = [panel]) {
+  const members = group.map(member => ({ panel: member, x: member.offsetLeft - panel.offsetLeft,
+    y: member.offsetTop - panel.offsetTop, width: member.offsetWidth, height: member.offsetHeight }));
+  const minLeft = -Math.min(...members.map(m => m.x)), minTop = -Math.min(...members.map(m => m.y));
+  const maxLeft = Math.max(minLeft, window.innerWidth - Math.max(...members.map(m => m.x + m.width)));
+  const maxTop = Math.max(minTop, window.innerHeight - Math.max(...members.map(m => m.y + m.height)));
+  left = Math.max(minLeft, Math.min(maxLeft, left));
+  top = Math.max(minTop, Math.min(maxTop, top));
+  if (snap) {
+    let snappedLeft = left, snappedTop = top, bestX = 13, bestY = 13;
+    for (const member of members) for (const other of panels) {
+      if (group.includes(other) || other.hidden) continue;
+      const rect = other.getBoundingClientRect();
+      if (top + member.y <= rect.bottom + 12 && top + member.y + member.height >= rect.top - 12) {
+        for (const edge of [rect.left - member.width, rect.right, rect.left, rect.right - member.width]) {
+          const x = edge - member.x;
+          const distance = Math.abs(x - left);
+          if (x >= minLeft && x <= maxLeft && distance <= 12 && distance < bestX) {
+            snappedLeft = x; bestX = distance;
+          }
+        }
+      }
+      if (left + member.x <= rect.right + 12 && left + member.x + member.width >= rect.left - 12) {
+        for (const edge of [rect.top - member.height, rect.bottom, rect.top, rect.bottom - member.height]) {
+          const y = edge - member.y;
+          const distance = Math.abs(y - top);
+          if (y >= minTop && y <= maxTop && distance <= 12 && distance < bestY) {
+            snappedTop = y; bestY = distance;
+          }
+        }
+      }
+    }
+    left = snappedLeft; top = snappedTop;
+  }
+  for (const member of members) {
+    member.panel.style.left = left + member.x + 'px';
+    member.panel.style.top = top + member.y + 'px';
+  }
 }
 function raisePanel(panel) {
   panels.forEach(other => { other.style.zIndex = other === panel ? '4' : '3'; });
@@ -87,6 +137,8 @@ function openPanel(panel) {
 }
 for (const panel of panels) {
   const titlebar = panel.querySelector('.editor-titlebar');
+  titlebar.setAttribute('aria-label', titlebar.getAttribute('aria-label') + ' Snapped windows move together. Hold Shift to move only this window.');
+  titlebar.title = 'Drag snapped windows together. Shift-drag to detach this window.';
   let drag;
 
   panel.addEventListener('pointerdown', () => raisePanel(panel));
@@ -99,11 +151,14 @@ for (const panel of panels) {
     if (event.button !== 0 || event.target.closest('button')) return;
     event.preventDefault();
     titlebar.focus();
-    drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop };
+    drag = { x: event.clientX - panel.offsetLeft, y: event.clientY - panel.offsetTop,
+      group: event.shiftKey ? [panel] : connectedPanels(panel), split: event.shiftKey };
     titlebar.setPointerCapture(event.pointerId);
   });
   titlebar.addEventListener('pointermove', event => {
-    if (drag) positionPanel(panel, event.clientX - drag.x, event.clientY - drag.y);
+    if (!drag) return;
+    if (event.shiftKey) { drag.group = [panel]; drag.split = true; }
+    positionPanel(panel, event.clientX - drag.x, event.clientY - drag.y, !drag.split, drag.group);
   });
   titlebar.addEventListener('pointerup', event => {
     drag = null;
@@ -116,11 +171,15 @@ for (const panel of panels) {
     const delta = { ArrowLeft: [-10, 0], ArrowRight: [10, 0], ArrowUp: [0, -10], ArrowDown: [0, 10] }[event.key];
     if (!delta) return;
     event.preventDefault();
-    positionPanel(panel, panel.offsetLeft + delta[0], panel.offsetTop + delta[1]);
+    positionPanel(panel, panel.offsetLeft + delta[0], panel.offsetTop + delta[1], false, event.shiftKey ? [panel] : connectedPanels(panel));
   });
 }
 window.addEventListener('resize', () => {
+  const moved = new Set();
   panels.forEach(panel => {
-    if (!panel.hidden) positionPanel(panel, panel.offsetLeft, panel.offsetTop);
+    if (panel.hidden || moved.has(panel)) return;
+    const group = connectedPanels(panel);
+    positionPanel(panel, panel.offsetLeft, panel.offsetTop, false, group);
+    group.forEach(member => moved.add(member));
   });
 });

@@ -48,7 +48,7 @@
     button:hover { background: #3a4d65; }
     button:disabled { opacity: 0.55; cursor: wait; }
     :is(button, select, input):focus-visible { outline: 2px solid #a2cbff; outline-offset: 3px; }
-    #dice-panel { left: auto; right: 1rem; width: min(16rem, calc(100vw - 2rem)); }
+    #dice-panel { left: auto; right: 1rem; }
     #dice-form { display: flex; flex-wrap: wrap; align-items: end; gap: .4rem; }
     #dice-form label { display: grid; gap: .15rem; }
     #dice-form .toggle { display: flex; align-items: center; align-self: center; }
@@ -66,9 +66,9 @@
     #view-help { position: absolute; bottom: 0.5rem; left: 0.75rem; right: 0.75rem; margin: 0; pointer-events: none; color: #e6ebf1; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
-    .editor-titlebar { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .15rem .25rem .15rem .5rem; background: #293544; cursor: move; touch-action: none; user-select: none; }
-    .editor-titlebar h2 { margin: 0; font-size: .8rem; }
-    .editor-close { border: 0; background: transparent; padding: 0 .35rem; min-width: 24px; min-height: 24px; font-size: 1.1rem; }
+    .editor-titlebar { display: flex; align-items: center; justify-content: space-between; gap: .4rem; padding: .1rem .375rem; font-size: .7rem; line-height: 1.4; background: #293544; cursor: move; touch-action: none; user-select: none; }
+    .editor-titlebar h2 { margin: 0; font-size: inherit; }
+    .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
     #walls-panel { left: 15rem; }
     #lights-panel { top: 11rem; left: 15rem; }
@@ -82,6 +82,7 @@
     #tool-buttons svg { width: 22px; height: 22px; pointer-events: none; }
     .material-swatches { width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: .25rem; }
     .material-swatches button { padding: .15rem; min-width: 24px; min-height: 30px; }
+    .material-swatches .material-more { width: 100%; min-width: 0; padding: .15rem; font-size: .65rem; }
     .material-swatch { display: block; height: 1.5rem; border: 1px solid #ffffff40; border-radius: .15rem; background-color: var(--material-color); }
     [data-material="wood"] .material-swatch { background-image: repeating-linear-gradient(5deg, transparent 0 6px, #41240866 7px 9px); }
     [data-material="stone"] .material-swatch { background-image: linear-gradient(35deg, #fff3, transparent 55%, #0004); }
@@ -161,7 +162,7 @@
           <div id="tool-buttons"></div>
         </div>
         <label id="spacing-label" hidden>Fill spacing <input id="edit-spacing" type="number" min="0.5" max="100" step="0.5" value="4"></label>
-        <label><input id="edit-snap" type="checkbox" checked> Snap to grid</label>
+        <label title="Walls always snap to grid intersections. Hold Shift while painting walls to allow grid-line midpoints."><input id="edit-snap" type="checkbox" checked> Snap to grid</label>
         <button id="edit-apply" type="button" title="Apply settings to selection" disabled>Apply</button>
         <button id="edit-delete" type="button" title="Delete selection" disabled>Delete</button>
       </fieldset>
