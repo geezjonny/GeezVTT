@@ -343,3 +343,13 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: building uses the 2D view; room filling follows grid-cell centers with a 2000-tile limit; ladder/stairs travel requires a paired portal at the prop position. Existing lockpicking and shared-table limitations remain.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+
+## Matching square controls and compact floor navigation saved - 2026-11-23
+
+- Build Controls and VTT Controls now share the same four-column layout and square buttons with centered, equally sized icons. Removes the wider three-column Build layout.
+- Adds GM Up and Down arrows stacked vertically within one square in VTT Controls, retaining tooltips and accessible labels. The buttons reuse existing floor navigation, including creating blank floors at the top or bottom when needed.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm matching square buttons at different viewport widths, the two floor arrows fitting within one square, tooltips and keyboard access, floor navigation in both views, blank floor creation at scene boundaries, and player visibility restrictions. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

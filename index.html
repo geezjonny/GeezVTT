@@ -90,9 +90,11 @@
     #vtt-panel { top: auto; bottom: 2rem; }
     #build-panel { left: 15rem; top: auto; bottom: 2rem; }
     #vtt-controls, #build-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
-    #vtt-controls button, #build-controls button { display: grid; justify-items: center; gap: .2rem; padding: .3rem .1rem; font-size: .65rem; }
+    #vtt-controls button, #build-controls button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .65rem; }
     #vtt-controls svg, #build-controls svg { width: 14px; height: 14px; margin: 3px; pointer-events: none; }
-    #build-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    #vtt-floors { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); aspect-ratio: 1; }
+    #vtt-controls #vtt-floors button { aspect-ratio: auto; }
+    #vtt-floors svg { margin: 0; }
     .player-selected > circle { stroke: #ffd86b; stroke-width: 4; }
     #session-status { font-size: .7rem; }
     #vtt-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: hidden; }
@@ -266,6 +268,10 @@
         <button id="vtt-tokens" type="button" title="Tokens" aria-controls="tokens-panel" data-gm-only disabled aria-label="Tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></button>
         <button id="vtt-view" type="button" title="Toggle 2D / 3D" aria-label="Toggle 2D / 3D" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
         <button id="vtt-new-scene" type="button" title="New blank scene" aria-label="New blank scene" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/></svg></button>
+        <div id="vtt-floors" role="group" aria-label="Floor navigation" data-gm-only>
+          <button id="vtt-floor-up" type="button" title="Floor up; create a blank floor at the top" aria-label="Floor up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
+          <button id="vtt-floor-down" type="button" title="Floor down; create a blank floor at the bottom" aria-label="Floor down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
       </div>
     </section>
     <section id="build-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="build-title">
