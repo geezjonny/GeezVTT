@@ -284,3 +284,11 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify local open/save permissions, repeated Save, Save As, cancellation and failed writes, edits during a save, file association across floor and scene changes, download fallback, and pushing updated files from the repo scene folder. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+## Thinner 3D doors saved - 2026-11-23
+
+- Makes 3D door panels half as thick as walls (0.06 versus 0.12 world units), including open doors. Texture coordinates follow the panel thickness. Windows and the existing 2D presentation retain their current dimensions.
+
+Verification is left to the user. No tests, browser checks, visual inspections, or other application validation commands were run. Outstanding work: confirm closed and open door appearance, textures, and selection in 3D. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+

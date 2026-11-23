@@ -146,12 +146,13 @@ export function createMapView3D(host) {
       const a = points[i - 1], b = points[i];
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, 0.12), material);
+      const thickness = doorIndex !== undefined ? 0.06 : 0.12;
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, thickness), material);
       if (doorIndex !== undefined) mesh.userData.doorIndex = doorIndex;
       // Keep texture density constant on every face, regardless of segment length.
       const positions=mesh.geometry.attributes.position, normals=mesh.geometry.attributes.normal, uv=mesh.geometry.attributes.uv;
       for(let vertex=0;vertex<positions.count;vertex++) {
-        const x=positions.getX(vertex)+length/2, y=positions.getY(vertex)+1, z=positions.getZ(vertex)+.06;
+        const x=positions.getX(vertex)+length/2, y=positions.getY(vertex)+1, z=positions.getZ(vertex)+thickness/2;
         uv.setXY(vertex,Math.abs(normals.getX(vertex))>.5?z:x,Math.abs(normals.getY(vertex))>.5?z:y);
       }
       mesh.castShadow = mesh.receiveShadow = !material.transparent;
