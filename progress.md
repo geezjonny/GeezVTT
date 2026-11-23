@@ -14,7 +14,17 @@ The initial map importer is implemented in the root `index.html`. Open it in a m
 - Provides independent visibility checkboxes and imported counts for walls, lights, and doors. These controls become available after a successful import.
 - Uses a shared SVG coordinate system for the map image and overlays, accounting for map size and origin so they resize together.
 - Shows import status and errors. Failed imports preserve the previous map; newer selections take priority over earlier imports still loading.
-- Includes Three.js 0.170.0 through a pinned CDN import map and exposes it as `window.THREE`. No Three.js scene or renderer is created yet. Local map import runs independently of the CDN download.
+- Adds a compact dice roller below the tabletop: d4, d6, d8, d10, d12, d20, and d100, quantity, signed modifier, and single-d20 advantage/disadvantage. Limits batches to 12 physical dice (six percentile pairs).
+- Integrates the supplied `js/dice3d.js` as a transparent, non-interactive overlay over the map. Loads its compatible Three.js r128 and Cannon dependencies only on the first animated roll; removes the unused, incompatible Three.js 0.170.0 placeholder.
+- Calculates roll results independently in `js/dice-roll.js` with unbiased cryptographic random sampling. Records ten recent local rolls, including dropped dice and natural 1/20 highlighting. `js/dice-roller.js` handles the controls, optional 3D animation, clearing the tray, and fallback text when rendering fails. New rolls replace the previous tray contents; clearing preserves history.
+- Dice rolls and history are local to the current page session, without Firebase synchronization or persistence. Serve the project over HTTP (for example, GitHub Pages) so the browser can load its JavaScript modules.
+- Adds a 2D/3D view toggle after map import, with a textured map floor, walls and doors extruded two grid units (10 feet), and open doors swung 90 degrees. Uses grid-space dimensions and map origin rather than the supplied `view3d.js` fixed 40-pixel scale. The supplied file is preserved; standalone `js/map-view-3d.js` and `js/map-view-toggle.js` adapt its camera and extrusion approach without its missing application dependencies.
+- Provides drag-to-orbit, right-drag-to-pan, wheel zoom, touch controls, and Fit map. Existing walls, doors, and light-range checkboxes apply to both views. Keeps the camera when toggling views; fits newly imported maps, disposes replaced geometry/textures, pauses rendering in 2D, and falls back to 2D if initialization fails. Modern Three.js is module-scoped, separate from the dice renderer's global r128.
+- Adds 2D object editing in `js/map-editor.js`, with pure geometry helpers in `js/map-editor-model.js`. Select by click or box, Shift to extend/toggle selection, and drag selected objects to move them. Walls and doors are split into individually editable segments. Hidden layers cannot be selected or erased; painting reveals the active layer.
+- Erase and Replace work on individual segments/light sources or a dragged box. Replace applies wood, stone, cobble, brick, or metal material to walls/doors, open/closed state to doors, and color/range/intensity to lights. Materials use color in 2D and color/roughness/metalness in 3D; textures are not included.
+- Paint walls/doors by clicking successive points and pressing Enter to commit the chain. Escape cancels; Backspace removes the last point. Light Paint places a source per click. Optional grid snapping applies to placement and movement.
+- Paint Bucket is disabled for walls. For lights/doors, clicking flood-fills connected grid-cell centers with objects at the chosen spacing. Wall and closed-door segments block traversal; open doors allow it. Doors are placed horizontally. Fills use a grid approximation, skip occupied centers, and refuse fills above 2,000 objects before modifying the map.
+- Adds up to 50 Undo/Redo snapshots, selection property application/deletion, and DD2VTT export. Export preserves the embedded image, map origin, imported door/light metadata, and stores material names in a `geezvtt_editor` extension. Changes update both renderers without resetting the 3D camera; editing controls are disabled in 3D. Changes remain local until exported.
 
 ## Existing project inputs
 
@@ -38,8 +48,42 @@ Additional checks passed for nonzero map origins, open-door styling, light color
 
 Browser rendering, image decoding, checkbox interaction, and responsive alignment still need visual verification.
 
+Dice rule checks passed for multi-die totals, signed modifiers, advantage/disadvantage, ties, critical results, percentile limits, invalid inputs, and random result ranges. Inline JavaScript and all three dice modules passed Node syntax checks; HTML IDs are unique. No browser rendering test was available in this session, so 3D appearance, CDN loading, and responsive controls still need browser verification.
+
+3D checks passed for module/inline syntax, import-map JSON, wall height/centering, open-door hinge transforms, zero-length segment handling, nonzero origins, and wall segments from all four supplied maps. Controller checks with DOM stubs passed for lazy creation, importing a new map while in 3D, toggling back/reopening, and Fit map. Actual WebGL rendering and camera interaction still require browser verification; no browser automation was available.
+
 ## Scope remaining
 
-This is an incremental, local map-import prototype. It has no persistence, multiplayer synchronization, Firebase integration, pan/zoom, geometry editing, interactive door state changes, calculated visibility, or dynamic lighting yet. The broader features in `plan.md` remain to be implemented as requested.
+Editor verification: `node --test tests/map-editor.test.mjs` passes four geometry/fill checks. `node tests/map-editor-browser.mjs` passes actual headless Edge interaction checks for all four map imports, chain creation/commit/cancel, box selection, group movement, material replacement, single/box erasing, Undo/Redo, enclosed bucket fills and duplicate avoidance, light properties, door states, export/re-import, nonzero origins, invalid optional objects, light alpha/intensity, and preservation of imported metadata. This browser script uses Node built-ins, a temporary browser profile, and a loopback server; set `BROWSER_PATH` to use a different Chromium binary. All changed JavaScript passed syntax checks. Actual updated 3D materials still need visual verification.
+
+This is an incremental, local map-import and editing prototype. It has no automatic persistence, multiplayer synchronization, Firebase integration, 2D pan/zoom, or calculated player visibility yet. Export/re-import retains local edits. The broader features in `plan.md` remain to be implemented as requested.
+
+## Lighting work saved — 2026-11-22
+
+Implementation is saved locally in `js/map-view-3d.js` and `index.html`; browser verification remains unfinished.
+
+- Replaces 3D light-range circles with real colored point lights using imported or edited range, intensity, and alpha. Zero-strength lights are omitted; imported `shadows: false` is respected.
+- Makes the textured floor receive lighting and shadows, and wall/door slabs cast and receive shadows. Open doors retain their existing hinge transform.
+- Enables soft shadow filtering and ACES tone mapping. Uses dim ambient/daylight fill when point lights exist and brighter daylight for maps without active sources. The directional light's shadow camera fits the map dimensions.
+- Limits point-light shadows to the eight strongest eligible lights, with 512-pixel shadow faces; additional lights illuminate without occlusion and can shine through walls. The directional light also casts shadows, with a 2048-pixel map. The Lights checkbox tooltip explains the eight-light limit.
+- Caches shadow maps during camera movement, requests updates on map edits and layer changes, invalidates rendering after map replacement, and disposes point-light shadow resources on rebuild and directional shadow resources on teardown.
+- Keeps 2D light-range overlays and existing editing/export formats. Lighting does not implement player visibility or fog. Supplied map images contain baked lighting, which remains part of the image beneath the new illumination.
+
+Checks completed for this lighting change: `node --check js/map-view-3d.js` passed; `node --test tests/map-editor.test.mjs` passed all four existing geometry/fill tests. Those tests do not verify illumination or shadows.
+
+Next: add and run browser/WebGL checks for actual illumination, wall occlusion, opening/closing doors, layer visibility, edited light properties, repeated map replacement/resource disposal, and the eight-light shadow limit. Check the supplied maps visually and measure performance on a large map. Browser lighting verification had not started when the user requested this progress save.
 
 No deployment or commit has been performed. Existing unrelated working-tree changes were left in place.
+
+## UI work saved — 2026-11-22
+
+This section supersedes the earlier UI descriptions and verification status for the changed controls.
+
+- Adds a Windows-style File / Edit / View / Dice menu bar. File imports a DD2VTT map and saves the edited map as a downloaded DD2VTT file. View switches between 2D and 3D, toggles a grid overlay in either view, and retains Fit map for 3D. Dice opens the existing dice roller.
+- Edit > Walls, Lights, or Doors opens a shared floating editor with the selected object type. Drag its title bar to move it, or focus the title bar and use arrow keys. The window stays within the viewport and closes with ×. Closing stops map editing and clears unfinished gestures and selections; saved edits remain.
+- Replaces the tool dropdown with Select, Erase, Paint, Bucket, and Replace buttons. Walls and Doors show material swatches for wood, stone, cobble, brick, and metal. Lights show color, range, and intensity controls. Existing selection, snapping, Undo/Redo, and export behavior remain. Bucket remains unavailable for walls.
+- Removes the Walls, Lights, and Doors visibility checkboxes and counts. All three object layers remain visible in both views.
+- Adds mouse-centered scroll zoom to the 2D SVG map, bounded between 0.05× and 4× the original view-box width. Importing a map resets its view. Zooming cancels unfinished editing gestures. 2D panning is not implemented.
+- Adds repository instructions in AGENTS.md leaving verification to the user.
+
+No tests, browser checks, visual inspections, or other validation commands were run for this UI work. Verification is left to the user. Existing browser tests may need updates for the floating editor and removed visibility controls.

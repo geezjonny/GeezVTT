@@ -1,0 +1,45 @@
+export const MATERIALS = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
+export const clone = value => JSON.parse(JSON.stringify(value));
+export function segments(points) { return points.slice(1).map((b, i) => [points[i], b]); }
+export function distance(p, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const t = Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx+dy*dy || 1)));
+  return Math.hypot(p.x-a.x-t*dx, p.y-a.y-t*dy);
+}
+export function crosses(a, b, c, d) {
+  const cross = (p, q, r) => (q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+  const on = (p,q,r) => r.x >= Math.min(p.x,q.x)-1e-9 && r.x <= Math.max(p.x,q.x)+1e-9 && r.y >= Math.min(p.y,q.y)-1e-9 && r.y <= Math.max(p.y,q.y)+1e-9;
+  const x=cross(a,b,c), y=cross(a,b,d), z=cross(c,d,a), w=cross(c,d,b);
+  return ((x>0 && y<0 || x<0 && y>0) && (z>0 && w<0 || z<0 && w>0)) ||
+    Math.abs(x)<1e-9 && on(a,b,c) || Math.abs(y)<1e-9 && on(a,b,d) || Math.abs(z)<1e-9 && on(c,d,a) || Math.abs(w)<1e-9 && on(c,d,b);
+}
+export function inBox(object, a, b, layer) {
+  const left=Math.min(a.x,b.x), right=Math.max(a.x,b.x), top=Math.min(a.y,b.y), bottom=Math.max(a.y,b.y);
+  const inside = p => p.x>=left && p.x<=right && p.y>=top && p.y<=bottom;
+  if (layer==='lights') return inside(object);
+  const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
+  return object.points.some(inside) || segments(object.points).some(([p,q]) => corners.some((c,i)=>crosses(p,q,c,corners[(i+1)%4])));
+}
+// Flood cell centers, with imported wall and closed-door segments as barriers.
+// Refuse oversized fills atomically, including maps without enclosing walls.
+export function bucketCells(model, seed, spacing, limit=2000) {
+  const cols=Math.ceil(model.width/spacing), rows=Math.ceil(model.height/spacing);
+  const center=(x,y)=>({x:(x+.5)*spacing,y:(y+.5)*spacing});
+  const barriers=[...model.walls, ...model.doors.filter(d=>!d.open)].flatMap(o=>segments(o.points));
+  const start=[Math.floor(seed.x/spacing),Math.floor(seed.y/spacing)];
+  const queue=[start], seen=new Set([start.join(',')]), result=[];
+  for(let i=0;i<queue.length;i++) {
+    const [x,y]=queue[i], p=center(x,y);
+    if(x<0 || y<0 || x>=cols || y>=rows || p.x>=model.width || p.y>=model.height) continue;
+    result.push(p);
+    if(result.length>limit) throw new Error(`Fill exceeds ${limit} objects. Increase spacing or enclose a smaller area.`);
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nx=x+dx, ny=y+dy, key=`${nx},${ny}`;
+      if(seen.has(key) || nx<0 || ny<0 || nx>=cols || ny>=rows) continue;
+      const q=center(nx,ny);
+      if(barriers.some(([a,b])=>crosses(p,q,a,b))) continue;
+      seen.add(key); queue.push([nx,ny]);
+    }
+  }
+  return result;
+}

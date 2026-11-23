@@ -1,0 +1,60 @@
+const floor = document.querySelector('#floor');
+const host = document.querySelector('#view-3d');
+const map = document.querySelector('#map-view');
+const toggle = document.querySelector('#toggle-3d');
+const fit = document.querySelector('#fit-3d');
+const help = document.querySelector('#view-help');
+let view, active = false;
+
+function layers() {
+  view?.setLayers({ grid: document.querySelector('#toggle-grid').checked });
+}
+function show(on) {
+  active = on;
+  host.hidden = !on;
+  help.hidden = !on;
+  fit.hidden = !on;
+  map.hidden = on;
+  toggle.setAttribute('aria-pressed', String(on));
+  toggle.textContent = 'Toggle (2D/3D)';
+  view?.setActive(on);
+}
+function fallback(error) {
+  show(false);
+  view?.destroy();
+  view = null;
+  const status = document.querySelector('#status');
+  status.classList.add('error');
+  status.textContent = `3D view unavailable: ${error.message}. The 2D map is still available.`;
+}
+toggle.addEventListener('click', async () => {
+  if (!floor.tabletopMap) return;
+  if (active) { show(false); return; }
+  toggle.disabled = true;
+  toggle.textContent = 'Loading 3D…';
+  try {
+    if (!view) {
+      const { createMapView3D } = await import('./map-view-3d.js');
+      view = createMapView3D(host);
+      view.setMap(floor.tabletopMap);
+    }
+    layers();
+    show(true);
+  } catch (error) { fallback(error); }
+  finally { toggle.disabled = false; }
+});
+fit.addEventListener('click', () => view?.fit());
+document.querySelector('#toggle-grid').addEventListener('change', layers);
+floor.addEventListener('map-ready', () => {
+  try {
+    view?.setMap(floor.tabletopMap);
+    layers();
+    if (active) show(true);
+  } catch (error) { fallback(error); }
+});
+floor.addEventListener('map-changed', () => {
+  try {
+    view?.setMap(floor.tabletopMap, false);
+    layers();
+  } catch (error) { fallback(error); }
+});

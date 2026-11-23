@@ -9,7 +9,19 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: #15191f; color: #e6ebf1; }
     main { height: 100dvh; display: flex; flex-direction: column; }
-    header { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.25rem; background: #202731; border-bottom: 1px solid #364151; }
+    header { display: flex; align-items: center; gap: 1rem; padding: 0.25rem 0.75rem; background: #202731; border-bottom: 1px solid #364151; z-index: 2; }
+    .menu-bar { display: flex; }
+    .menu { position: relative; }
+    .menu > summary { cursor: pointer; list-style: none; padding: 0.4rem 0.75rem; border-radius: 0.2rem; font-size: 0.9rem; }
+    .menu > summary::-webkit-details-marker { display: none; }
+    .menu > summary:hover, .menu[open] > summary { background: #3a4d65; }
+    .menu > summary:focus-visible { outline: 2px solid #a2cbff; outline-offset: -2px; }
+    .menu-items { position: absolute; top: 100%; left: 0; min-width: 12rem; padding: 0.25rem; background: #202731; border: 1px solid #61758f; box-shadow: 0 6px 18px #0008; }
+    .menu-items button, .menu-items label { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.75rem; border: 0; border-radius: 0.15rem; background: transparent; text-align: left; white-space: nowrap; font-size: 0.9rem; }
+    .menu-items button:hover, .menu-items label:hover { background: #3a4d65; }
+    .menu-items button:disabled { cursor: default; }
+    .menu-items label { cursor: pointer; }
+    .menu-items input { margin: 0; }
     h1 { font-size: 1.15rem; margin: 0; }
     label { font-size: 0.9rem; }
     input { max-width: 100%; font: inherit; }
@@ -32,39 +44,165 @@
     footer { padding: 0.75rem 1.25rem; background: #202731; border-top: 1px solid #364151; font-size: 0.9rem; }
     #status { margin: 0; overflow-wrap: anywhere; }
     #status.error { color: #ffb4ac; }
+    button, select, input[type="number"] { font: inherit; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: 0.35rem; padding: 0.45rem 0.6rem; }
+    button { cursor: pointer; }
+    button:hover { background: #3a4d65; }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    :is(button, select, input):focus-visible { outline: 2px solid #a2cbff; outline-offset: 3px; }
+    #dice-panel { padding: 0.65rem 1.25rem; background: #202731; border-top: 1px solid #364151; max-height: 40dvh; overflow: auto; }
+    #dice-panel summary { cursor: pointer; font-weight: 600; }
+    #dice-form { display: flex; flex-wrap: wrap; align-items: end; gap: 0.65rem; margin-top: 0.75rem; }
+    #dice-form label { display: grid; gap: 0.25rem; }
+    #dice-form .toggle { display: flex; align-items: center; align-self: center; }
+    #dice-form input[type="number"] { width: 5rem; }
+    #roll-dice { background: #73404b; border-color: #c4808c; font-weight: 600; }
+    #dice-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+    #dice-status { color: #b4c0ce; margin: 0.65rem 0; font-size: 0.9rem; }
+    #dice-history { margin: 0; padding-left: 1.5rem; font-size: 0.9rem; }
+    #dice-history li { padding: 0.2rem 0; overflow-wrap: anywhere; }
+    .roll-critical { color: #ffd86b; }
+    .roll-fumble { color: #ffb4ac; }
+    #view-3d { position: absolute; inset: 0; }
+    #view-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    #view-help { position: absolute; bottom: 0.5rem; left: 0.75rem; right: 0.75rem; margin: 0; pointer-events: none; color: #e6ebf1; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
+    #toggle-3d[aria-pressed="true"] { background: #344f70; }
+    #editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(25rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
+    #editor-titlebar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .4rem .6rem .4rem .85rem; background: #293544; cursor: move; touch-action: none; user-select: none; }
+    #editor-title { margin: 0; font-size: 1rem; }
+    #editor-close { border: 0; background: transparent; padding: .2rem .6rem; font-size: 1.25rem; }
+    #editor-close:hover { background: #a3313d; }
+    .editor-body { padding: .85rem; overflow: auto; min-height: 0; }
+    .editor-group { width: 100%; display: grid; gap: .5rem; }
+    .editor-group-title { font-size: .9rem; font-weight: 600; }
+    #tool-buttons { display: flex; flex-wrap: wrap; gap: .35rem; }
+    #material-swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; }
+    #material-swatches button { display: grid; gap: .35rem; padding: .4rem; text-transform: capitalize; font-size: .85rem; }
+    .material-swatch { height: 2.5rem; border: 1px solid #ffffff40; border-radius: .15rem; background-color: var(--material-color); }
+    [data-material="wood"] .material-swatch { background-image: repeating-linear-gradient(5deg, transparent 0 6px, #41240866 7px 9px); }
+    [data-material="stone"] .material-swatch { background-image: linear-gradient(35deg, #fff3, transparent 55%, #0004); }
+    [data-material="cobble"] .material-swatch { background-image: radial-gradient(ellipse, #fff3 45%, #0005 50%, transparent 60%); background-size: 16px 12px; }
+    [data-material="brick"] .material-swatch { background-image: repeating-linear-gradient(0deg, transparent 0 10px, #d0bca9 10px 12px), repeating-linear-gradient(90deg, transparent 0 22px, #d0bca9 22px 24px); }
+    [data-material="metal"] .material-swatch { background-image: linear-gradient(120deg, #0005, #fff7, #0003); }
+    #editor-controls button[aria-pressed="true"] { background: #344f70; border-color: #a2cbff; box-shadow: inset 0 0 0 1px #a2cbff; }
+    #editor-controls button:disabled { cursor: default; }
+    #editor-controls { align-items: center; gap: .65rem; }
+    #editor-controls input[type="number"] { width: 5rem; }
+    #editor-help { margin: .5rem 0 0; color: #b4c0ce; font-size: .9rem; }
+    #map-view { touch-action: none; user-select: none; }
+    #edit-preview { pointer-events: none; }
+    .edit-selected { filter: drop-shadow(0 0 3px #fff); stroke: #fff !important; }
   </style>
   <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
+    { "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    } }
   </script>
 </head>
 <body>
   <main>
     <header>
       <h1>GeezVTT</h1>
-      <label for="map-file">Import map</label>
-      <input id="map-file" type="file" accept=".dd2vtt" aria-describedby="status">
-      <fieldset disabled id="layer-controls">
-        <legend>Map overlays</legend>
-        <label title="Cyan lines"><input type="checkbox" data-layer="walls" checked> Walls <span id="walls-count">(0)</span></label>
-        <label title="Light colors and range circles"><input type="checkbox" data-layer="lights" checked> Lights <span id="lights-count">(0)</span></label>
-        <label title="Orange: closed. Dashed green: open."><input type="checkbox" data-layer="doors" checked> Doors <span id="doors-count">(0)</span></label>
-      </fieldset>
+      <input id="map-file" type="file" accept=".dd2vtt" aria-label="Import map" aria-describedby="status" hidden>
+      <nav class="menu-bar" aria-label="Application menu">
+        <details class="menu">
+          <summary>File</summary>
+          <div class="menu-items">
+            <button id="import-map" type="button">Import Map</button>
+            <button id="edit-export" type="button" disabled>Save Map</button>
+          </div>
+        </details>
+        <details class="menu">
+          <summary>Edit</summary>
+          <div class="menu-items">
+            <button type="button" data-edit-layer="walls" disabled>Walls</button>
+            <button type="button" data-edit-layer="lights" disabled>Lights</button>
+            <button type="button" data-edit-layer="doors" disabled>Doors</button>
+          </div>
+        </details>
+        <details class="menu">
+          <summary>View</summary>
+          <div class="menu-items">
+            <button id="toggle-3d" type="button" aria-pressed="false" aria-controls="view-3d" disabled>Toggle (2D/3D)</button>
+            <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
+            <button id="fit-3d" type="button" hidden>Fit map</button>
+          </div>
+        </details>
+        <details class="menu">
+          <summary>Dice</summary>
+          <div class="menu-items">
+            <button id="open-dice" type="button" aria-controls="dice-panel">Open Dice Roller</button>
+          </div>
+        </details>
+      </nav>
     </header>
+    <section id="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
+      <div id="editor-titlebar" tabindex="0" aria-label="Move editor window. Drag or use arrow keys.">
+        <h2 id="editor-title">Walls</h2>
+        <button id="editor-close" type="button" aria-label="Close editor">&times;</button>
+      </div>
+      <div class="editor-body">
+      <fieldset id="editor-controls" disabled>
+        <legend>Object editing</legend>
+        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="lights">Lights</option><option value="doors">Doors</option></select></label>
+        <label hidden>Tool <select id="edit-tool"><option value="select">Select</option><option value="erase">Erase</option><option value="paint">Paint</option><option value="bucket">Bucket</option><option value="replace">Replace</option></select></label>
+        <div class="editor-group" role="group" aria-labelledby="tools-title">
+          <span id="tools-title" class="editor-group-title">Tools:</span>
+          <div id="tool-buttons"></div>
+        </div>
+        <div id="material-label" class="editor-group" role="group" aria-labelledby="materials-title">
+          <span id="materials-title" class="editor-group-title">Walls:</span>
+          <select id="edit-material" aria-label="Material" hidden><option>wood</option><option selected>stone</option><option>cobble</option><option>brick</option><option>metal</option></select>
+          <div id="material-swatches"></div>
+        </div>
+        <label id="color-label" hidden>Color <input id="edit-color" type="color" value="#ffe6bf"></label>
+        <label id="range-label" hidden>Range <input id="edit-range" type="number" min="0.25" max="100" step="0.25" value="4"></label>
+        <label id="intensity-label" hidden>Intensity <input id="edit-intensity" type="number" min="0" max="10" step="0.1" value="1"></label>
+        <label id="door-label" hidden>Door <select id="edit-door"><option value="closed">Closed</option><option value="open">Open</option></select></label>
+        <label id="spacing-label" hidden>Fill spacing <input id="edit-spacing" type="number" min="0.5" max="100" step="0.5" value="4"></label>
+        <label><input id="edit-snap" type="checkbox" checked> Snap to grid</label>
+        <button id="edit-apply" type="button" disabled>Apply to selection</button>
+        <button id="edit-delete" type="button" disabled>Delete selection</button>
+        <button id="edit-undo" type="button" disabled>Undo</button>
+        <button id="edit-redo" type="button" disabled>Redo</button>
+      </fieldset>
+      <p id="editor-help" role="status">Use File &gt; Import Map to edit its objects. Changes are local; use File &gt; Save Map to keep them.</p>
+      </div>
+    </section>
     <section id="floor" aria-label="Tabletop floor" aria-busy="false">
       <p id="empty">Choose a .dd2vtt file to place its map on the floor.</p>
       <svg id="map-view" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="map-title" hidden>
         <title id="map-title">Floor map</title>
+        <defs>
+          <pattern id="grid-pattern" width="1" height="1" patternUnits="userSpaceOnUse">
+            <path d="M 1 0 H 0 V 1" fill="none" stroke="#dce6f2" stroke-opacity="0.55" stroke-width="1" vector-effect="non-scaling-stroke" />
+          </pattern>
+        </defs>
         <image id="floor-image" x="0" y="0" preserveAspectRatio="none" />
+        <rect id="grid" fill="url(#grid-pattern)" pointer-events="none" hidden />
         <g id="lights"></g>
         <g id="walls"></g>
         <g id="doors"></g>
+        <g id="edit-preview"></g>
       </svg>
+      <div id="view-3d" role="region" aria-label="3D map. Drag to orbit, right-drag to pan, scroll to zoom." hidden></div>
+      <p id="view-help" hidden>Drag: orbit · Right-drag: pan · Scroll: zoom · Touch: one finger orbit, two fingers pan/zoom</p>
+      <div id="dice-overlay" aria-hidden="true"></div>
     </section>
+    <details id="dice-panel">
+      <summary>Dice roller</summary>
+      <form id="dice-form">
+        <label>Dice <select id="dice-sides"><option value="4">d4</option><option value="6">d6</option><option value="8">d8</option><option value="10">d10</option><option value="12">d12</option><option value="20" selected>d20</option><option value="100">d100</option></select></label>
+        <label>Quantity <input id="dice-count" type="number" min="1" max="12" value="1" required></label>
+        <label>Modifier <input id="dice-modifier" type="number" min="-999" max="999" value="0" required></label>
+        <label>d20 mode <select id="dice-mode"><option value="normal">Normal</option><option value="advantage">Advantage</option><option value="disadvantage">Disadvantage</option></select></label>
+        <label class="toggle"><input id="dice-animated" type="checkbox" checked> 3D dice</label>
+        <button id="roll-dice" type="submit">Roll dice</button>
+        <button id="clear-dice" type="button">Clear tray</button>
+      </form>
+      <p id="dice-status" role="status" aria-live="polite">Local rolls. Choose your dice and roll onto the tabletop.</p>
+      <ol id="dice-history" aria-label="Recent local rolls, newest first"></ol>
+    </details>
     <footer><p id="status" role="status" aria-live="polite">No map loaded.</p></footer>
   </main>
 
@@ -77,12 +215,6 @@
     const empty = document.querySelector('#empty');
     const status = document.querySelector('#status');
     let importVersion = 0;
-
-    document.querySelectorAll('[data-layer]').forEach(input => {
-      input.addEventListener('change', () => {
-        document.getElementById(input.dataset.layer).style.display = input.checked ? '' : 'none';
-      });
-    });
 
     function svgElement(tag, attributes = {}, title) {
       const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -115,14 +247,14 @@
         layers.walls.append(svgElement('polyline', { points: wall.map(point).join(' '), class: 'map-line' }, 'Wall'));
         counts.walls++;
       }
-      for (const door of list(map.portals)) {
+      for (const [sourceIndex, door] of list(map.portals).entries()) {
         if (!door || !Array.isArray(door.bounds) || door.bounds.length < 2 || !door.bounds.every(validPoint)) continue;
         layers.doors.append(svgElement('polyline', {
-          points: door.bounds.map(point).join(' '), class: `map-line door${door.closed === false ? ' open' : ''}`
+          points: door.bounds.map(point).join(' '), class: `map-line door${door.closed === false ? ' open' : ''}`, 'data-source-index': sourceIndex
         }, door.closed === false ? 'Open door' : 'Closed door'));
         counts.doors++;
       }
-      for (const light of list(map.lights)) {
+      for (const [sourceIndex, light] of list(map.lights).entries()) {
         if (!light || !validPoint(light.position) || !positive(light.range)) continue;
         // Dungeondraft exports light colors as AARRGGBB.
         const raw = typeof light.color === 'string' ? light.color.replace(/^#/, '') : '';
@@ -132,7 +264,7 @@
         const cx = light.position.x - originX;
         const cy = light.position.y - originY;
         const source = svgElement('g', {}, `Light · range ${light.range} squares · intensity ${light.intensity ?? 1}`);
-        source.append(svgElement('circle', { cx, cy, r: light.range, fill: color, stroke: color, opacity: alpha, class: 'light-range' }));
+        source.append(svgElement('circle', { cx, cy, r: light.range, fill: color, stroke: color, opacity: alpha, class: 'light-range', 'data-source-index': sourceIndex }));
         source.append(svgElement('circle', { cx, cy, r: 0.12, fill: color, class: 'light-source' }));
         layers.lights.append(source);
         counts.lights++;
@@ -183,14 +315,33 @@
         floorImage.setAttribute('href', preview.src);
         floorImage.setAttribute('width', overlay.width);
         floorImage.setAttribute('height', overlay.height);
+        document.querySelector('#grid').setAttribute('width', overlay.width);
+        document.querySelector('#grid').setAttribute('height', overlay.height);
         document.querySelector('#map-title').textContent = `Floor map: ${file.name.replace(/\.dd2vtt$/i, '')}`;
         for (const name of ['walls', 'lights', 'doors']) {
           document.getElementById(name).replaceChildren(overlay.layers[name]);
-          document.getElementById(`${name}-count`).textContent = `(${overlay.counts[name]})`;
         }
-        document.querySelector('#layer-controls').disabled = false;
         mapView.removeAttribute('hidden');
         empty.hidden = true;
+        // Keep the decoded image and validated grid-space geometry for the optional 3D view.
+        const points = element => element.getAttribute('points').split(' ').map(pair => {
+          const [x, y] = pair.split(',').map(Number);
+          return { x, y };
+        });
+        floor.tabletopMap = {
+          width: overlay.width, height: overlay.height, image: preview,
+          walls: [...overlay.layers.walls.querySelectorAll('polyline')].map(points),
+          doors: [...overlay.layers.doors.querySelectorAll('polyline')].map(line => ({ points: points(line), open: line.classList.contains('open'), source: map.portals[Number(line.dataset.sourceIndex)] })),
+          lights: [...overlay.layers.lights.querySelectorAll('.light-range')].map(circle => ({
+            x: Number(circle.getAttribute('cx')), y: Number(circle.getAttribute('cy')),
+            range: Number(circle.getAttribute('r')), color: circle.getAttribute('fill'), opacity: Number(circle.getAttribute('opacity')),
+            source: map.lights[Number(circle.dataset.sourceIndex)], intensity: map.lights[Number(circle.dataset.sourceIndex)].intensity ?? 1
+          }))
+        };
+        floor.sourceMap = map;
+        floor.sourceName = file.name;
+        document.querySelector('#toggle-3d').disabled = false;
+        floor.dispatchEvent(new Event('map-ready'));
         status.textContent = `${file.name} · ${preview.naturalWidth} × ${preview.naturalHeight} px`;
       } catch (error) {
         if (version !== importVersion) return;
@@ -204,10 +355,10 @@
       }
     });
   </script>
-  <script type="module">
-    // Loaded for the next stage; no scene or renderer is created yet.
-    import * as THREE from 'three';
-    window.THREE = THREE;
-  </script>
+  <script type="module" src="js/dice-roller.js"></script>
+  <script type="module" src="js/map-view-toggle.js"></script>
+  <script type="module" src="js/map-view-2d.js"></script>
+  <script type="module" src="js/map-editor.js"></script>
+  <script type="module" src="js/menu-bar.js"></script>
 </body>
 </html>
