@@ -250,3 +250,14 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm measurement expiry in both views, active measurement drags lasting longer than three seconds, dice cleanup after settling, retained history, and timer handling when clearing, rerolling, or disabling animation. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## PC token catalog, Firebase sync, and status displays saved - 2026-11-23
+
+- Edit > Tokens includes current Firebase PCs alongside NPCs, preserving character ID links, legacy NPC deduplication, and deleted-record filtering.
+- Linked PC tokens receive live Firebase updates to name, size, current/max HP, and AC. Applying PC token property edits saves changed name, size, and current HP fields to the canonical character record. Writes preserve unrelated character fields and report Firebase failures. Token positions remain local scene data.
+- Adds a compact HP bar and current/max HP plus AC beneath PC tokens in both 2D and 3D. The bar changes color with remaining HP; missing max HP or AC displays a dash. PC status metadata survives map and scene export/import.
+- Adds unrun regression coverage for PC catalog inclusion, deleted PCs, status values, HP bar clamping, missing stats, and saved PC metadata.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm PC selection and placement; live Firebase changes and token property saves, including failures and reconnection; multiple tokens linked to one PC; status visibility in both views; and map/scene round trips and floor switching. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.

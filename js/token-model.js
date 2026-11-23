@@ -13,9 +13,23 @@ export function tokenProperties(name, size, hp) {
   return { name: name.trim(), size, hp };
 }
 
+function pcStats(hpMax, ac) {
+  const number = value => value == null || value === '' ? NaN : Number(value);
+  hpMax = number(hpMax); ac = number(ac);
+  return { kind: 'pc', hpMax: Number.isSafeInteger(hpMax) && hpMax > 0 && hpMax <= 999999 ? hpMax : null,
+    ac: Number.isSafeInteger(ac) && ac >= 0 && ac <= 999 ? ac : null };
+}
+
+export function pcTokenStatus(token) {
+  if (token.kind !== 'pc') return null;
+  const fraction = token.hpMax > 0 ? Math.max(0, Math.min(1, token.hp / token.hpMax)) : 0;
+  return { fraction, color: fraction > .5 ? '#55c779' : fraction > .25 ? '#efbf50' : '#e26262',
+    label: `${token.hp}/${token.hpMax ?? '—'} · AC ${token.ac ?? '—'}` };
+}
+
 export function npcCatalog(entities, legacy) {
   const npcs = [], mirrored = new Set();
-  const add = (id, name, data) => {
+  const add = (id, name, data, kind) => {
     if (!data || typeof data !== 'object') return;
     const sizes = { tiny: .5, small: 1, medium: 1, large: 2, huge: 3, gargantuan: 4 };
     const rawSize = data.size ?? data.basic?.size;
@@ -23,14 +37,15 @@ export function npcCatalog(entities, legacy) {
     const hp = Number(data.combat?.hp_current ?? data.combat?.hp_max ?? 0);
     npcs.push({ npcId: id, name: (typeof name === 'string' && name.trim() ? name.trim() : id).slice(0, 100),
       size: Number.isFinite(size) && size >= .5 && size <= 20 && Number.isInteger(size * 2) ? size : 1,
-      hp: Number.isSafeInteger(hp) && hp >= 0 && hp <= 999999 ? hp : 0 });
+      hp: Number.isSafeInteger(hp) && hp >= 0 && hp <= 999999 ? hp : 0,
+      ...(kind === 'pc' ? pcStats(data.combat?.hp_max, data.combat?.ac ?? data.combat?.armor_class ?? data.ac) : {}) });
   };
   for (const [id, entity] of Object.entries(entities || {})) {
-    if (entity?.kind !== 'npc') continue;
+    if (!['npc', 'pc'].includes(entity?.kind)) continue;
     for (const source of [entity.source?.id, ...(Array.isArray(entity.source?.mirrors) ? entity.source.mirrors : [])]) {
       if (typeof source === 'string' && source.startsWith('characters/npcs/')) mirrored.add(source.slice('characters/npcs/'.length));
     }
-    if (!entity.data?._sheetsDeleted) add(`v2:${id}`, entity.name, entity.data);
+    if (!entity.data?._sheetsDeleted) add(`v2:${id}`, entity.name, entity.data, entity.kind);
   }
   for (const [id, npc] of Object.entries(legacy || {})) {
     if (!mirrored.has(id) && !npc?._sheetsDeleted) add(`legacy:${id}`, npc?.name, npc);
@@ -45,6 +60,7 @@ export function importedTokens(value, width, height) {
       const props = tokenProperties(token?.name, token?.size, token?.hp);
       if (!Number.isFinite(token.x) || !Number.isFinite(token.y) || token.x < 0 || token.y < 0 || token.x > width || token.y > height) return [];
       return [{ id: crypto.randomUUID(), ...props, x: token.x, y: token.y,
+        ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }
   });

@@ -1,5 +1,5 @@
 import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
-import { importedTokens, tokenProperties, crossesWindow } from './token-model.js';
+import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
 import { onMapRightClick } from './map-right-click.js';
@@ -95,6 +95,15 @@ function render(notify=true) {
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
         el.append(text);
+        const status=pcTokenStatus(obj);
+        if(status) {
+          const width=obj.size*.9, top=obj.size*.56;
+          el.append(node('rect',{x:-width/2,y:top,width,height:obj.size*.09,rx:obj.size*.025,fill:'#17212b','pointer-events':'none'}),
+            node('rect',{x:-width/2,y:top,width:width*status.fraction,height:obj.size*.09,rx:obj.size*.025,fill:status.color,'pointer-events':'none'}));
+          const label=node('text',{x:0,y:obj.size*.83,'text-anchor':'middle','font-size':obj.size*.14,'font-weight':'600',fill:'#fff',stroke:'#17212b','stroke-width':obj.size*.025,'paint-order':'stroke','pointer-events':'none'});
+          label.textContent=status.label; el.append(label);
+          el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to edit.`);
+        }
       } else if(name==='floors') {
         el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
       } else if(name==='lights') {
@@ -456,6 +465,14 @@ for(const element of [panel,$('portals-panel'),$('props-panel')]) new MutationOb
   if(model) render(false);
 }).observe(element,{attributes:true,attributeFilter:['hidden']});
 floor.addEventListener('map-changed',closeMapMenu);
+floor.addEventListener('token-sync',event=>{
+  const {npcId,name,size,hp,kind,hpMax,ac}=event.detail;
+  const props={name,size,hp,kind,hpMax,ac};
+  if(!model?.tokens.some(token=>token.npcId===npcId && Object.keys(props).some(key=>token[key]!==props[key]))) return;
+  cancelGesture();
+  for(const token of model.tokens) if(token.npcId===npcId) Object.assign(token,props);
+  render();
+});
 floor.addEventListener('token-update',event=>{
   try {
     cancelGesture();

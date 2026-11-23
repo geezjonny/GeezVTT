@@ -9,6 +9,7 @@ import { propCorners, propAppearance } from './prop-model.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
 import { MATERIALS } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
+import { pcTokenStatus } from './token-model.js';
 
 export function createMapView3D(host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -279,17 +280,27 @@ export function createMapView3D(host) {
       groups.portals.add(ring);
     }
     for (const token of model.tokens || []) {
+      const status = pcTokenStatus(token);
       const canvas = document.createElement('canvas');
-      canvas.width = canvas.height = 256;
+      canvas.width = 256; canvas.height = status ? 384 : 256;
       const context = canvas.getContext('2d');
       context.fillStyle = '#344f70';
       context.beginPath(); context.arc(128, 128, 124, 0, Math.PI * 2); context.fill();
       context.strokeStyle = '#a2cbff'; context.lineWidth = 8; context.stroke();
       context.fillStyle = '#fff'; context.font = 'bold 76px system-ui'; context.textAlign = 'center'; context.textBaseline = 'middle';
       context.fillText(token.name.split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join(''), 128, 128);
+      if (status) {
+        context.fillStyle = '#17212b'; context.fillRect(13, 272, 230, 23);
+        context.fillStyle = status.color; context.fillRect(13, 272, 230 * status.fraction, 23);
+        context.font = '600 36px system-ui'; context.lineWidth = 6; context.strokeStyle = '#17212b';
+        context.strokeText(status.label, 128, 330, 250);
+        context.fillStyle = '#fff'; context.fillText(status.label, 128, 330, 250);
+      }
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(token.size, token.size),
+      const geometry = new THREE.PlaneGeometry(token.size, token.size * (status ? 1.5 : 1));
+      if (status) geometry.translate(0, -token.size * .25, 0);
+      const mesh = new THREE.Mesh(geometry,
         new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .1 }));
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(token.x, .03, token.y);
