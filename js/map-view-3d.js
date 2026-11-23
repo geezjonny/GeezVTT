@@ -55,7 +55,7 @@ export function createMapView3D(host) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...(isGM ? [] : fogGroup.children)],true)[0];
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)],true)[0];
     if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
     else if (hit?.object.userData.portalId) host.closest('#floor').dispatchEvent(new CustomEvent('portal-menu', {
       detail: { id: hit.object.userData.portalId, x: event.clientX, y: event.clientY }
@@ -65,6 +65,9 @@ export function createMapView3D(host) {
     }));
     else if (hit?.object.userData.propId) host.closest('#floor').dispatchEvent(new CustomEvent('prop-menu', {
       detail: { id: hit.object.userData.propId, x: event.clientX, y: event.clientY }
+    }));
+    else if (hit?.object.userData.floorIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('floor-menu', {
+      detail: { index: hit.object.userData.floorIndex, x: event.clientX, y: event.clientY }
     }));
     else if (hit?.object.userData.lightIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('light-menu', {
       detail: { index: hit.object.userData.lightIndex, x: event.clientX, y: event.clientY }
@@ -159,9 +162,27 @@ export function createMapView3D(host) {
       const a = points[i - 1], b = points[i];
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
-      const thickness = doorIndex !== undefined ? 0.06 : 0.12;
+      const thickness = doorIndex !== undefined ? 0.24 : 0.12;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, thickness), material);
       if (doorIndex !== undefined) mesh.userData.doorIndex = doorIndex;
+      if (doorIndex !== undefined) {
+        const iron = new THREE.MeshStandardMaterial({ color: '#45413a', metalness: .75, roughness: .7 });
+        const size = Math.min(1, length / .4);
+        const parts = [
+          { geometry: new THREE.CylinderGeometry(.075, .075, .02, 12), y: .015, z: .01, rotation: Math.PI / 2 },
+          { geometry: new THREE.SphereGeometry(.025, 8, 6), y: .015, z: .035, rotation: 0 },
+          { geometry: new THREE.TorusGeometry(.075, .014, 6, 16), y: -.06, z: .045, rotation: 0 }
+        ];
+        for (const side of [-1, 1]) for (const part of parts) {
+          const handle = new THREE.Mesh(part.geometry, iron);
+          handle.scale.setScalar(size);
+          handle.rotation.x = part.rotation;
+          handle.position.set(length / 2 - .15 * size, part.y * size, side * (thickness / 2 + part.z * size));
+          handle.castShadow = handle.receiveShadow = true;
+          handle.userData.doorIndex = doorIndex;
+          mesh.add(handle);
+        }
+      }
       // Keep texture density constant on every face, regardless of segment length.
       const positions=mesh.geometry.attributes.position, normals=mesh.geometry.attributes.normal, uv=mesh.geometry.attributes.uv;
       for(let vertex=0;vertex<positions.count;vertex++) {
@@ -241,13 +262,14 @@ export function createMapView3D(host) {
       }
       return materials.get(name);
     };
-    for (const tile of model.floors || []) {
+    (model.floors || []).forEach((tile,index)=>{
       const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, 'stone'));
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(tile.x, -0.001, tile.y);
       mesh.receiveShadow = true;
+      mesh.userData.floorIndex=index;
       groups.floors.add(mesh);
-    }
+    });
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls));
     model.doors.forEach((door,index) => {
       if(door.hidden && !isGM) return;
@@ -262,11 +284,13 @@ export function createMapView3D(host) {
       mesh.traverse(object=>{delete object.userData.propId; object.userData[key]=value;});
       return mesh;
     };
-    for (const prop of model.props || []) if(isGM || !prop.hidden) groups.props.add(propMesh({...prop,kind:propAppearance(prop)?.kind || prop.kind}));
+    for (const prop of model.props || []) if(isGM || !prop.hidden) groups.props.add(propMesh({
+      ...prop,kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
+    }));
     model.lights.forEach((light,index)=>{
       if(light.propId || (light.hidden && !isGM)) return;
       const appearance=propAppearance(light);
-      if(appearance) groups.lightMarkers.add(appearanceMesh(appearance,'lightIndex',index));
+      if(appearance) groups.lightMarkers.add(appearanceMesh({...appearance,lightColor:light.color},'lightIndex',index));
       else {
         const marker=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:light.color}));
         marker.position.set(light.x,.12,light.y); marker.userData.lightIndex=index;

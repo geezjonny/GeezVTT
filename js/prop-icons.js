@@ -5,10 +5,10 @@ const node = (tag, attrs) => {
   for (const [key, value] of Object.entries(attrs)) element.setAttribute(key, value);
   return element;
 };
-export function propIcon(kind) {
+export function propIcon(kind, color = PROPS[kind].color) {
   const prop = PROPS[kind];
   const svg = node('svg', { viewBox: '0 0 24 24', width: 24, height: 24, 'aria-hidden': true, focusable: false });
-  svg.append(node('path', { d: prop.path, fill: 'none', stroke: prop.color, 'stroke-width': 1.6,
+  svg.append(node('path', { d: prop.path, fill: 'none', stroke: color, 'stroke-width': 1.6,
     'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
   return svg;
 }
@@ -18,7 +18,7 @@ export function propMarker(prop) {
   group.append(node('rect', { x: -width/2, y: -depth/2, width, height: depth, rx: .04,
     fill: '#15191f', 'fill-opacity': .65, stroke: '#ffffff30', 'stroke-width': .025 }));
   const kind=prop.icon?.startsWith('prop:') && Object.hasOwn(PROPS,prop.icon.slice(5))?prop.icon.slice(5):prop.kind;
-  const icon = propIcon(kind);
+  const icon = propIcon(kind, ['torch','brazier'].includes(kind) ? prop.lightColor : undefined);
   for (const [key, value] of Object.entries({ x: -width/2, y: -depth/2, width, height: depth, preserveAspectRatio: 'none' })) icon.setAttribute(key, value);
   group.append(icon);
   return group;

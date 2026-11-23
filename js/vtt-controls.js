@@ -84,6 +84,7 @@ function clear() {
   cancelAnimationFrame(frame); frame = null; overlay.replaceChildren();
 }
 function activate(next) {
+  floor.dispatchEvent(new Event('build-stop'));
   clear(); tool = next; enabled = true;
   $('editor-close').click();
   $('fog-tool').value = 'off';
@@ -101,11 +102,13 @@ $('vtt-collapse').addEventListener('click', () => {
   $('vtt-collapse').textContent = collapsed ? '+' : '\u2212';
 });
 // Opening map editing tools hands input back to the editor.
-for (const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click', () => {
-  clear(); enabled = false;
-  buttons.forEach(button => button.setAttribute('aria-pressed', 'false'));
-  for (const target of [map, host]) delete target.dataset.vttTool;
-});
+function handToEditor() {
+  clear(); enabled=false;
+  buttons.forEach(button=>button.setAttribute('aria-pressed','false'));
+  for(const target of [map,host]) delete target.dataset.vttTool;
+}
+floor.addEventListener('build-start',handToEditor);
+for (const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click', handToEditor);
 $('fog-tool').addEventListener('change', () => {
   if ($('fog-tool').value === 'off') return;
   clear(); enabled = false;

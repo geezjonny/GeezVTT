@@ -20,11 +20,14 @@ const showHiddenPortals=()=>isGM || !panel.hidden && !$('portals-panel').hidden 
 const showHiddenProps=()=>isGM || !panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
 let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
-let pendingPortal, travelling=false;
+let pendingPortal, travelling=false, leftShift=false;
+window.addEventListener('keydown',event=>{if(event.code==='ShiftLeft') leftShift=true;});
+window.addEventListener('keyup',event=>{if(event.code==='ShiftLeft') leftShift=false;});
+window.addEventListener('blur',()=>{leftShift=false;});
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
 const pointLayer=()=>['lights','tokens','floors','portals','props'].includes(layer());
 const materialInput=(name=layer())=>$(name==='floors'?'edit-floor-material':name==='doors'?'edit-door-material':'edit-material');
-const message=text=>{ $('editor-help').textContent=text; };
+const message=text=>{ $('editor-help').textContent=text; if(floor.buildLayer) $('session-status').textContent=text; };
 const node=(tag,attrs={})=>{
   const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
   for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
@@ -83,7 +86,7 @@ function render(notify=true) {
       let el;
       if(name==='props') {
         if(obj.hidden && !showHiddenProps()) return;
-        el=propMarker(obj);
+        el=propMarker({...obj,lightColor:model.lights.find(light=>light.propId===obj.id)?.color});
         el.setAttribute('opacity',obj.hidden?.3:1);
         el.setAttribute('tabindex','0'); el.setAttribute('role','button');
         el.setAttribute('aria-label',`${obj.hidden?'Hidden ':''}${PROPS[obj.kind].name}. ${isGM?'Left-drag to move. ':''}Right-click for actions.`);
@@ -116,12 +119,15 @@ function render(notify=true) {
         }
       } else if(name==='floors') {
         el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
+        el.dataset.floorIndex=index;
+        el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+        el.setAttribute('aria-label',`Floor, ${obj.material}. Right-click for actions.`);
       } else if(name==='lights') {
         el=node('g',{tabindex:0,role:'button',opacity:obj.hidden?.3:1,'aria-label':'Light. Right-click for actions.'});
         el.dataset.lightIndex=index;
-        el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.off?0:obj.opacity,class:'light-range'}));
+        el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.off?0:Math.min(1,(obj.opacity ?? 1)*(obj.intensity ?? 1)),class:'light-range'}));
         const appearance=propAppearance(obj);
-        const marker=appearance?propMarker(appearance):node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color});
+        const marker=appearance?propMarker({...appearance,lightColor:obj.color}):node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color});
         if(obj.propId) { marker.setAttribute('visibility','hidden'); el.setAttribute('pointer-events','none'); }
         marker.classList.add('light-source'); el.append(marker);
       } else {
@@ -244,9 +250,9 @@ function paint(p) {
   const props=settings();
   if(layer()==='floors' && model.floors.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<.01)) return;
   if(pointLayer()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
-  else if(!chain.length || Math.hypot(chain.at(-1).x-p.x,chain.at(-1).y-p.y)>.00001) { chain.push(p); drawPreview(); }
+  else if(!chain.length || Math.hypot(chain.at(-1).x-p.x,chain.at(-1).y-p.y)>.00001) { chain.push(p); if(floor.buildLayer==='doors' && chain.length===2) placeChain(); else drawPreview(); }
 }
-function bucket(p) {
+function bucket(p,room=false) {
   const spacing=layer()==='floors'?1:Number($('edit-spacing').value);
   if(!Number.isFinite(spacing) || spacing<.5 || spacing>100) throw new Error('Fill spacing must be between 0.5 and 100 squares.');
   const bounds=layer()==='floors'?{
@@ -255,7 +261,19 @@ function bucket(p) {
     right:Math.ceil(Math.max(model.width,p.x+1,...model.floors.map(o=>o.x+.5))),
     bottom:Math.ceil(Math.max(model.height,p.y+1,...model.floors.map(o=>o.y+.5)))
   }:undefined;
-  const props=settings(), cells=bucketCells(model,p,spacing,2000,bounds);
+  const fillModel=room?{...model,doors:model.doors.map(door=>({...door,open:false}))}:model;
+  const props=settings(), cells=bucketCells(fillModel,p,spacing,2000,bounds);
+  if(room) {
+    const tiles=cells.map(cell=>({cell,tile:model.floors.find(tile=>Math.hypot(tile.x-cell.x,tile.y-cell.y)<.01)}))
+      .filter(({tile})=>!tile || tile.material!==props.material);
+    if(!tiles.length) { message('Room already uses this floor material.'); return; }
+    remember();
+    for(const {cell,tile} of tiles) {
+      if(tile) tile.material=props.material;
+      else model.floors.push(addPoint(cell,props));
+    }
+    render(); message(`Painted ${tiles.length} floor tiles.`); return;
+  }
   const fresh=cells.filter(c=>!model[layer()].some(o=>pointLayer()?Math.hypot(o.x-c.x,o.y-c.y)<.01:distance(c,o.points[0],o.points[1])<.01));
   if(!fresh.length) { message('This area is already filled.'); return; }
   remember();
@@ -264,12 +282,15 @@ function bucket(p) {
 }
 svg.addEventListener('pointerdown',event=>{
   if(!isGM) return;
-  if(!model || panel.hidden || event.button!==0 || svg.hidden) return;
+  if(!model || (panel.hidden && !floor.buildLayer) || event.button!==0 || svg.hidden) return;
   // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!['floors','portals','props'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
   event.preventDefault(); svg.focus();
   const p=point(event), index=hit(p);
+  if(floor.buildLayer==='floors' && leftShift && event.shiftKey) {
+    attempt(()=>bucket(p,true)); return;
+  }
   if(tool()==='paint' || tool()==='bucket') {
     attempt(()=>tool()==='paint'?paint(point(event,true)):bucket(p)); return;
   }
@@ -277,7 +298,7 @@ svg.addEventListener('pointerdown',event=>{
   svg.setPointerCapture(event.pointerId);
 });
 svg.addEventListener('pointermove',event=>{
-  if(!model || panel.hidden) return;
+  if(!model || (panel.hidden && !floor.buildLayer)) return;
   hover=point(event,tool()==='paint');
   if(gesture) {
     gesture.moved ||= Math.hypot(event.clientX-gesture.screen.x,event.clientY-gesture.screen.y)>4;
@@ -333,17 +354,31 @@ function addObjectLight(object) {
   if(propId && model.lights.some(light=>light.propId===propId)) return;
   model.lights.push({x:object.x,y:object.y,color:'#ffb34d',range:4,intensity:1,opacity:1,...(propId?{propId}:{})});
 }
-let editingLight;
+let editingLight, lightEditInput;
 function editLight(light) {
-  editingLight=light; $('object-light-color').value=light.color; $('object-light-intensity').value=light.intensity ?? 1;
+  editingLight=light; lightEditInput=null;
+  $('object-light-color').value=light.color;
+  $('object-light-intensity').value=light.intensity ?? 1;
+  $('object-light-range').value=light.range;
   openPanel($('object-light-panel'));
 }
-$('object-light-form').addEventListener('submit',event=>{
-  event.preventDefault();
-  const intensity=Number($('object-light-intensity').value);
-  if(!isGM || !model?.lights.includes(editingLight) || !Number.isFinite(intensity) || intensity<0 || intensity>10) return;
-  remember(); Object.assign(editingLight,{color:$('object-light-color').value,intensity}); render();
-});
+$('object-light-form').addEventListener('submit',event=>event.preventDefault());
+for(const prefix of ['object-light-','edit-']) for(const property of ['color','intensity','range']) {
+  const input=$(prefix+property);
+  input.addEventListener('input',()=>{
+    if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true' || !input.validity.valid) return;
+    const value=property==='color'?input.value:input.valueAsNumber;
+    if(property!=='color' && !Number.isFinite(value)) return;
+    const lights=prefix==='object-light-'?(model.lights.includes(editingLight)?[editingLight]:[]):
+      layer()==='lights'?[...selected].map(index=>model.lights[index]).filter(Boolean):[];
+    if(!lights.some(light=>light[property]!==value)) return;
+    if(lightEditInput!==input) remember();
+    lightEditInput=input;
+    for(const light of lights) light[property]=value;
+    render();
+  });
+  for(const type of ['change','blur']) input.addEventListener(type,()=>{lightEditInput=null;});
+}
 let chestId, pendingChest, chestBusy=false;
 let inventoryVersion=0;
 async function drawInventory() {
@@ -452,7 +487,7 @@ function portalMenu(id,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    {label:'Use',disabled:!portalDestination(portalEntries(),portal),action:()=>{layerInput.value='portals'; selected.clear(); selected.add(model.portals.indexOf(portal)); $('portal-travel').click();}},
+    {label:'Use',disabled:!portalDestination(portalEntries(),portal),action:()=>usePortal(portal)},
     {label:'Add light',action:()=>change(()=>addObjectLight(portal))},
     {label:portal.hidden?'Show':'Hide',action:()=>change(()=>{portal.hidden=!portal.hidden;})},
     {label:'Delete',action:()=>change(()=>{model.portals=model.portals.filter(item=>item!==portal);})},
@@ -468,7 +503,7 @@ function lightMenu(index,x,y,origin) {
   showMapMenu(x,y,[
     {label:light.off?'Turn on':'Turn off',action:()=>change(()=>{light.off=!light.off;})},
     {label:light.hidden?'Show':'Hide',action:()=>change(()=>{light.hidden=!light.hidden;})},
-    {label:'Color / intensity...',action:()=>editLight(light)},
+    {label:'Light settings...',action:()=>editLight(light)},
     {label:'Change icon…',action:()=>iconMenu(x,y,icon=>{
       if(!model.lights.includes(light)) return;
       remember(); light.icon=icon; render();
@@ -494,6 +529,22 @@ function doorMenu(index,x,y,origin) {
     {label:door.hidden?'Show':'Hide',action:()=>change(()=>{door.hidden=!door.hidden;})},
     {label:'Add light',action:()=>change(()=>addObjectLight({x:(door.points[0].x+door.points[1].x)/2,y:(door.points[0].y+door.points[1].y)/2}))},
     {label:'Delete',action:()=>change(()=>{model.doors=model.doors.filter(item=>item!==door);})}
+  ],origin);
+}
+function floorMenu(index,x,y,origin) {
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  cancelGesture();
+  const tile=model.floors[index];
+  if(!tile) return;
+  const change=update=>{
+    if(!model.floors.includes(tile)) return;
+    remember(); update(); selected.clear(); render();
+  };
+  showMapMenu(x,y,[
+    {label:'Change material...',action:()=>showMapMenu(x,y,Object.keys(MATERIALS).map(material=>({
+      label:material,action:()=>change(()=>{tile.material=material;})
+    })),origin)},
+    {label:'Delete',action:()=>change(()=>{model.floors=model.floors.filter(item=>item!==tile);})}
   ],origin);
 }
 function propMenu(id,x,y,origin) {
@@ -531,7 +582,11 @@ function propMenu(id,x,y,origin) {
       {label:prop.open?'Close':'Open',disabled:!prop.open && prop.locked,action:()=>{change(()=>{prop.open=!prop.open;}); if(prop.open) openChest(prop.id);}},
       {label:'Contents...',disabled:!prop.open,action:()=>openChest(prop.id)}
     ]:[]),
-    ...(prop.kind==='ladder'?[{label:'Use',action:()=>{const portal=model.portals.find(item=>Math.hypot(item.x-prop.x,item.y-prop.y)<.5); if(portal){layerInput.value='portals'; selected.clear(); selected.add(model.portals.indexOf(portal)); $('portal-travel').click();} else $('session-status').textContent='This ladder needs a paired portal at its position.';}}]:[]),
+    ...(['ladder','stairs'].includes(prop.kind)?[{label:'Use',action:()=>{
+      const portal=model.portals.find(item=>Math.hypot(item.x-prop.x,item.y-prop.y)<.5);
+      if(portal) usePortal(portal);
+      else $('session-status').textContent='This ladder or stairs needs a paired portal at its position.';
+    }}]:[]),
     {label:'Rotate 90°',action:()=>change(()=>{prop.rotation=(prop.rotation+90)%360;})},
   ],origin);
 }
@@ -560,7 +615,21 @@ onMapRightClick(svg,event=>{
     const appearance=propAppearance(item);
     return appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=Math.max(.12,best);
   });
-  if(lightIndex>=0) lightMenu(lightIndex,event.clientX,event.clientY,svg);
+  if(lightIndex>=0) { lightMenu(lightIndex,event.clientX,event.clientY,svg); return; }
+  const floorIndex=model.floors.findLastIndex(tile=>Math.abs(p.x-tile.x)<=.5 && Math.abs(p.y-tile.y)<=.5);
+  if(floorIndex>=0) floorMenu(floorIndex,event.clientX,event.clientY,svg);
+});
+$('floors').addEventListener('keydown',event=>{
+  if(!isGM || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  const target=event.target.closest('[data-floor-index]');
+  if(!target) return;
+  event.preventDefault(); event.stopPropagation();
+  const rect=target.getBoundingClientRect();
+  floorMenu(Number(target.dataset.floorIndex),rect.right,rect.top,svg);
+});
+floor.addEventListener('floor-menu',event=>{
+  const {index,x,y}=event.detail;
+  floorMenu(index,x,y,document.activeElement);
 });
 $('lights').addEventListener('keydown',event=>{
   if(!isGM) return;
@@ -646,7 +715,7 @@ floor.addEventListener('vtt-object-move',event=>{
   const object=kind==='lights'?model.lights[index]:['props','portals'].includes(kind)?model[kind].find(item=>item.id===id):null;
   if(!object || !Number.isFinite(x) || !Number.isFinite(y)) return;
   cancelGesture(); remember();
-  const portal=kind==='props' && object.kind==='ladder' && model.portals.find(item=>Math.hypot(item.x-object.x,item.y-object.y)<.5);
+  const portal=kind==='props' && ['ladder','stairs'].includes(object.kind) && model.portals.find(item=>Math.hypot(item.x-object.x,item.y-object.y)<.5);
   Object.assign(object,{x:Math.max(0,Math.min(model.width,x)),y:Math.max(0,Math.min(model.height,y))});
   if(portal) Object.assign(portal,{x:object.x,y:object.y});
   render();
@@ -666,6 +735,22 @@ svg.addEventListener('wheel',cancelGesture,{passive:true});
 svg.tabIndex=0;
 svg.setAttribute('role','group');
 svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit or a light, portal, door, or prop for actions. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
+function stopBuild() {
+  if(!floor.buildLayer) return;
+  delete floor.buildLayer; cancelGesture(); floor.dispatchEvent(new Event('build-state'));
+}
+floor.addEventListener('build-stop',stopBuild);
+floor.addEventListener('build-start',event=>{
+  if(!isGM || !model || svg.hidden || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  const name=event.detail;
+  if(!['walls','floors','lights','doors','portals','props'].includes(name)) return;
+  cancelGesture(); floor.buildLayer=name; panel.hidden=true; $('fog-tool').value='off';
+  layerInput.value=name; toolInput.value='paint';
+  if(name==='doors') { $('edit-door-type').value='door'; $('edit-door').value='closed'; doorTypeChanged(); }
+  updateTools(); floor.dispatchEvent(new Event('build-state'));
+});
+for(const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click',stopBuild);
+$('fog-tool').addEventListener('change',()=>{if($('fog-tool').value!=='off') stopBuild();});
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
 $('edit-door-type').addEventListener('change',doorTypeChanged);
@@ -753,22 +838,22 @@ $('edit-delete').addEventListener('click',()=>apply([...selected],'erase'));
 $('portal-new-pair').addEventListener('click',()=>{
   pendingPortal=null; selected.clear(); toolInput.value='paint'; updateTools();
 });
-$('portal-travel').addEventListener('click',async()=>{
-  if(travelling || floor.getAttribute('aria-busy')==='true' || layer()!=='portals' || selected.size!==1) return;
+async function usePortal(source) {
+  if(!isGM || !model || !model.portals.includes(source) || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
-  const source=model.portals[[...selected][0]], destination=source && portalDestination(portalEntries(),source);
+  const destination=portalDestination(portalEntries(),source);
   if(!destination) { message('This portal needs a second node.'); return; }
   const passengers=model.tokens.filter(token=>Math.hypot(token.x-source.x,token.y-source.y)<=.5);
-  if(!passengers.length) { message('Move a token center onto this portal first.'); return; }
   const moved=passengers.map(token=>({...clone(token),x:destination.portal.x,y:destination.portal.y}));
   // Token imports require centers inside the map, including after saving travel.
   const resolution=destination.entry.map.resolution;
   const width=destination.index===floor.activeFloorIndex?model.width:resolution?.map_size?.x;
   const height=destination.index===floor.activeFloorIndex?model.height:resolution?.map_size?.y;
-  if(destination.portal.x<0 || destination.portal.y<0 || destination.portal.x>width || destination.portal.y>height) {
+  if(passengers.length && (destination.portal.x<0 || destination.portal.y<0 || destination.portal.x>width || destination.portal.y>height)) {
     message('The destination must be inside its map to receive tokens.'); return;
   }
   if(destination.index===floor.activeFloorIndex) {
+    if(!moved.length) { $('session-status').textContent=`Already on ${destination.entry.name}.`; return; }
     remember();
     for(const token of moved) Object.assign(model.tokens.find(item=>item.id===token.id),token);
     render(); message(`Moved ${moved.length} tokens through the portal.`); return;
@@ -778,6 +863,8 @@ $('portal-travel').addEventListener('click',async()=>{
   try {
     if(!await floor.loadMap({name:destination.entry.sourceName},{entry:destination.entry,index:destination.index})) return;
     if(floor.sceneDocument!==scene) return;
+    $('session-status').textContent=`Arrived at ${destination.entry.name}.`;
+    if(!moved.length) return;
     const ids=new Set(passengers.map(token=>token.id));
     sourceEntry.map.geezvtt_editor.tokens=sourceEntry.map.geezvtt_editor.tokens.filter(token=>!ids.has(token.id));
     model.tokens.push(...moved.map(token=>({...token,id:crypto.randomUUID()})));
@@ -786,6 +873,9 @@ $('portal-travel').addEventListener('click',async()=>{
     message(`Moved ${moved.length} tokens to ${destination.entry.name}.`);
   } catch(error) { message(`Portal travel failed: ${error.message}`); }
   finally { travelling=false; buttons(); }
+}
+$('portal-travel').addEventListener('click',()=>{
+  if(layer()==='portals' && selected.size===1) usePortal(model?.portals[[...selected][0]]);
 });
 function history(back) {
   cancelGesture(); const from=back?undo:redo, to=back?redo:undo;
@@ -798,14 +888,14 @@ document.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey) && !event.altKey && ['z','y'].includes(event.key.toLowerCase())) {
     event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); return;
   }
-  if(!model || panel.hidden || svg.hidden || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
+  if(!model || (panel.hidden && !floor.buildLayer) || svg.hidden || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
   if(event.key==='Escape') { cancelGesture(); selected.clear(); render(false); }
   else if(event.key==='Enter' && tool()==='paint' && !pointLayer()) { event.preventDefault(); attempt(placeChain); }
   else if(event.key==='Backspace' && chain.length) { event.preventDefault(); chain.pop(); drawPreview(); }
   else if(event.key==='Delete' && selected.size) { event.preventDefault(); apply([...selected],'erase'); }
 });
 floor.addEventListener('map-ready',()=>{
-  closeMapMenu();
+  stopBuild(); closeMapMenu();
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
@@ -829,7 +919,7 @@ floor.addEventListener('map-ready',()=>{
   if(controls.disabled) message('Switch to 2D view to edit. Your changes are visible in 3D.');
 });
 function viewState() {
-  closeMapMenu();
+  stopBuild(); closeMapMenu();
   const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
   cancelGesture(); controls.disabled=!model || on;
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });

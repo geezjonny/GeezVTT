@@ -86,6 +86,32 @@ async function switchFloor(index) {
   const entry = floor.sceneDocument.floors[index];
   return floor.loadMap({ name: entry.sourceName }, { entry, index });
 }
+function blankMap(width, height) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 1;
+  const context = canvas.getContext('2d');
+  context.fillStyle = '#293544';
+  context.fillRect(0, 0, 1, 1);
+  return {
+    image: canvas.toDataURL('image/png'),
+    resolution: { pixels_per_grid: 1, map_size: { x: width, y: height }, map_origin: { x: 0, y: 0 } },
+    line_of_sight: [], portals: [], lights: []
+  };
+}
+document.getElementById('vtt-new-scene').addEventListener('click', async () => {
+  if(!isGM || saving || floor.getAttribute('aria-busy')==='true') return;
+  const value=window.prompt('Starting dimensions in grid squares (1-1000 per side):','20x20');
+  if(value===null) return;
+  const dimensions=/^\s*(\d+)\s*[x\u00d7]\s*(\d+)\s*$/i.exec(value);
+  const width=Number(dimensions?.[1]), height=Number(dimensions?.[2]);
+  if(!Number.isInteger(width) || !Number.isInteger(height) || width<1 || height<1 || width>1000 || height>1000) {
+    window.alert('Enter dimensions such as 20x20, with each side from 1 to 1000.'); return;
+  }
+  if(!await floor.loadMap({name:'Blank scene.dd2vtt'},{map:blankMap(width,height),newScene:true})) return;
+  if(document.getElementById('toggle-3d').getAttribute('aria-pressed')==='true') document.getElementById('toggle-3d').click();
+  const grid=document.getElementById('toggle-grid'); grid.checked=true; grid.dispatchEvent(new Event('change'));
+  document.querySelector('[data-vtt-tool="select"]').click();
+});
 async function stepFloor(direction) {
   if (floor.getAttribute('aria-busy') === 'true') return;
   const entries = floor.sceneDocument?.floors;
@@ -94,17 +120,7 @@ async function stepFloor(direction) {
     await switchFloor(index);
     return;
   }
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 1;
-  const context = canvas.getContext('2d');
-  context.fillStyle = '#293544';
-  context.fillRect(0, 0, 1, 1);
-  const width = floor.tabletopMap?.width || 40, height = floor.tabletopMap?.height || 40;
-  const map = {
-    image: canvas.toDataURL('image/png'),
-    resolution: { pixels_per_grid: 1, map_size: { x: width, y: height }, map_origin: { x: 0, y: 0 } },
-    line_of_sight: [], portals: [], lights: []
-  };
+  const map = blankMap(floor.tabletopMap?.width || 40, floor.tabletopMap?.height || 40);
   let number = entries ? entries[floor.activeFloorIndex].number + direction : 1;
   if (number === 0) number = direction;
   const floorName = `Floor ${number}`;

@@ -4,12 +4,16 @@ import * as THREE from 'three';
 export function createPropKit() {
   const materials = new Map(), geometries = new Map();
   const colors = { wood: '#90613c', trim: '#c19a64', metal: '#4c535d', stone: '#888b91', bone: '#dfd3ad', coal: '#29252a', flame: '#ff8a25', core: '#ffe29a' };
-  function material(role) {
-    if (!materials.has(role)) materials.set(role, new THREE.MeshStandardMaterial({
-      color: colors[role], roughness: role === 'metal' ? .55 : .9, metalness: role === 'metal' ? .65 : 0,
-      ...(role === 'flame' || role === 'core' ? { emissive: colors[role], emissiveIntensity: 1.5 } : {})
+  function material(role, lightColor) {
+    const fire = role === 'flame' || role === 'core';
+    const key = fire && lightColor ? `${role}:${lightColor}` : role;
+    const color = new THREE.Color(fire && lightColor ? lightColor : colors[role]);
+    if (role === 'core' && lightColor) color.lerp(new THREE.Color('#ffffff'), .4);
+    if (!materials.has(key)) materials.set(key, new THREE.MeshStandardMaterial({
+      color, roughness: role === 'metal' ? .55 : .9, metalness: role === 'metal' ? .65 : 0,
+      ...(fire ? { emissive: color, emissiveIntensity: 1.5 } : {})
     }));
-    return materials.get(role);
+    return materials.get(key);
   }
   function geometry(shape) {
     if (!geometries.has(shape)) geometries.set(shape, shape === 'box' ? new THREE.BoxGeometry(1,1,1) :
@@ -20,7 +24,7 @@ export function createPropKit() {
   return function propMesh(prop) {
     const group = new THREE.Group();
     const part = (shape, role, x,y,z, sx,sy,sz) => {
-      const mesh = new THREE.Mesh(geometry(shape), material(role));
+      const mesh = new THREE.Mesh(geometry(shape), material(role, prop.lightColor));
       mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
       mesh.castShadow = !['flame','core'].includes(role); mesh.receiveShadow = mesh.castShadow;
       group.add(mesh);

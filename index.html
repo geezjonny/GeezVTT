@@ -88,10 +88,11 @@
     .editor-close { border: 0; background: transparent; padding: 0 .2rem; min-width: 1.2rem; min-height: 0; font-size: inherit; line-height: inherit; }
     .editor-close:hover { background: #a3313d; }
     #vtt-panel { top: auto; bottom: 2rem; }
-    #vtt-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
-    #vtt-controls button { display: grid; justify-items: center; gap: .2rem; padding: .3rem .1rem; font-size: .65rem; }
-    #vtt-controls svg { width: 20px; height: 20px; pointer-events: none; }
-    #vtt-view { grid-column: 1 / -1; }
+    #build-panel { left: 15rem; top: auto; bottom: 2rem; }
+    #vtt-controls, #build-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .25rem; }
+    #vtt-controls button, #build-controls button { display: grid; justify-items: center; gap: .2rem; padding: .3rem .1rem; font-size: .65rem; }
+    #vtt-controls svg, #build-controls svg { width: 14px; height: 14px; margin: 3px; pointer-events: none; }
+    #build-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .player-selected > circle { stroke: #ffd86b; stroke-width: 4; }
     #session-status { font-size: .7rem; }
     #vtt-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: hidden; }
@@ -222,6 +223,7 @@
             <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
             <button id="fit-3d" type="button" hidden>Fit map</button>
             <button id="open-environment" type="button" aria-controls="environment-panel" data-gm-only disabled>Environment</button>
+            <button id="open-build" type="button" aria-controls="build-panel" data-gm-only>Build Controls</button>
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
           </div>
         </details>
@@ -257,11 +259,27 @@
         <button id="vtt-collapse" class="editor-close" type="button" aria-label="Collapse VTT controls" aria-expanded="true" aria-controls="vtt-controls">&minus;</button>
       </div>
       <div id="vtt-controls" class="editor-body" role="group" aria-label="VTT tools">
-        <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens or props" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg>Select</button>
-        <button type="button" data-vtt-tool="measure" aria-pressed="false" title="Drag to measure distance (5 feet per square)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21Zm10-10 3 3m-6 0 2 2m-5 1 3 3"/></svg>Measure</button>
-        <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg>Ping</button>
-        <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg>Dice</button>
-        <button id="vtt-view" type="button" aria-controls="view-3d" aria-pressed="false" disabled>2D / 3D</button>
+        <button type="button" data-vtt-tool="select" aria-pressed="true" title="Select and move tokens or props" disabled aria-label="Select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 3 14 9-7 1-3 7Z"/></svg></button>
+        <button type="button" data-vtt-tool="measure" aria-pressed="false" title="Drag to measure distance (5 feet per square)" disabled aria-label="Measure"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 16 13-13 5 5L8 21Zm10-10 3 3m-6 0 2 2m-5 1 3 3"/></svg></button>
+        <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled aria-label="Ping"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg></button>
+        <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel" aria-label="Dice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg></button>
+        <button id="vtt-tokens" type="button" title="Tokens" aria-controls="tokens-panel" data-gm-only disabled aria-label="Tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></button>
+        <button id="vtt-view" type="button" title="Toggle 2D / 3D" aria-label="Toggle 2D / 3D" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
+        <button id="vtt-new-scene" type="button" title="New blank scene" aria-label="New blank scene" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/></svg></button>
+      </div>
+    </section>
+    <section id="build-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="build-title">
+      <div class="editor-titlebar" tabindex="0" aria-label="Move Build controls. Drag or use arrow keys.">
+        <h2 id="build-title">Build Controls</h2>
+        <button id="build-collapse" class="editor-close" type="button" aria-label="Collapse Build controls" aria-expanded="true" aria-controls="build-controls">&minus;</button>
+      </div>
+      <div id="build-controls" class="editor-body" role="group" aria-label="Build tools">
+        <button type="button" data-build-layer="walls" aria-pressed="false" title="Walls" disabled aria-label="Walls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 4h20v16H2ZM2 12h20M8 4v8m8 0v8"/></svg></button>
+        <button type="button" data-build-layer="floors" aria-pressed="false" title="Floors" disabled aria-label="Floors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 3 10 9-10 9L2 12Zm-5 4 10 10M7 17 17 7"/></svg></button>
+        <button type="button" data-build-layer="lights" aria-pressed="false" title="Lights" disabled aria-label="Lights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 18h6m-5 3h4M8 14a6 6 0 1 1 8 0l-1 2H9ZM12 1v2M2 8h2m16 0h2"/></svg></button>
+        <button type="button" data-build-layer="doors" aria-pressed="false" title="Doors" disabled aria-label="Doors"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 21V3h16v18M7 21V5h10v16M13 13h1"/></svg></button>
+        <button type="button" data-build-layer="portals" aria-pressed="false" title="Portals" disabled aria-label="Portals"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M8 3C0 8 0 16 8 21m8-18c8 5 8 13 0 18M6 12h12m-4-4 4 4-4 4"/></svg></button>
+        <button type="button" data-build-layer="props" aria-pressed="false" title="Props" disabled aria-label="Props"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m3 6 9-4 9 4v12l-9 4-9-4Zm0 0 9 4 9-4M12 10v12"/></svg></button>
       </div>
     </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
@@ -364,7 +382,7 @@
     </section>
     <section id="object-light-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="object-light-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move light window."><h2 id="object-light-title">Light</h2><button class="editor-close" type="button" aria-label="Close light">&times;</button></div>
-      <form id="object-light-form" class="editor-body"><label>Color <input id="object-light-color" type="color"></label><label>Intensity <input id="object-light-intensity" type="number" min="0" max="10" step="0.1" required></label><button type="submit">Apply</button></form>
+      <form id="object-light-form" class="editor-body"><label>Color <input id="object-light-color" type="color"></label><label>Intensity <input id="object-light-intensity" type="number" min="0" max="10" step="0.1" required></label><label>Range <input id="object-light-range" type="number" min="0.25" max="100" step="0.25" required></label></form>
     </section>
     <section id="props-panel" class="editor-panel swatch-panel" data-swatch-layer="props" role="dialog" aria-modal="false" aria-labelledby="props-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move props window. Drag or use arrow keys.">
@@ -558,7 +576,7 @@
     async function loadMap(file, options = {}) {
       if (!file) return;
       const sceneFile = file.name.toLowerCase().endsWith('.geezvtt');
-      const replaceFloor = Boolean(floor.sceneDocument && file.name.toLowerCase().endsWith('.dd2vtt') && !options.entry && !options.addFloor);
+      const replaceFloor = Boolean(floor.sceneDocument && file.name.toLowerCase().endsWith('.dd2vtt') && !options.entry && !options.addFloor && !options.newScene);
       if (!options.entry && !options.addFloor && !replaceFloor && floor.confirmMapReplace && !floor.confirmMapReplace()) { fileInput.value = ''; document.querySelector('#scene-file').value = ''; return false; }
       const version = ++importVersion;
       status.classList.remove('error');
@@ -683,6 +701,7 @@
   <script type="module" src="js/scenes.js"></script>
   <script type="module" src="js/environment.js"></script>
   <script type="module" src="js/vtt-controls.js"></script>
+  <script type="module" src="js/build-controls.js"></script>
   <script type="module" src="js/tabletop-session.js"></script>
 </body>
 </html>

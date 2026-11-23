@@ -129,7 +129,7 @@ function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
+  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
 new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
@@ -215,7 +215,7 @@ for (const panel of panels) {
 
   panel.addEventListener('pointerdown', () => raisePanel(panel));
   panel.addEventListener('focusin', () => raisePanel(panel));
-  panel.querySelector('.editor-close:not(#vtt-collapse)')?.addEventListener('click', () => {
+  panel.querySelector('.editor-close:not(#vtt-collapse):not(#build-collapse)')?.addEventListener('click', () => {
     panel.hidden = true;
     document.querySelector(panel.id === 'library-panel' ? '#load-battlemap' : panel.id === 'dice-panel' ? '#open-dice' : panel.id === 'environment-panel' ? '#open-environment' : '#open-tools').closest('.menu').querySelector('summary').focus();
   });

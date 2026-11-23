@@ -324,3 +324,22 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: lockpicking modifiers and success/difficulty rules are pending, so the GM resolves the raw d20. Ladder Use requires a paired portal at its position. Player requests require the active GM session. Existing URL role selection is UI control, not authentication. Previously added standalone lights are not automatically attached to props.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+
+## Build Controls, live light settings, and blank scenes saved - 2026-11-23
+
+- Adds the GM Build Controls floating window using the standard panel width, dragging, snapping, and collapse behavior. Existing Edit menus and tool windows remain available.
+- Build Controls uses material dropdowns for Walls, Floors, and Doors, and an object dropdown for Props. Dropdowns stay within the viewport and can open above their buttons. Lights and Portals enter placement directly; subsequent editing uses right-click menus. Doors place with two clicks, with deletion available through their right-click menu.
+- Adds Tokens to VTT Controls and matches the 2D/3D toggle to its icon-button style. All VTT and Build option buttons, including New Scene, are icon-only with hover tooltips and accessible labels. Control icons are 30 percent smaller with their icon space preserved.
+- Adds a boxed-plus New Scene button. It prompts for dimensions such as 20x20, accepts whole-number dimensions from 1 to 1000 per side, and opens a new unsaved blank scene with a visible grid in 2D. It reuses blank-floor generation and retains unsaved-scene replacement protection.
+- Build Floors places individual tiles with a normal click. Left Shift-click fills or repaints the room using walls and all doors as boundaries, including open doors. Existing floor tiles receive the chosen material. The existing atomic 2000-object fill limit remains. Floor right-click actions allow material changes and deletion in both views.
+- Light settings now expose color, intensity, and range and apply valid edits immediately without an Apply button. The same live behavior applies to selected lights in the legacy editor. The 2D light range overlay reflects intensity.
+- Torch and brazier flames and their 2D icons follow the associated light color, including standalone light markers and attached prop lights. Colored flame materials are kept separate so changing one light does not recolor unrelated props.
+- Sets 3D door thickness to 0.24 world units, twice wall thickness, for open and closed doors. Adds dark iron ring pulls and round mounting plates to both sides, sharing door movement, picking, shadows, and resource cleanup.
+- Ladder and stairs Use now follows the colocated paired portal to its destination floor without requiring a token. Tokens on the entrance continue to travel. Moving either decorative ladder or stairs also moves its colocated endpoint.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise icon-only controls, keyboard labels, collapse/drag/snap behavior and dropdown positioning near viewport edges; material and prop placement, two-click doors, direct light/portal placement and right-click editing; Left Shift room fills with open/closed doors, existing tiles and fill limits; live light edits, undo/redo, independent flame colors and persistence; door thickness, ring pulls and door picking; linked ladder/stairs travel with and without tokens; new-scene dimensions, cancellation, unsaved-change protection, grid visibility, saving and shared-session synchronization. Earlier verification items remain outstanding.
+
+Known limits: building uses the 2D view; room filling follows grid-cell centers with a 2000-tile limit; ladder/stairs travel requires a paired portal at the prop position. Existing lockpicking and shared-table limitations remain.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

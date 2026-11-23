@@ -8,7 +8,7 @@ let menuOrigin;
 export function closeMapMenu() {
   objectMenu.hidePopover();
 }
-export function showMapMenu(x, y, actions, origin = document.activeElement) {
+export function showMapMenu(x, y, actions, origin = document.activeElement, anchor = null) {
   menuOrigin = origin;
   objectMenu.replaceChildren(...actions.map(({ label, action, icon, disabled = false }) => {
     const button = document.createElement('button');
@@ -26,7 +26,8 @@ export function showMapMenu(x, y, actions, origin = document.activeElement) {
   }));
   objectMenu.showPopover();
   objectMenu.style.left = Math.max(0, Math.min(x, window.innerWidth - objectMenu.offsetWidth)) + 'px';
-  objectMenu.style.top = Math.max(0, Math.min(y, window.innerHeight - objectMenu.offsetHeight)) + 'px';
+  const top=anchor && y+objectMenu.offsetHeight>window.innerHeight?anchor.top-objectMenu.offsetHeight:y;
+  objectMenu.style.top = Math.max(0, Math.min(top, window.innerHeight - objectMenu.offsetHeight)) + 'px';
   objectMenu.querySelector('button:not(:disabled)')?.focus();
 }
 objectMenu.addEventListener('keydown', event => {
