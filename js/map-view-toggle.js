@@ -3,7 +3,11 @@ const host = document.querySelector('#view-3d');
 const map = document.querySelector('#map-view');
 const toggle = document.querySelector('#toggle-3d');
 const fit = document.querySelector('#fit-3d');
-let view, active = false;
+let view, active = false, mode = '2d';
+
+export function firstPersonYaw() {
+  return mode === 'first' ? view?.firstPersonYaw() : null;
+}
 
 export function tabletopPoint(event) {
   return active ? view?.tabletopPoint(event) : null;
@@ -29,36 +33,47 @@ export function previewPlacement(lines = []) {
 function layers() {
   view?.setLayers({ grid: document.querySelector('#toggle-grid').checked });
 }
-function show(on) {
+function show(next) {
+  mode = next;
+  const on = mode !== '2d';
   active = on;
   host.hidden = !on;
   fit.hidden = !on;
   map.hidden = on;
   toggle.setAttribute('aria-pressed', String(on));
-  toggle.textContent = 'Toggle (2D/3D)';
+  const label = { '2d': '2D', '3d': '3D', first: '1st Person' }[mode];
+  toggle.dataset.view = mode;
+  toggle.textContent = `View: ${label}`;
+  toggle.title = `${label} view. Cycle 2D / 3D / 1st Person`;
+  view?.setFirstPerson?.(mode === 'first');
   view?.setActive(on);
 }
 function fallback(error) {
-  show(false);
-  view?.destroy();
+  const failedView = view;
   view = null;
+  show('2d');
+  failedView?.destroy();
   const status = document.querySelector('#status');
   status.classList.add('error');
   status.textContent = `3D view unavailable: ${error.message}. The 2D map is still available.`;
 }
 toggle.addEventListener('click', async () => {
   if (!floor.tabletopMap) return;
-  if (active) { show(false); return; }
   toggle.disabled = true;
-  toggle.textContent = 'Loading 3D…';
   try {
+    if (mode === 'first') { show('2d'); return; }
+    if (mode === '3d') {
+      if (typeof view?.setFirstPerson !== 'function') throw new Error('Reload the page to update the 3D renderer');
+      show('first'); return;
+    }
+    toggle.textContent = 'Loading 3D…';
     if (!view) {
-      const { createMapView3D } = await import('./map-view-3d.js');
+      const { createMapView3D } = await import('./map-view-3d.js?v=first-person-1');
       view = createMapView3D(host);
       view.setMap(floor.tabletopMap);
     }
     layers();
-    show(true);
+    show('3d');
   } catch (error) { fallback(error); }
   finally { toggle.disabled = false; }
 });
@@ -68,7 +83,7 @@ floor.addEventListener('map-ready', () => {
   try {
     view?.setMap(floor.tabletopMap);
     layers();
-    if (active) show(true);
+    if (active) show(mode);
   } catch (error) { fallback(error); }
 });
 floor.addEventListener('map-ready', () => toggle.click(), { once: true });

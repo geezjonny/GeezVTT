@@ -12,7 +12,7 @@ export function changeCombat(pc, action) {
     const next = current.filter(name => name !== action.name);
     if (action.enabled) next.push(action.name);
     pc.combat ||= {};
-    pc.combat.conditions = next.length ? next : { '%EMPTY': 'array' };
+    pc.combat.conditions = next;
     return;
   }
   const limits = { hp_current: [0, 999999], hp_max: [1, 999999], temp_hp: [0, 999999], ac: [0, 999], exhaustion: [0, 6] };

@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { decodeTree } from '../js/firebase-codec.js';
 
 globalThis.window = { GEEZ_FIREBASE_CONFIG: { databaseURL: 'https://example.test' } };
+globalThis.location = { search: '?gm=jonny' };
 const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat } = await import('../js/pc-inventory.js');
 const token = { npcId: 'v2:pc1' };
 const item = { name: 'Torch', equipment_category: { name: 'Adventuring Gear' }, desc: ['Light.'], special: ['Burns.'] };
@@ -68,13 +70,13 @@ test('spell slots save conditionally and reject conflicting sheet edits', async 
       writes++;
       assert.equal(options.headers['If-Match'], 'pc-version');
       const entity = JSON.parse(options.body);
-      assert.equal(entity.data.spellcasting.slots_used[1], 1);
+      assert.equal(entity.data.spellcasting.slots_used['%31'], 1);
       assert.equal(entity.data.combat.hp_current, 10);
       return { ok: !conflict, status: conflict ? 412 : 200 };
     }
     assert.equal(options.headers['X-Firebase-ETag'], 'true');
     return { ok: true, headers: { get: () => 'pc-version' }, json: async () => ({ kind: 'pc', data: {
-      combat: { hp_current: 10 }, spellcasting: { slots: { 1: 2 }, slots_used: { 1: 0 } }
+      combat: { hp_current: 10 }, spellcasting: { slots: { '%31': 2 }, slots_used: { '%31': 0 } }
     } }) };
   };
   try {
@@ -167,7 +169,7 @@ test('transfer saves both bags atomically with an ETag and retains unrelated ent
       writes++;
       assert.equal(options.headers['If-Match'], 'world-version');
       const entities = JSON.parse(options.body);
-      assert.deepEqual(entities.pc1.data.inventory, {});
+      assert.deepEqual(decodeTree(entities.pc1.data.inventory), {});
       assert.deepEqual(Object.values(entities.pc2.data.inventory), [{ name: 'Torch', qty: 3, notes: 'Gift' }]);
       assert.equal(entities.npc.name, 'Shopkeeper');
       return { ok: true };

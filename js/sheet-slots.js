@@ -1,12 +1,12 @@
 import { updatePCSpellSlot, updatePCCombat } from './pc-inventory.js';
-import { isGM } from './session-role.js';
+import { canControlPC } from './session-role.js';
 
 export function mountSpellSlots(container, getToken, status, onSaved) {
   let busy = false;
   const selector = '[data-slot-level], [data-combat-field], [data-exhaustion-delta], [data-condition-toggle]';
   async function save(control, change) {
     const token = getToken();
-    if (!token || busy) return;
+    if (!token || !canControlPC(token) || busy) return;
     busy = true;
     status.textContent = 'Saving…';
     const controls = [...container.querySelectorAll(selector)].map(element => [element, element.disabled]);
@@ -30,11 +30,11 @@ export function mountSpellSlots(container, getToken, status, onSaved) {
     const button = event.target.closest('[data-slot-level], [data-exhaustion-delta]');
     if (!button) return;
     if (button.matches('[data-slot-level]')) save(button, token => updatePCSpellSlot(token, Number(button.dataset.slotLevel), Number(button.dataset.slotPip)));
-    else if (isGM) save(button, token => updatePCCombat(token, { type: 'exhaustion', delta: Number(button.dataset.exhaustionDelta) }));
+    else save(button, token => updatePCCombat(token, { type: 'exhaustion', delta: Number(button.dataset.exhaustionDelta) }));
   });
   container.addEventListener('change', event => {
     const control = event.target.closest('[data-combat-field], [data-condition-toggle]');
-    if (!isGM || !control) return;
+    if (!control || !canControlPC(getToken())) return;
     if (control.matches('[data-combat-field]')) {
       if (!control.reportValidity()) return;
       save(control, token => updatePCCombat(token, { type: 'set', field: control.dataset.combatField, value: control.value.trim() ? Number(control.value) : NaN }));

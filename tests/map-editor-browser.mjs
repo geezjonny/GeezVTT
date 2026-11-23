@@ -52,7 +52,9 @@ try {
   const wait=async expression=>{for(let i=0;i<100;i++){if(await evaluate(expression))return;await delay(50);}throw new Error('Timed out: '+expression);};
   await send('Runtime.enable');
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
-  await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/index.html`});
+  await send('Network.enable');
+  await send('Network.setBlockedURLs',{urls:['*://geezsheets-default-rtdb.firebaseio.com/*']});
+  await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/index.html?gm=jonny`});
   await wait(`document.querySelector('#map-view')?.tabIndex===0`);
   await evaluate(`window.confirm=()=>true`);
   assert.equal(await evaluate(`(()=>{

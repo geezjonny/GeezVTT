@@ -2,7 +2,7 @@ import { mountInventoryAdder } from './inventory-adder.js';
 import { updatePCInventory, readPC } from './pc-inventory.js';
 import { loadSheetReference } from './sheet-view.js';
 import { showMapMenu } from './map-object-menu.js';
-import { isGM } from './session-role.js';
+import { isGM, canControlPC } from './session-role.js';
 import { ITEM_CATEGORIES, ITEM_STATS, ITEM_SKILLS } from './item-modifiers.js';
 
 export function mountInventoryTools(container, getToken, getPCs, onSaved) {
@@ -94,7 +94,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
   function menu(event, row) {
     if (busy) return;
     const token = getToken();
-    if (!token) return;
+    if (!token || !canControlPC(token)) return;
     event.preventDefault(); event.stopPropagation();
     const key = row.dataset.bagKey, rect = row.getBoundingClientRect();
     showMapMenu(event.clientX ?? rect.right, event.clientY ?? rect.top, [
@@ -119,7 +119,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
   container.addEventListener('click', event => {
     const coin = event.target.closest('[data-coin-delta]');
     const token = getToken();
-    if (coin && token && isGM && !busy) {
+    if (coin && token && canControlPC(token) && !busy) {
       coin.disabled = true;
       run(token, { type: 'coin', coin: coin.dataset.coin, delta: Number(coin.dataset.coinDelta) }).finally(() => { coin.disabled = false; });
     }

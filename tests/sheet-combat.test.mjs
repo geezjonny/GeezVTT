@@ -13,7 +13,7 @@ test('conditions exclude Firebase empty-list metadata and retain named condition
   assert.doesNotMatch(html, />array</);
 });
 
-test('GM stats have editable combat values, exhaustion buttons and condition dropdown; player stats remain read-only', () => {
+test('editable stats show combat controls while read-only stats hide them', () => {
   const pc = { combat: { hp_current: 12, hp_max: 20, temp_hp: 3, ac: 16, exhaustion: 0, conditions: ['Poisoned', '<Custom>'] } };
   const html = sheetHTML(pc, 'Stats', {}, true, true);
   for (const field of ['hp_current', 'hp_max', 'temp_hp', 'ac', 'exhaustion']) assert.ok(html.includes(`data-combat-field="${field}"`));
@@ -43,7 +43,7 @@ test('manual combat changes preserve unrelated sheet values and validate field b
   assert.throws(() => changeCombat({ combat: { exhaustion: 0 } }, { type: 'exhaustion', delta: -1 }));
 });
 
-test('condition additions and removals preserve other conditions and use empty-list metadata', () => {
+test('condition additions and removals preserve other conditions and return a plain empty list', () => {
   const pc = { combat: { conditions: { '%EMPTY': 'array' }, hp_current: 10 } };
   changeCombat(pc, { type: 'condition', name: 'Poisoned', enabled: true });
   changeCombat(pc, { type: 'condition', name: 'Prone', enabled: true });
@@ -52,7 +52,7 @@ test('condition additions and removals preserve other conditions and use empty-l
   changeCombat(pc, { type: 'condition', name: 'Poisoned', enabled: false });
   assert.deepEqual(pc.combat.conditions, ['Prone']);
   changeCombat(pc, { type: 'condition', name: 'Prone', enabled: false });
-  assert.deepEqual(pc.combat.conditions, { '%EMPTY': 'array' });
+  assert.deepEqual(pc.combat.conditions, []);
   assert.equal(pc.combat.hp_current, 10);
   assert.throws(() => changeCombat(pc, { type: 'condition', name: 'Unknown', enabled: true }));
   assert.throws(() => changeCombat(pc, { type: 'condition', name: 'Prone', enabled: 'true' }));

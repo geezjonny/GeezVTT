@@ -1,14 +1,19 @@
-import { isGM } from './session-role.js';
+import { isGM, sessionClient as client, playerIdentity, canControlPC } from './session-role.js';
+import { playerPresence } from './player-presence.js';
+import { ownsPC, validPlayer } from './player-session-model.js';
 import { sharedMapState, applySharedMap } from './map-editor.js';
 import { playerDestination, nearbyDoor } from './player-actions.js';
+import { watchTabletop } from './tabletop-stream.js';
+import { movementQueue } from './movement-queue.js';
+import { livePatch } from './tabletop-live-model.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), status = $('session-status');
 // shortcut: one shared Gaia table, add explicit room IDs when multiple tables are needed.
 const base = `${window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '')}/v2/worlds/gaia/vtt`;
-const client = crypto.randomUUID();
 let sceneId, signature, timer, sending = false, dirty = false, loading = false, pendingScene, pendingLive;
 let outgoing = Promise.resolve();
+let lastLive;
 const seen = new Set();
 const report = error => { status.textContent = `Sync failed: ${error.message}`; };
 async function write(path, data, method = 'PUT') {
@@ -17,34 +22,10 @@ async function write(path, data, method = 'PUT') {
   });
   if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
 }
+const sendMovement = movementQueue(action => write('actions', action, 'POST'), report);
 function listen(path, callback) {
-  const stream = new EventSource(`${base}/${path}.json`);
-  let value = null;
-  const update = event => {
-    try {
-      const message = JSON.parse(event.data);
-      const assign = (path, data) => {
-        const keys = path.split('/').filter(Boolean);
-        if (!keys.length) { value = data; return; }
-        value ||= {};
-        let target = value;
-        for (const key of keys.slice(0, -1)) target = target[key] ||= {};
-        if (data === null) delete target[keys.at(-1)];
-        else target[keys.at(-1)] = data;
-      };
-      if (event.type === 'patch') {
-        for (const [key, data] of Object.entries(message.data || {})) assign(`${message.path}/${key}`, data);
-      } else assign(message.path, message.data);
-      callback(value);
-    } catch (error) { report(error); }
-  };
-  stream.addEventListener('put', update);
-  stream.addEventListener('patch', update);
-  stream.addEventListener('error', () => { status.textContent = 'Sync disconnected; reconnecting…'; });
-  for (const type of ['cancel', 'auth_revoked']) stream.addEventListener(type, () => {
-    stream.close(); status.textContent = 'Tabletop sync denied by Firebase.';
-  });
-  window.addEventListener('pagehide', () => stream.close(), { once: true });
+  const stop = watchTabletop(path, callback, message => { status.textContent = message; });
+  window.addEventListener('pagehide', stop, { once: true });
 }
 const sceneSignature = () => JSON.stringify([$('scene-name').value, floor.sceneDocument?.floors.map(entry => entry.name)]);
 function schedule() {
@@ -69,7 +50,12 @@ async function flush() {
       await write('scene', { id: publishingId, scene });
       if (sceneId !== publishingId) { dirty = true; return; }
     }
-    await write('live', { sceneId, map: sharedMapState(), initiative: $('initiative-active').checked });
+    const nextLive = { sceneId, map: sharedMapState(), initiative: $('initiative-active').checked };
+    if (lastLive?.sceneId === sceneId) {
+      const patch = livePatch(lastLive, nextLive);
+      if (Object.keys(patch).length) await write('live', patch, 'PATCH');
+    } else await write('live', nextLive);
+    lastLive = nextLive;
     status.textContent = 'GM · Synced';
   } catch (error) {
     // Retry the scene too: a failed scene write must not strand subsequent live updates.
@@ -119,8 +105,12 @@ if (isGM) {
 }
 floor.addEventListener('session-action', event => {
   if (!sceneId) { status.textContent = 'Waiting for a shared map'; return; }
-  const action = { ...event.detail, client, sceneId, time: Date.now() };
-  outgoing = outgoing.then(() => write('actions', action, 'POST')).catch(report);
+  if (!isGM && !playerIdentity) { status.textContent = 'Sign in first.'; return; }
+  if (!isGM && ['move', 'door', 'chest'].includes(event.detail.type) &&
+      !canControlPC(floor.tabletopMap?.tokens.find(token => token.id === event.detail.tokenId))) return;
+  const action = { ...event.detail, client, sceneId, floorIndex: floor.activeFloorIndex, actor: isGM ? { character: 'GM' } : playerIdentity, time: Date.now() };
+  if (action.type === 'move') sendMovement(action);
+  else outgoing = outgoing.then(() => write('actions', action, 'POST')).catch(report);
 });
 listen('actions', actions => {
   for (const id of seen) if (!Object.hasOwn(actions || {}, id)) seen.delete(id);
@@ -131,15 +121,33 @@ listen('actions', actions => {
       if (isGM) write(`actions/${id}`, null, 'DELETE').catch(report);
       continue;
     }
+    // Retain briefly so every connected view receives each action before cleanup.
+    if (isGM) setTimeout(() => write(`actions/${id}`, null, 'DELETE').catch(report), 5000);
+    if (!validPlayer(action.actor) && action.actor?.character !== 'GM') continue;
+    if (!isGM && action.actor.character !== 'GM' && action.actor.campaign !== playerIdentity?.campaign) continue;
+    if (['ping', 'measure', 'move', 'door', 'chest'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
+    const by = action.actor.character;
     if (action.type === 'ping' && Number.isFinite(action.x) && Number.isFinite(action.y)) {
-      if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y } }));
+      if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y, by, client: action.client } }));
+    } else if (action.type === 'measure') {
+      const point = p => p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.y >= 0 && p.x <= floor.tabletopMap?.width && p.y <= floor.tabletopMap?.height;
+      if (action.client !== client && Date.now() - action.time < 3000 && (action.clear || point(action.start) && point(action.end))) {
+        floor.dispatchEvent(new CustomEvent('session-measure', { detail: { ...action, by } }));
+      }
     } else if (action.type === 'dice' && typeof action.text === 'string' && action.text.length <= 500) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-dice', { detail: action.text }));
     } else if (isGM && floor.tabletopMap && floor.getAttribute('aria-busy') !== 'true') {
       const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && token.kind === 'pc');
+      if (['move', 'chest', 'door'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
+        write(`actions/${id}`, null, 'DELETE').catch(report);
+        continue;
+      }
       if (action.type === 'move') {
         const next = playerDestination(map, token, action.dx, action.dy, floor.initiativeActive);
-        if (next) floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next } }));
+        if (next) {
+          floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next } }));
+          if (timer && !sending) { clearTimeout(timer); flush(); }
+        }
       } else if (action.type === 'chest') {
         floor.dispatchEvent(new CustomEvent('vtt-chest-action',{detail:action}));
       } else if (action.type === 'door') {
@@ -147,7 +155,5 @@ listen('actions', actions => {
         if (index >= 0) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: index }));
       }
     }
-    // Retain briefly so every connected view receives pings and dice before cleanup.
-    if (isGM) setTimeout(() => write(`actions/${id}`, null, 'DELETE').catch(report), 5000);
   }
 });

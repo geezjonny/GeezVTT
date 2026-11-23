@@ -1,7 +1,7 @@
 // Adapted from view3d.js: grid coordinates map directly to world (x, z).
 // One grid cell = one world unit = 5 ft; walls and doors are two units high.
 import * as THREE from 'three';
-import { isGM } from './session-role.js';
+import { isGM, canControlPC } from './session-role.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { PORTAL_ICONS } from './portal-model.js';
@@ -35,6 +35,7 @@ export function createMapView3D(host) {
   sun.shadow.bias = -0.0001;
   scene.add(sun, sun.target);
   const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
+  const orbitLabel = renderer.domElement.getAttribute('aria-label');
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.ROTATE };
   controls.enableDamping = true;
@@ -52,6 +53,73 @@ export function createMapView3D(host) {
   const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10', transparent: isGM, opacity: isGM ? .55 : 1 });
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
   let bounds;
+  let firstPerson = false, savedCamera, look, yaw = 0, pitch = 0, lastFrame = 0;
+  const keys = new Set();
+  const movementKeys = { KeyW: [0,-1], KeyS: [0,1], KeyA: [-1,0], KeyD: [1,0],
+    ArrowUp: [0,-1], ArrowDown: [0,1], ArrowLeft: [-1,0], ArrowRight: [1,0] };
+  function character() {
+    const tokens = model?.tokens || [];
+    const selected = host.closest('#floor').selectedTokenId;
+    return tokens.find(token => token.id === selected && (isGM || canControlPC(token))) ||
+      (!isGM && tokens.find(token => token.kind === 'pc' && canControlPC(token)));
+  }
+  function firstPersonStart() {
+    const token = character();
+    camera.position.set(token?.x ?? controls.target.x, 1.15, token?.y ?? controls.target.z);
+    yaw = THREE.MathUtils.degToRad(token?.rotation || 0);
+    pitch = 0;
+    camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  }
+  function setFirstPerson(on) {
+    if (firstPerson === on) return;
+    firstPerson = on;
+    keys.clear(); look = null;
+    controls.enabled = !on;
+    if (on) {
+      savedCamera = { position: camera.position.clone(), target: controls.target.clone() };
+      firstPersonStart();
+    } else if (savedCamera) {
+      camera.position.copy(savedCamera.position);
+      controls.target.copy(savedCamera.target);
+      controls.update();
+    }
+    groups.tokens.children.forEach(mesh => { mesh.visible = true; });
+    camera.fov = on ? 75 : 45;
+    camera.updateProjectionMatrix();
+    renderer.domElement.setAttribute('aria-label', on
+      ? 'First person. Right-drag to look; WASD or arrow keys to move.' : orbitLabel);
+    host.setAttribute('aria-label', on ? 'First person map' : '3D map');
+    if (on) renderer.domElement.focus({ preventScroll: true });
+    invalidate();
+  }
+  const input = {
+    pointerdown(event) {
+      if (!firstPerson || !active || event.button !== 2) return;
+      renderer.domElement.focus({ preventScroll: true });
+      look = { id: event.pointerId, x: event.clientX, y: event.clientY };
+      renderer.domElement.setPointerCapture(event.pointerId);
+    },
+    pointermove(event) {
+      if (!look || look.id !== event.pointerId) return;
+      yaw -= (event.clientX - look.x) * .005;
+      pitch = THREE.MathUtils.clamp(pitch - (event.clientY - look.y) * .004, -1.4, 1.4);
+      look.x = event.clientX; look.y = event.clientY;
+      camera.rotation.set(pitch, yaw, 0, 'YXZ');
+      invalidate();
+    },
+    pointerup() { look = null; },
+    pointercancel() { look = null; },
+    lostpointercapture() { look = null; },
+    keydown(event) {
+      if (!active || !firstPerson || !isGM || !movementKeys[event.code] || event.ctrlKey || event.metaKey || event.altKey) return;
+      event.preventDefault();
+      keys.add(event.code);
+    },
+    keyup(event) { keys.delete(event.code); },
+    blur() { keys.clear(); look = null; }
+  };
+  for (const [type, listener] of Object.entries(input)) renderer.domElement.addEventListener(type, listener);
+  window.addEventListener('blur', input.blur);
   const raycaster = new THREE.Raycaster();
   raycaster.params.Line.threshold = .03;
   const removeRightClick = onMapRightClick(renderer.domElement, event => {
@@ -160,6 +228,7 @@ export function createMapView3D(host) {
   function fit() {
     if (!model) return;
     resize();
+    if (firstPerson) { firstPersonStart(); invalidate(); return; }
     // Fit a bounding sphere in both the vertical and horizontal field of view.
     const radius = Math.hypot(bounds.right-bounds.left, bounds.bottom-bounds.top, 2) / 2;
     const fov = Math.min(THREE.MathUtils.degToRad(camera.fov), 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect));
@@ -406,7 +475,24 @@ export function createMapView3D(host) {
   }
   function loop() {
     if (!active) return;
-    controls.update();
+    const now = performance.now(), delta = Math.min((now - lastFrame) / 1000, .05);
+    lastFrame = now;
+    if (firstPerson) {
+      const token = !isGM && character();
+      if (token) {
+        camera.position.set(token.x, 1.15, token.y);
+        invalidate();
+      }
+      groups.tokens.children.forEach(mesh => { mesh.visible = mesh.userData.tokenId !== token?.id; });
+      if (isGM && keys.size) {
+        const direction = new THREE.Vector3();
+        for (const key of keys) { const [x, z] = movementKeys[key]; direction.x += x; direction.z += z; }
+        // shortcut: the GM camera flies through walls; player movement keeps server collision checks.
+        direction.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+        camera.position.addScaledVector(direction, delta * 3);
+        invalidate();
+      }
+    } else controls.update();
     if (dirty) { dirty = false; renderer.render(scene, camera); }
     raf = requestAnimationFrame(loop);
   }
@@ -432,6 +518,8 @@ export function createMapView3D(host) {
   }
   function setActive(on) {
     active = on;
+    keys.clear(); look = null;
+    lastFrame = performance.now();
     cancelAnimationFrame(raf);
     if (on) {
       resize();
@@ -451,6 +539,8 @@ export function createMapView3D(host) {
     removeRightClick();
     observer.disconnect();
     controls.dispose();
+    for (const [type, listener] of Object.entries(input)) renderer.domElement.removeEventListener(type, listener);
+    window.removeEventListener('blur', input.blur);
     disposeContents();
     fogGroup.children.forEach(mesh => mesh.geometry.dispose());
     fogGroup.clear();
@@ -460,5 +550,5 @@ export function createMapView3D(host) {
     renderer.forceContextLoss();
     renderer.domElement.remove();
   }
-  return { setMap, setEnvironment, setLayers, setActive, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, previewPlacement };
+  return { setMap, setEnvironment, setLayers, setActive, setFirstPerson, firstPersonYaw: () => yaw, fit, destroy, tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, previewPlacement };
 }

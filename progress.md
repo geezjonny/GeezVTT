@@ -505,3 +505,17 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: automatic item effects apply while equipped; consumable activation is not automated. Custom weapon attacks need a recorded ability or an SRD match for ability-based attack adjustments. Existing stored base AC is retained, with explicit item AC modifiers added; armor formulas are not inferred. GM controls follow the existing session-role convention and Firebase access remains governed by existing rules.
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
+## First Person character controls and player session updates saved - 2026-11-23
+
+- Adds the shared 2D / 3D / 1st Person cycle to VTT controls. First Person follows the player's current character; right-drag looks around, and WASD or arrow keys move relative to camera facing, snapped to the existing cardinal grid movement rules. The GM has a free camera. Restores the overhead camera when leaving First Person.
+- Versions the renderer import to bypass the older cached renderer and fixes recovery from missing First Person methods. The user reported that the view button works after this fix.
+- Adds a standard-width First Person character floating window with name, current/max HP, a colored health bar, AC, and Stats, Inventory, Feats, and Spells buttons. Reuses the existing character windows and their permission checks, along with shared dragging, resizing, minimizing, snapping, and remembered layouts. Updates character values from the existing map and selection events and hides the window outside First Person.
+- Includes pending player session work: campaign/character sign-in, online presence, owned-PC selection and control checks, attributed dice rolls, and character sheet/inventory access for the signed-in PC.
+- Includes pending synchronization work: a shared tabletop stream, changed-field live patches, a bounded movement queue, and Firebase key/empty-value encoding compatibility for character reads, streams, and conditional writes. Includes the associated unrun regression assertions and existing test updates.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run for this save. User confirmation covers the repaired view button only. Outstanding work: check First Person following and facing-relative movement, player collision/turn restrictions, returning to overhead views, the character window's values and four sheet buttons, dragging/resizing/minimizing and layout persistence, HP/AC synchronization, sign-in/ownership behavior, shared movement and dice, Firebase encoding, and reconnect/error handling. Earlier verification items remain outstanding.
+
+Known limits: the GM camera can pass through walls; player movement retains the existing cardinal-step rules. Character selection trusts players under the existing role convention; Firebase Auth and ownership rules are still needed before use with untrusted players. Sheet buttons require a linked PC.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.

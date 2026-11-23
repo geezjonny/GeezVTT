@@ -1,5 +1,6 @@
 import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
+import { isGM, playerIdentity } from './session-role.js';
 
 const form = document.querySelector('#dice-form');
 const diceButtons = [...document.querySelectorAll('[data-dice-sides]')];
@@ -11,6 +12,12 @@ const expression = document.querySelector('#dice-expression');
 const selectedButton = document.querySelector('#dice-roll-selected');
 const source = document.querySelector('#dice-source');
 let selectedName = '';
+window.addEventListener('player-signed-in', () => {
+  selectedName = ''; source.textContent = '';
+  expression.parentElement.hidden = true; selectedButton.hidden = true;
+  count.parentElement.hidden = false;
+  document.querySelector('#dice-modifier').parentElement.hidden = false;
+});
 let tray, busy = false, version = 0, clearTimer;
 document.querySelector('#floor').addEventListener('session-dice', event => {
   const entry = document.createElement('li');
@@ -66,6 +73,8 @@ for (const button of diceButtons) button.addEventListener('click', () => {
   presentRoll(roll);
 });
 async function presentRoll(roll, name = '') {
+  if (!isGM && !playerIdentity) { status.textContent = 'Sign in to roll.'; return; }
+  name ||= isGM ? 'GM' : playerIdentity.character;
   const entry = document.createElement('li');
   entry.textContent = `${name ? `${name}: ` : ''}${roll.label} = ${roll.total}${roll.sub ? ` [${roll.sub}]` : ''}`;
   if (roll.cls) entry.className = roll.cls === 'crit' ? 'roll-critical' : 'roll-fumble';

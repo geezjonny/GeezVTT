@@ -1,17 +1,51 @@
 import { openPanel } from './menu-bar.js';
-import { isGM } from './session-role.js';
+import { isGM, canControlPC, playerIdentity, sessionClient } from './session-role.js';
 import { fogRectangles } from './environment-model.js';
-import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject } from './map-view-toggle.js';
+import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, firstPersonYaw } from './map-view-toggle.js';
+import { cameraStep } from './first-person-model.js';
+import { pcTokenStatus } from './token-model.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), map = $('map-view'), host = $('view-3d');
 const panel = $('vtt-panel'), overlay = $('vtt-overlay');
 const buttons = [...panel.querySelectorAll('[data-vtt-tool]')];
 let tool = 'select', enabled = true, gesture, measurement, ping, frame;
+const remoteMeasurements = new Map(), remotePings = new Map();
+let lastMeasureSent = 0;
 let selectedToken;
+function currentCharacter() {
+  const tokens = floor.tabletopMap?.tokens || [];
+  return tokens.find(token => token.id === floor.selectedTokenId && (isGM || canControlPC(token))) ||
+    (!isGM && tokens.find(token => token.kind === 'pc' && canControlPC(token)));
+}
+function syncHealth() {
+  const token = currentCharacter();
+  const status = token && pcTokenStatus(token);
+  const hud = $('first-person-health');
+  hud.hidden = $('toggle-3d').dataset.view !== 'first' || !status;
+  if (hud.hidden) return;
+  $('first-person-character').textContent = token.name;
+  $('first-person-hp').textContent = `${token.hp} / ${token.hpMax ?? '—'} HP`;
+  $('first-person-ac').textContent = `AC ${token.ac ?? '—'}`;
+  for (const button of hud.querySelectorAll('[data-character-sheet]')) button.disabled = !token.npcId?.startsWith('v2:');
+  $('first-person-health-fill').style.width = `${status.fraction * 100}%`;
+  hud.style.setProperty('--health-color', status.color);
+  $('first-person-health-meter').setAttribute('aria-valuenow', String(status.fraction));
+  $('first-person-health-meter').setAttribute('aria-valuetext', `${token.name}: ${token.hp} of ${token.hpMax ?? 'unknown'} HP`);
+}
+for (const type of ['map-ready', 'map-changed', 'vtt-selection-changed']) floor.addEventListener(type, syncHealth);
+window.addEventListener('player-signed-in', syncHealth);
+$('first-person-sheet-buttons').addEventListener('click', event => {
+  const button = event.target.closest('[data-character-sheet]');
+  const token = currentCharacter();
+  if (button && token && !button.disabled) floor.dispatchEvent(new CustomEvent('token-sheet', {
+    detail: { id: token.id, section: button.dataset.characterSheet }
+  }));
+});
 const sendAction = detail => floor.dispatchEvent(new CustomEvent('session-action', { detail }));
 const visible = p => isGM || !fogRectangles(floor.tabletopMap).some(rect => p.x >= rect.x && p.x < rect.x + rect.width && p.y >= rect.y && p.y < rect.y + rect.height);
 function selectToken(token) {
+  if (!isGM && (!canControlPC(token) || !visible(token))) token = null;
   selectedToken = token?.id; floor.selectedTokenId=selectedToken;
   floor.dispatchEvent(new Event('vtt-selection-changed'));
   $('tokens').querySelectorAll('[data-token-id]').forEach(node => node.classList.toggle('player-selected', node.dataset.tokenId === selectedToken));
@@ -29,7 +63,11 @@ syncEnvironment();
 new MutationObserver(() => {
   $('vtt-view').disabled = $('toggle-3d').disabled;
   $('vtt-view').setAttribute('aria-pressed', $('toggle-3d').getAttribute('aria-pressed'));
-}).observe($('toggle-3d'), { attributes: true, attributeFilter: ['disabled', 'aria-pressed'] });
+  const label = { '2d': '2D', '3d': '3D', first: '1st Person' }[$('toggle-3d').dataset.view] || '2D';
+  $('vtt-view').title = `${label} view. Cycle 2D / 3D / 1st Person`;
+  $('vtt-view').setAttribute('aria-label', $('vtt-view').title);
+  syncHealth();
+}).observe($('toggle-3d'), { attributes: true, attributeFilter: ['disabled', 'aria-pressed', 'data-view'] });
 if (!isGM) {
   $('empty').textContent = 'Waiting for the GM’s map.';
   map.setAttribute('aria-label', 'Player tabletop. Select a PC; WASD to move, Space to open nearby doors.');
@@ -55,31 +93,37 @@ function project(p) {
 function draw(now) {
   overlay.replaceChildren();
   if (measurement?.expiresAt <= now) measurement = null;
-  if (measurement) {
-    const a = project(measurement.start), b = project(measurement.end);
+  if (measurement && gesture && now - lastMeasureSent > 1000) shareMeasurement();
+  for (const [client, value] of remoteMeasurements) if (value.expiresAt <= now) remoteMeasurements.delete(client);
+  for (const value of [measurement, ...remoteMeasurements.values()].filter(Boolean)) {
+    const a = project(value.start), b = project(value.end);
     if (a && b) {
       svgNode('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y });
       const label = svgNode('text', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 12 });
-      label.textContent = `${(Math.hypot(measurement.end.x - measurement.start.x, measurement.end.y - measurement.start.y) * 5).toFixed(1)} ft`;
+      label.textContent = `${value.by || (isGM ? 'GM' : playerIdentity?.character)}: ${(Math.hypot(value.end.x - value.start.x, value.end.y - value.start.y) * 5).toFixed(1)} ft`;
     }
   }
   if (gesture?.token || gesture?.object) {
     const p = project(gesture.destination);
     if (p) svgNode('circle', { cx: p.x, cy: p.y, r: 14 });
   }
-  if (ping) {
-    const age = (now - ping.time) / 1500, p = project(ping);
-    if (age >= 1) ping = null;
-    else if (p) {
+  for (const [client, value] of remotePings) if (now - value.time >= 1500) remotePings.delete(client);
+  if (ping && now - ping.time >= 1500) ping = null;
+  for (const value of [ping, ...remotePings.values()].filter(Boolean)) {
+    const age = (now - value.time) / 1500, p = project(value);
+    if (age >= 1) continue;
+    if (p) {
       svgNode('circle', { cx: p.x, cy: p.y, r: 12 + age * 32, opacity: 1 - age });
       svgNode('circle', { cx: p.x, cy: p.y, r: 5 });
+      svgNode('text', { x: p.x, y: p.y - 18 }).textContent = value.by || (isGM ? 'GM' : playerIdentity?.character);
     }
   }
-  frame = measurement || ping || gesture ? requestAnimationFrame(draw) : null;
+  frame = measurement || ping || gesture || remoteMeasurements.size || remotePings.size ? requestAnimationFrame(draw) : null;
 }
 function redraw() { if (!frame) frame = requestAnimationFrame(draw); }
 function clear() {
   const previous = gesture;
+  if (measurement) sendAction({ type: 'measure', clear: true });
   gesture = measurement = ping = null;
   if (previous?.element) previous.element.setAttribute('transform', `translate(${previous.token.x} ${previous.token.y})`);
   if(previous?.object) {
@@ -89,6 +133,12 @@ function clear() {
   if (previous?.token) previewToken(previous.token.id, previous.token);
   if (previous?.target.hasPointerCapture(previous.pointerId)) previous.target.releasePointerCapture(previous.pointerId);
   cancelAnimationFrame(frame); frame = null; overlay.replaceChildren();
+  if (remoteMeasurements.size || remotePings.size) redraw();
+}
+function shareMeasurement(finished = false) {
+  if (!measurement || !finished && performance.now() - lastMeasureSent < 200) return;
+  lastMeasureSent = performance.now();
+  sendAction({ type: 'measure', start: measurement.start, end: measurement.end, finished });
 }
 function activate(next) {
   floor.dispatchEvent(new Event('build-stop'));
@@ -137,7 +187,7 @@ floor.addEventListener('pointerdown', event => {
   }
   const token = tool === 'select' ? floor.tabletopMap.tokens.find(item => item.id === hit?.tokenId) : null;
   if (!isGM && tool === 'select') {
-    selectToken(token?.kind === 'pc' && visible(token) ? token : null);
+    if (token || firstPersonYaw() === null) selectToken(token?.kind === 'pc' && visible(token) ? token : null);
     (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
     return;
   }
@@ -157,7 +207,11 @@ floor.addEventListener('pointerdown', event => {
     gesture.objectElement=$(objectKind).querySelector(`[data-${key}="${CSS.escape(value)}"]`);
     gesture.objectTransform=gesture.objectElement?.getAttribute('transform') || '';
   }
-  if (tool === 'measure') measurement = { start: cellCenter(p), end: cellCenter(p) };
+  if (tool === 'measure') {
+    if (!visible(p)) { gesture = null; return; }
+    measurement = { start: cellCenter(p), end: cellCenter(p) };
+    lastMeasureSent = -Infinity; shareMeasurement();
+  }
   target.setPointerCapture(event.pointerId);
   redraw();
 }, true);
@@ -166,7 +220,7 @@ floor.addEventListener('pointermove', event => {
   event.preventDefault(); event.stopImmediatePropagation();
   const p = point(event);
   if (!p) return;
-  if (measurement) measurement.end = cellCenter(p);
+  if (measurement && visible(p)) { measurement.end = cellCenter(p); shareMeasurement(); }
   if (gesture.token || gesture.object) {
     const moving=gesture.token || gesture.object;
     const model = floor.tabletopMap;
@@ -192,7 +246,7 @@ floor.addEventListener('pointerup', event => {
     floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: previous.token.id, ...previous.destination } }));
   } else {
     gesture = null;
-    if (measurement) measurement.expiresAt = performance.now() + 3000;
+    if (measurement) { measurement.expiresAt = performance.now() + 3000; shareMeasurement(true); }
     if (previous.target.hasPointerCapture(event.pointerId)) previous.target.releasePointerCapture(event.pointerId);
   }
 }, true);
@@ -202,28 +256,40 @@ for (const type of ['pointercancel', 'lostpointercapture']) floor.addEventListen
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !event.target.matches('input, textarea, select')) clear();
   if (isGM || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.isContentEditable || event.target.closest('input, textarea, select, button, .editor-titlebar')) return;
-  const step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0] }[event.code];
+  const yaw = firstPersonYaw();
+  let step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0],
+    ...(yaw === null ? {} : { ArrowUp: [0,-1], ArrowLeft: [-1,0], ArrowDown: [0,1], ArrowRight: [1,0] }) }[event.code];
+  if (step && yaw !== null) step = cameraStep(step, yaw);
   if (!step && event.code !== 'Space') return;
   event.preventDefault();
   const token = floor.tabletopMap?.tokens.find(token => token.id === selectedToken && token.kind === 'pc');
-  if (!token) return;
+  if (!token || !canControlPC(token)) return;
   if (step && !floor.initiativeActive) sendAction({ type: 'move', tokenId: token.id, dx: step[0], dy: step[1] });
   else if (!step && !event.repeat) sendAction({ type: 'door', tokenId: token.id });
 });
 floor.addEventListener('session-ping', event => {
   if (!floor.tabletopMap || !visible(event.detail)) return;
-  ping = { ...event.detail, time: performance.now() }; redraw();
+  remotePings.set(event.detail.client, { ...event.detail, time: performance.now() }); redraw();
+});
+floor.addEventListener('session-measure', event => {
+  const value = event.detail;
+  if (value.client === sessionClient) return;
+  if (value.clear) remoteMeasurements.delete(value.client);
+  else if (visible(value.start) && visible(value.end)) remoteMeasurements.set(value.client, { ...value, expiresAt: performance.now() + (value.finished ? 3000 : 1500) });
+  redraw();
 });
 $('tokens').addEventListener('keydown', event => {
   if (isGM || event.key !== 'Enter') return;
   const token = floor.tabletopMap?.tokens.find(token => token.id === event.target.closest('[data-token-id]')?.dataset.tokenId);
-  if (token?.kind !== 'pc' || !visible(token)) return;
+  if (token?.kind !== 'pc' || !canControlPC(token) || !visible(token)) return;
   event.preventDefault();
   selectToken(token);
 });
-floor.addEventListener('map-changed', () => {
-  if (!isGM) selectToken(floor.tabletopMap?.tokens.find(token => token.id === selectedToken));
-});
-floor.addEventListener('map-ready', () => { clear(); buttons.forEach(button => { button.disabled = false; }); });
+function selectOwnToken() {
+  if (!isGM) selectToken(floor.tabletopMap?.tokens.find(token => token.id === selectedToken && canControlPC(token)) || floor.tabletopMap?.tokens.find(token => token.kind === 'pc' && canControlPC(token) && visible(token)));
+}
+window.addEventListener('player-signed-in', selectOwnToken);
+floor.addEventListener('map-changed', selectOwnToken);
+floor.addEventListener('map-ready', () => { remoteMeasurements.clear(); remotePings.clear(); clear(); selectOwnToken(); buttons.forEach(button => { button.disabled = false; }); });
 new MutationObserver(clear).observe($('toggle-3d'), { attributes: true, attributeFilter: ['aria-pressed'] });
 for (const target of [map, host]) target.dataset.vttTool = tool;

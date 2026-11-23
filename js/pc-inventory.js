@@ -1,15 +1,18 @@
 import { changeInventory } from './inventory-model.js';
 import { changeSpellSlot } from './sheet-rolls.js';
 import { changeCombat } from './sheet-combat.js';
+import { canControlPC } from './session-role.js';
+import { encodeTree, decodeTree } from './firebase-codec.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=token=>{
+  if(!canControlPC(token)) throw new Error('Sign in as this PC to control it.');
   if(!token?.npcId?.startsWith('v2:')) throw new Error('Select a linked PC.');
   return `v2/worlds/gaia/entities/${encodeURIComponent(token.npcId.slice(3))}`;
 };
 export async function readPC(token) {
   const response=await fetch(`${base}/${entityPath(token)}.json`,{signal:AbortSignal.timeout(15000)});
   if(!response.ok) throw new Error(`Firebase returned ${response.status}`);
-  const entity=await response.json();
+  const entity=decodeTree(await response.json());
   if(entity?.kind!=='pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
   return entity.data;
 }
@@ -23,13 +26,13 @@ async function updatePCSheet(token, change) {
   const url = `${base}/${entityPath(token)}.json`;
   const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
-  const entity = await response.json(), etag = response.headers.get('ETag');
+  const entity = decodeTree(await response.json()), etag = response.headers.get('ETag');
   if (entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
   if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
   change(entity.data);
   const saved = await fetch(url, {
     method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
-    body: JSON.stringify(entity), signal: AbortSignal.timeout(15000)
+    body: JSON.stringify(encodeTree(entity)), signal: AbortSignal.timeout(15000)
   });
   if (saved.status === 412) throw new Error('Character changed elsewhere. Try again.');
   if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
@@ -47,13 +50,13 @@ export async function updatePCInventory(token, action, reference) {
     if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
     const etag = response.headers.get('ETag');
     if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
-    const value = await response.json();
+    const value = decodeTree(await response.json());
     const entities = action.type === 'transfer' ? value || {} : { [id]: value };
     changeInventory(entities, id, action, reference);
     // Transfer both bags together; reject concurrent equipment or inventory changes.
     const saved = await fetch(`${base}/${path}.json`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
-      body: JSON.stringify(action.type === 'transfer' ? entities : entities[id]), signal: AbortSignal.timeout(15000)
+      body: JSON.stringify(encodeTree(action.type === 'transfer' ? entities : entities[id])), signal: AbortSignal.timeout(15000)
     });
     if (saved.status === 412) continue;
     if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);

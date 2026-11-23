@@ -2,7 +2,8 @@ import { readPC } from './pc-inventory.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
 import { mountInventoryTools } from './inventory-tools.js';
 import { mountSpellSlots } from './sheet-slots.js';
-import { isGM } from './session-role.js';
+import { canControlPC } from './session-role.js';
+import { decodeTree } from './firebase-codec.js';
 
 const $ = id => document.getElementById(id);
 const query = new URLSearchParams(location.search);
@@ -15,11 +16,11 @@ const inventoryAdder = mountInventoryTools($('sheet-content').parentElement, () 
   const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
   const response = await fetch(`${base}/v2/worlds/gaia/entities.json`, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
-  return response.json();
+  return decodeTree(await response.json());
 }, refresh);
 function draw() {
   inventoryAdder.hidden = section !== 'Inventory' || !pc;
-  if (pc) $('sheet-content').innerHTML = sheetHTML(pc, section, reference, false, isGM);
+  if (pc) $('sheet-content').innerHTML = sheetHTML(pc, section, reference, false, canControlPC({ npcId: `v2:${id}` }));
   for (const button of $('sheet-sections').children) button.setAttribute('aria-pressed', String(button.textContent === section));
 }
 for (const name of SHEET_SECTIONS) {

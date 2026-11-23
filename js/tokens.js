@@ -1,5 +1,5 @@
 import { openPanel } from './menu-bar.js';
-import { isGM } from './session-role.js';
+import { isGM, canControlPC } from './session-role.js';
 import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
@@ -10,6 +10,7 @@ import { sheetRolls } from './sheet-rolls.js';
 import { rollFromSheet } from './dice-roller.js';
 import { mountSpellSlots } from './sheet-slots.js';
 import { readPC } from './pc-inventory.js';
+import { decodeTree, decodeEvent } from './firebase-codec.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
@@ -24,16 +25,20 @@ function drawSheet(section) {
   const token = tokens().find(token => token.id === sheetTokens.get(section));
   if (!token) return;
   const entity = entities[pcId(token)];
+  if (!canControlPC(token)) {
+    $(`${sheetId(section)}-content`).replaceChildren();
+    return;
+  }
   $(`${sheetId(section)}-title`).textContent = `${entity?.name || token.name} · ${section}`;
   $(`${sheetId(section)}-content`).innerHTML = entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted
-    ? sheetHTML(entity.data, section, sheetReference, true, isGM) : '<p>Linked PC unavailable.</p>';
+    ? sheetHTML(entity.data, section, sheetReference, canControlPC(token), canControlPC(token)) : '<p>Linked PC unavailable.</p>';
 }
 for (const section of ['Stats', 'Weapons']) {
   $(`${sheetId(section)}-content`).addEventListener('click', event => {
     const button = event.target.closest('[data-sheet-roll]');
     const token = tokens().find(token => token.id === sheetTokens.get(section));
     const entity = entities[pcId(token)];
-    if (!button || entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) return;
+    if (!button || !canControlPC(token) || entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) return;
     const roll = Object.values(sheetRolls(entity.data, sheetReference)).flat().find(roll => roll.key === button.dataset.sheetRoll);
     if (roll) rollFromSheet(entity.name || token.name, roll);
   });
@@ -44,6 +49,7 @@ mountSpellSlots($('sheet-stats-content'), () => tokens().find(token => token.id 
     if (id && entities[id]) { entities[id].data = pc; applyPC(id); }
   });
 async function openSheet(token, section) {
+  if (!canControlPC(token)) return;
   sheetTokens.set(section, token.id);
   const panel = $(`${sheetId(section)}-panel`);
   $(`${sheetId(section)}-status`).textContent = '';
@@ -63,9 +69,12 @@ const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
 async function read(path) {
   const response = await fetch(`${base}/${path}.json`, { signal: AbortSignal.timeout(15000) });
   if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
-  return response.json();
+  return decodeTree(await response.json());
 }
 const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcId.slice(3)) ? token.npcId.slice(3) : null;
+window.addEventListener('player-signed-in', () => {
+  for (const section of SHEET_SECTIONS) drawSheet(section);
+});
 mountInventoryTools($('sheet-inventory-content').parentElement,
   () => tokens().find(token => token.id === sheetTokens.get('Inventory')), () => entities, async (token, pc) => {
     const id = pcId(token);
@@ -122,7 +131,7 @@ function syncPCs() {
   const update = event => {
     if (pcStream !== stream) return;
     try {
-      entities = applyFirebaseEvent(entities, event.type, JSON.parse(event.data)) || {};
+      entities = applyFirebaseEvent(entities, event.type, decodeEvent(event.type, JSON.parse(event.data))) || {};
       for (const [id, entity] of Object.entries(entities)) if (entity?.kind === 'pc') knownPCs.add(id);
       for (const id of new Set([...tokens(), floor.tokenTemplate].map(pcId).filter(Boolean))) {
         applyPC(id);
@@ -176,7 +185,7 @@ function editToken(token) {
   $('token-name').focus();
 }
 function tokenMenu(token, x, y, origin) {
-  if (!isGM && !pcId(token)) return;
+  if (!isGM && (!pcId(token) || !canControlPC(token))) return;
   showMapMenu(x, y, [
     ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
     ...(isGM ? [
@@ -189,6 +198,11 @@ function tokenMenu(token, x, y, origin) {
     ] : [])
   ], origin);
 }
+floor.addEventListener('token-sheet', event => {
+  const token = tokens().find(token => token.id === event.detail?.id);
+  const section = event.detail?.section;
+  if (token && pcId(token) && canControlPC(token) && SHEET_SECTIONS.includes(section)) openSheet(token, section);
+});
 onMapRightClick(svg, event => {
   if (svg.hidden) return;
   // Pointer capture can target the map instead of the token under the cursor.
