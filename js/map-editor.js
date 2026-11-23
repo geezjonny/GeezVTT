@@ -333,13 +333,18 @@ function viewState() {
   if(on) message('Switch to 2D view to edit. Your changes are visible in 3D.'); else if(model) updateTools();
 }
 new MutationObserver(viewState).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});
-$('edit-export').addEventListener('click',()=>{
+export function serializeMap() {
+  if(!model) throw new Error('Import a map first.');
   const raw=clone(floor.sourceMap), origin=raw.resolution?.map_origin || {x:0,y:0};
   const offset=p=>({x:p.x+(Number.isFinite(origin.x)?origin.x:0),y:p.y+(Number.isFinite(origin.y)?origin.y:0)});
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
   raw.portals=model.doors.map(d=>({...d.source,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || [])};
+  return raw;
+}
+$('edit-export').addEventListener('click',()=>{
+  const raw=serializeMap();
   const url=URL.createObjectURL(new Blob([JSON.stringify(raw)],{type:'application/json'})), link=document.createElement('a');
   link.href=url; link.download=floor.sourceName.replace(/\.dd2vtt$/i,'')+'-edited.dd2vtt'; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   message('Exported map with edited objects and materials.');

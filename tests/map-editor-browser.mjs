@@ -54,6 +54,7 @@ try {
   await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await send('Page.navigate',{url:`http://127.0.0.1:${server.address().port}/index.html`});
   await wait(`document.querySelector('#map-view')?.tabIndex===0`);
+  await evaluate(`window.confirm=()=>true`);
   await evaluate(`document.querySelectorAll('.menu > summary')[0].click(); document.querySelectorAll('.menu')[1].dispatchEvent(new PointerEvent('pointerenter',{pointerType:'mouse'}))`);
   assert.equal(await evaluate(`document.querySelectorAll('.menu[open]').length`),1);
   assert.equal(await evaluate(`document.querySelectorAll('.menu')[1].open`),true,'hover switches the open menu');
@@ -209,6 +210,25 @@ try {
   assert.equal(await count('lights'),16);assert.equal(await count('walls'),4);
   assert.equal(await count('tokens'),18);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].material`),'wood');
+  // Portable scenes retain the same prep data and reject unsupported versions without replacing it.
+  await evaluate(`window.mapExportBlob=window.exportBlob;document.getElementById('scene-name').value='Prepared ambush';document.getElementById('save-scene').click()`);
+  const scene=await evaluate(`window.exportBlob.text().then(JSON.parse)`);
+  assert.equal(scene.format,'geezvtt');assert.equal(scene.version,1);
+  assert.equal(scene.name,'Prepared ambush');
+  for(const field of ['image','resolution','line_of_sight','portals','lights']) assert.deepEqual(scene.map[field],exported[field]);
+  assert.deepEqual(scene.map.geezvtt_editor.floors,exported.geezvtt_editor.floors);
+  assert.deepEqual(scene.map.geezvtt_editor.tokens.map(({id,...token})=>token),exported.geezvtt_editor.tokens.map(({id,...token})=>token));
+  await evaluate(`window.sceneText=window.exportBlob.text();window.openScene=async text=>{const data=new DataTransfer();data.items.add(new File([text],'ambush.geezvtt'));const input=document.getElementById('scene-file');input.files=data.files;input.dispatchEvent(new Event('change'));};window.openScene(await window.sceneText)`);
+  await wait(`document.querySelector('#status').textContent.startsWith('ambush.geezvtt ·')`);
+  assert.equal(await evaluate(`document.getElementById('scene-name').value`),'Prepared ambush');
+  assert.equal(await count('tokens'),18);assert.equal(await count('walls'),4);assert.equal(await count('lights'),16);
+  assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].material`),'wood');
+  await evaluate(`const invalid=JSON.parse(await window.sceneText);invalid.version=99;window.openScene(JSON.stringify(invalid))`);
+  await wait(`document.querySelector('#status').textContent.includes('unsupported version')`);
+  assert.equal(await count('tokens'),18);
+  await evaluate(`document.getElementById('scene-name').dispatchEvent(new Event('input'));window.confirm=()=>false;window.openScene(await window.sceneText)`);
+  assert.equal(await evaluate(`document.getElementById('scene-state').textContent`),'Unsaved scene');
+  await evaluate(`window.confirm=()=>true;window.exportBlob=window.mapExportBlob`);
   // Nonzero origins, invalid optional entries, and unknown exporter metadata.
   await evaluate(`(async()=>{
     const raw=JSON.parse(await window.exportBlob.text());raw.resolution={...raw.resolution,map_origin:{x:10,y:20},map_size:{x:4,y:4}};

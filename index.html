@@ -23,6 +23,8 @@
     .menu-items label { cursor: pointer; }
     .menu-items input { margin: 0; }
     h1 { font-size: .8rem; margin: 0; }
+    #scene-name { margin-left: auto; min-width: 0; width: 12rem; padding: .15rem .3rem; font-size: .75rem; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .2rem; }
+    #scene-state { white-space: nowrap; font-size: .7rem; }
     label { font-size: 0.9rem; }
     input { max-width: 100%; font: inherit; }
     input::file-selector-button { border: 1px solid #61758f; border-radius: 0.35rem; background: #34465f; color: white; padding: 0.5rem 0.75rem; margin-right: 0.75rem; cursor: pointer; }
@@ -131,12 +133,15 @@
     <header>
       <h1>GeezVTT</h1>
       <input id="map-file" type="file" accept=".dd2vtt" aria-label="Import map" aria-describedby="status" hidden>
+      <input id="scene-file" type="file" accept=".geezvtt" aria-label="Open scene" aria-describedby="status" hidden>
       <nav class="menu-bar" aria-label="Application menu">
         <details class="menu" name="application-menu">
           <summary>File</summary>
           <div class="menu-items">
             <button id="import-map" type="button">Import Map</button>
             <button id="edit-export" type="button" disabled>Save Map</button>
+            <button id="open-scene" type="button">Open Scene</button>
+            <button id="save-scene" type="button" disabled>Save Scene (.geezvtt)</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -165,6 +170,8 @@
           </div>
         </details>
       </nav>
+      <input id="scene-name" aria-label="Scene name" placeholder="Scene name" maxlength="100" disabled>
+      <span id="scene-state" role="status" aria-live="polite"></span>
     </header>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
       <div id="editor-titlebar" class="editor-titlebar" tabindex="0" aria-label="Move tools window. Drag or use arrow keys.">
@@ -397,20 +404,29 @@
       return `data:${mime};base64,${data}`;
     }
 
-    fileInput.addEventListener('change', async () => {
-      const file = fileInput.files[0];
+    async function loadMap(file) {
       if (!file) return;
+      if (floor.confirmMapReplace && !floor.confirmMapReplace()) { fileInput.value = ''; document.querySelector('#scene-file').value = ''; return false; }
       const version = ++importVersion;
       status.classList.remove('error');
       status.textContent = `Importing ${file.name}…`;
       floor.setAttribute('aria-busy', 'true');
       try {
-        if (!file.name.toLowerCase().endsWith('.dd2vtt')) {
-          throw new Error('Choose a .dd2vtt file.');
+        const sceneFile = file.name.toLowerCase().endsWith('.geezvtt');
+        if (!sceneFile && !file.name.toLowerCase().endsWith('.dd2vtt')) {
+          throw new Error('Choose a .dd2vtt or .geezvtt file.');
         }
-        let map;
+        let map, sceneName, sourceName = file.name;
         try { map = JSON.parse(await file.text()); }
-        catch { throw new Error('The file does not contain valid DD2VTT JSON.'); }
+        catch { throw new Error('The file does not contain valid map JSON.'); }
+        if (sceneFile) {
+          if (map?.format !== 'geezvtt' || map.version !== 1 || typeof map.name !== 'string' || !map.name.trim() || map.name.length > 100 || !map.map || typeof map.map !== 'object' || Array.isArray(map.map)) {
+            throw new Error('The scene is invalid or uses an unsupported version.');
+          }
+          sceneName = map.name.trim();
+          sourceName = typeof map.sourceName === 'string' && map.sourceName.toLowerCase().endsWith('.dd2vtt') ? map.sourceName : `${sceneName}.dd2vtt`;
+          map = map.map;
+        }
         const preview = new Image();
         preview.src = imageSource(map?.image);
         try { await preview.decode(); }
@@ -423,7 +439,7 @@
         floorImage.setAttribute('height', overlay.height);
         document.querySelector('#grid').setAttribute('width', overlay.width);
         document.querySelector('#grid').setAttribute('height', overlay.height);
-        document.querySelector('#map-title').textContent = `Floor map: ${file.name.replace(/\.dd2vtt$/i, '')}`;
+        document.querySelector('#map-title').textContent = `Floor map: ${sceneName || file.name.replace(/\.dd2vtt$/i, '')}`;
         for (const name of ['walls', 'lights', 'doors']) {
           document.getElementById(name).replaceChildren(overlay.layers[name]);
         }
@@ -445,21 +461,28 @@
           }))
         };
         floor.sourceMap = map;
-        floor.sourceName = file.name;
+        floor.sourceName = sourceName;
+        floor.sceneName = sceneName || file.name.replace(/\.dd2vtt$/i, '').slice(0, 100);
+        floor.sceneSaved = sceneFile;
         document.querySelector('#toggle-3d').disabled = false;
         floor.dispatchEvent(new Event('map-ready'));
         status.textContent = `${file.name} · ${preview.naturalWidth} × ${preview.naturalHeight} px`;
+        return true;
       } catch (error) {
         if (version !== importVersion) return;
         status.classList.add('error');
         status.textContent = `Import failed: ${error.message}`;
+        return false;
       } finally {
         if (version === importVersion) {
           floor.setAttribute('aria-busy', 'false');
           fileInput.value = '';
+          document.querySelector('#scene-file').value = '';
         }
       }
-    });
+    }
+    fileInput.addEventListener('change', () => loadMap(fileInput.files[0]));
+    document.querySelector('#scene-file').addEventListener('change', event => loadMap(event.target.files[0]));
   </script>
   <script type="module" src="js/dice-roller.js"></script>
   <script type="module" src="js/map-view-toggle.js"></script>
@@ -468,5 +491,6 @@
   <script src="js/firebase-config.js"></script>
   <script type="module" src="js/menu-bar.js"></script>
   <script type="module" src="js/tokens.js"></script>
+  <script type="module" src="js/scenes.js"></script>
 </body>
 </html>

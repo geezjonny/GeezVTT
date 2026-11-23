@@ -144,3 +144,15 @@ This section supersedes the earlier image-over-floor layering description.
 Verification is left to the user. No tests, browser checks, visual inspections, or other application validation commands were run. Outstanding work: verify painted floors cover the image in both views, grid visibility, and 3D lighting and wall/door appearance. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
+# Portable scenes saved - 2026-11-22
+
+- Adds File > Save Scene (.geezvtt) and Open Scene, plus a scene name field and visible unsaved/download status.
+- Scene files contain a versioned GeezVTT envelope with the scene name, original DD2VTT source name, embedded map image, and edited walls, doors, lights, floor tiles, materials, and tokens. Loading reuses the existing map import and editor restoration path. DD2VTT import and Save Map remain available.
+- Shares map serialization between scene downloads and DD2VTT exports. Unsupported scene versions and invalid scene metadata are rejected before replacing the loaded map.
+- Warns before replacing unsaved prep or leaving the page. Saves download a portable file; there is no automatic browser storage or cloud scene library.
+- Adds browser coverage for scene export/re-import, retained prep data, unsupported versions, and canceled replacement of unsaved changes.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify scene naming, downloaded files, scene round trips with all edited layers, DD2VTT compatibility, invalid-file handling, and unsaved-change prompts. Confirm the download completes; starting a download clears the unsaved indicator. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
+
