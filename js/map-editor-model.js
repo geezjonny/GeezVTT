@@ -1,3 +1,5 @@
+import { propCorners, propDistance } from './prop-model.js';
+
 export const MATERIALS = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
 export const clone = value => JSON.parse(JSON.stringify(value));
 export function portalType(portal) {
@@ -23,6 +25,11 @@ export function inBox(object, a, b, layer) {
   if (layer==='floors') return object.x+.5>=left && object.x-.5<=right && object.y+.5>=top && object.y-.5<=bottom;
   if (layer==='tokens') return Math.hypot(object.x-Math.max(left,Math.min(right,object.x)),object.y-Math.max(top,Math.min(bottom,object.y)))<=object.size/2;
   const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];
+  if (layer==='props') {
+    const footprint=propCorners(object);
+    return footprint.some(inside) || corners.some(p=>propDistance(object,p)===0) ||
+      footprint.some((p,i)=>corners.some((c,j)=>crosses(p,footprint[(i+1)%4],c,corners[(j+1)%4])));
+  }
   return object.points.some(inside) || segments(object.points).some(([p,q]) => corners.some((c,i)=>crosses(p,q,c,corners[(i+1)%4])));
 }
 // Flood cell centers, with walls, windows, and closed doors as barriers.

@@ -85,6 +85,14 @@
     #doors-panel { top: 21rem; left: 15rem; }
     #portals-panel { top: 21rem; left: 29rem; }
     #portal-status { margin: 0; font-size: .7rem; color: #b4c0ce; }
+    #portal-status:empty { display: none; }
+    #props-panel { left: 43rem; top: 11rem; }
+    #prop-palette { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem; width: 100%; }
+    #prop-palette button { display: flex; align-items: center; gap: .3rem; min-width: 0; padding: .2rem; font-size: .7rem; }
+    #prop-palette svg { flex: none; pointer-events: none; }
+    #map-object-menu { position: fixed; inset: auto; margin: 0; min-width: 10rem; max-width: 100vw; max-height: 100dvh; overflow: auto; padding: .2rem; background: #202731; color: #e6ebf1; border: 1px solid #61758f; border-radius: .25rem; box-shadow: 0 6px 18px #0008; }
+    #map-object-menu button { display: block; width: 100%; border: 0; text-align: left; font-size: .8rem; padding: .35rem .5rem; background: transparent; }
+    #map-object-menu button:is(:hover, :focus) { background: #3a4d65; outline-offset: -2px; }
     .swatch-panel[data-active="true"] { border-color: #a2cbff; }
     .editor-body { padding: .4rem; overflow: auto; min-height: 0; }
     .editor-group { width: 100%; }
@@ -108,9 +116,7 @@
     .editor-panel fieldset > button, .editor-panel select, .editor-panel input[type="number"] { padding: .2rem .3rem; min-height: 24px; font-size: .75rem; }
     .editor-panel input[type="number"] { width: 4rem; }
     .editor-panel input[type="color"] { width: 2rem; height: 1.5rem; padding: 0; }
-    #lights-panel { width: min(24rem, calc(100vw - 2rem)); }
-    #lights-panel fieldset { flex-wrap: nowrap; }
-    #lights-panel label { white-space: nowrap; gap: .25rem; }
+    #lights-panel label { gap: .25rem; }
     #lights-panel input[type="number"] { width: 3.25rem; }
     #editor-help { margin: .35rem 0 0; color: #b4c0ce; font-size: .7rem; line-height: 1.3; }
     #editor-help:empty { display: none; }
@@ -171,6 +177,7 @@
             <button type="button" data-edit-layer="lights" disabled>Lights</button>
             <button type="button" data-edit-layer="doors" disabled>Doors</button>
             <button id="open-portals" type="button" data-edit-layer="portals" aria-controls="portals-panel" disabled>Portals</button>
+            <button id="open-props" type="button" data-edit-layer="props" aria-controls="props-panel" disabled>Props</button>
             <button id="open-tokens" type="button" data-edit-layer="tokens" aria-controls="tokens-panel" disabled>Tokens</button>
           </div>
         </details>
@@ -204,7 +211,7 @@
       <div class="editor-body">
       <fieldset id="editor-controls" disabled>
         <legend>Object editing</legend>
-        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="floors">Floors</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option><option value="portals">Portals</option></select></label>
+        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="floors">Floors</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option><option value="portals">Portals</option><option value="props">Props</option></select></label>
         <label hidden>Tool <select id="edit-tool"><option value="select">Select</option><option value="erase">Erase</option><option value="paint">Paint</option><option value="bucket">Bucket</option><option value="replace">Replace</option></select></label>
         <div class="editor-group" role="group" aria-labelledby="tools-title">
           <span id="tools-title" class="editor-group-title">Tools:</span>
@@ -270,7 +277,6 @@
           <div class="material-swatches" data-material-layer="doors"></div>
           <label>Type <select id="edit-door-type"><option value="door">Door</option><option value="window">Window</option></select></label>
           <label>Door state <select id="edit-door"><option value="closed">Closed</option><option value="open">Open</option></select></label>
-          <p style="margin:0;font-size:.7rem;color:#b4c0ce">Windows block token movement but let light through. Unmarked open portals import as windows; closed portals import as doors.</p>
         </fieldset>
       </div>
     </section>
@@ -282,9 +288,24 @@
       <div class="editor-body">
         <fieldset disabled>
           <legend>Portal settings</legend>
-          <p id="portal-status" role="status" aria-live="polite">Paint: click to place the first node, then click to place its partner. You can switch floors between clicks.</p>
+          <p id="portal-status" role="status" aria-live="polite"></p>
           <button id="portal-new-pair" type="button">New pair</button>
           <button id="portal-travel" type="button" disabled>Use selected portal</button>
+        </fieldset>
+      </div>
+    </section>
+    <section id="props-panel" class="editor-panel swatch-panel" data-swatch-layer="props" role="dialog" aria-modal="false" aria-labelledby="props-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move props window. Drag or use arrow keys.">
+        <h2 id="props-title">Props</h2>
+        <button class="editor-close" type="button" aria-label="Close props">&times;</button>
+      </div>
+      <div class="editor-body">
+        <fieldset disabled>
+          <legend>Prop settings</legend>
+          <select id="prop-kind" aria-label="Prop type" hidden></select>
+          <div id="prop-palette" role="group" aria-label="Prop type"></div>
+          <label>Size <input id="prop-size" type="number" min=".25" max="10" step=".25" value="1"></label>
+          <label>Rotation <input id="prop-rotation" type="number" step="15" value="0"></label>
         </fieldset>
       </div>
     </section>
@@ -322,11 +343,9 @@
       <div class="editor-body">
         <label>Time of day <select id="environment-time"><option value="original">Original lighting</option><option value="day">Day</option><option value="dawn">Dawn</option><option value="dusk">Dusk</option><option value="night">Night</option></select></label>
         <label>Weather <select id="environment-weather"><option value="clear">Clear</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>
-        <p style="margin:0;font-size:.7rem;color:#b4c0ce">Time of day and weather apply to every map in this scene. Fog of war applies to the current map.</p>
         <fieldset><legend>Fog of war</legend><button id="fog-cover" type="button">Cover map</button><button id="fog-reveal" type="button">Reveal map</button></fieldset>
         <label>Fog brush <select id="fog-tool"><option value="off">Off</option><option value="reveal">Reveal</option><option value="hide">Hide</option></select></label>
-        <p id="fog-help">Switch to 2D to paint fog.</p>
-        <p style="margin:0;font-size:.7rem;color:#b4c0ce">Map lights reveal covered fog within their range. Walls and closed doors block the reveal. Time of day changes brightness.</p>
+        <p id="fog-help"></p>
       </div>
     </section>
     <section id="floor" aria-label="Tabletop floor" aria-busy="false">
@@ -344,6 +363,7 @@
         <g id="lights"></g>
         <g id="walls"></g>
         <g id="doors"></g>
+        <g id="props"></g>
         <g id="portals"></g>
         <g id="tokens"></g>
         <g id="edit-preview"></g>
@@ -370,7 +390,7 @@
         <button id="roll-dice" type="submit">Roll dice</button>
         <button id="clear-dice" type="button">Clear tray</button>
       </form>
-      <p id="dice-status" role="status" aria-live="polite">Local rolls. Choose your dice and roll onto the tabletop.</p>
+      <p id="dice-status" role="status" aria-live="polite"></p>
       <ol id="dice-history" aria-label="Recent local rolls, newest first"></ol>
       </div>
     </section>

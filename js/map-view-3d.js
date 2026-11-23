@@ -3,6 +3,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
+import { PORTAL_ICONS } from './portal-model.js';
+import { createPropKit } from './prop-meshes.js';
+import { propCorners } from './prop-model.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
 import { MATERIALS } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
@@ -16,7 +19,7 @@ export function createMapView3D(host) {
   renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.domElement.tabIndex = 0;
-  renderer.domElement.setAttribute('aria-label', '3D tabletop. Middle-drag to pan; scroll to zoom; right-drag to orbit. Right-click a token to edit.');
+  renderer.domElement.setAttribute('aria-label', '3D tabletop. Middle-drag to pan; scroll to zoom; right-drag to orbit. Right-click a token to edit or a portal or door for actions.');
   host.prepend(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#15191f');
@@ -34,7 +37,7 @@ export function createMapView3D(host) {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.screenSpacePanning = false;
-  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group(), portals: new THREE.Group() };
+  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group(), portals: new THREE.Group(), props: new THREE.Group() };
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
@@ -44,13 +47,23 @@ export function createMapView3D(host) {
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
   let bounds;
   const raycaster = new THREE.Raycaster();
+  raycaster.params.Line.threshold = .03;
   const removeRightClick = onMapRightClick(renderer.domElement, event => {
     if (!active) return;
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects([...groups.tokens.children, ...fogGroup.children])[0];
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...fogGroup.children],true)[0];
     if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
+    else if (hit?.object.userData.portalId) host.closest('#floor').dispatchEvent(new CustomEvent('portal-menu', {
+      detail: { id: hit.object.userData.portalId, x: event.clientX, y: event.clientY }
+    }));
+    else if (hit?.object.userData.doorIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('door-menu', {
+      detail: { index: hit.object.userData.doorIndex, x: event.clientX, y: event.clientY }
+    }));
+    else if (hit?.object.userData.propId) host.closest('#floor').dispatchEvent(new CustomEvent('prop-menu', {
+      detail: { id: hit.object.userData.propId, x: event.clientX, y: event.clientY }
+    }));
   });
   const invalidate = () => { dirty = true; };
   controls.addEventListener('change', invalidate);
@@ -100,12 +113,13 @@ export function createMapView3D(host) {
     controls.update();
     invalidate();
   }
-  function slabs(points, material, parent, open = false) {
+  function slabs(points, material, parent, open = false, doorIndex) {
     for (let i = 1; i < points.length; i++) {
       const a = points[i - 1], b = points[i];
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, 0.12), material);
+      if (doorIndex !== undefined) mesh.userData.doorIndex = doorIndex;
       // Keep texture density constant on every face, regardless of segment length.
       const positions=mesh.geometry.attributes.position, normals=mesh.geometry.attributes.normal, uv=mesh.geometry.attributes.uv;
       for(let vertex=0;vertex<positions.count;vertex++) {
@@ -130,6 +144,10 @@ export function createMapView3D(host) {
       left: Math.min(box.left, tile.x-.5), top: Math.min(box.top, tile.y-.5),
       right: Math.max(box.right, tile.x+.5), bottom: Math.max(box.bottom, tile.y+.5)
     }), { left: 0, top: 0, right: model.width, bottom: model.height });
+    for(const prop of model.props || []) if(!prop.hidden) for(const point of propCorners(prop)) {
+      bounds.left=Math.min(bounds.left,point.x); bounds.right=Math.max(bounds.right,point.x);
+      bounds.top=Math.min(bounds.top,point.y); bounds.bottom=Math.max(bounds.bottom,point.y);
+    }
     const texture = new THREE.Texture(model.image);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -179,15 +197,29 @@ export function createMapView3D(host) {
       groups.floors.add(mesh);
     }
     model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls));
-    model.doors.forEach(door => {
+    model.doors.forEach((door,index) => {
       const window = door.type === 'window';
       const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
         : material(door.material, 'wood');
-      slabs(door.points, surface, groups.doors, !window && door.open);
+      slabs(door.points, surface, groups.doors, !window && door.open, window?undefined:index);
     });
+    const propMesh=createPropKit();
+    for (const prop of model.props || []) if(!prop.hidden) groups.props.add(propMesh(prop));
     for (const portal of model.portals || []) {
-      const ring=new THREE.Mesh(new THREE.RingGeometry(.3,.43,32),new THREE.MeshBasicMaterial({color:'#d4a0ff',side:THREE.DoubleSide}));
+      if (portal.hidden) continue;
+      const canvas=document.createElement('canvas');
+      canvas.width=canvas.height=128;
+      const context=canvas.getContext('2d');
+      context.fillStyle='#502e73';
+      context.beginPath(); context.arc(64,64,59,0,Math.PI*2); context.fill();
+      context.strokeStyle='#d4a0ff'; context.lineWidth=6; context.stroke();
+      context.fillStyle='#fff'; context.font='48px system-ui'; context.textAlign='center'; context.textBaseline='middle';
+      context.fillText(PORTAL_ICONS[portal.icon] || PORTAL_ICONS.portal,64,64);
+      const texture=new THREE.CanvasTexture(canvas);
+      texture.colorSpace=THREE.SRGBColorSpace;
+      const ring=new THREE.Mesh(new THREE.PlaneGeometry(.86,.86),new THREE.MeshBasicMaterial({map:texture,transparent:true,alphaTest:.1,side:THREE.DoubleSide}));
       ring.rotation.x=-Math.PI/2; ring.position.set(portal.x,.015,portal.y);
+      ring.userData.portalId=portal.id;
       groups.portals.add(ring);
     }
     for (const token of model.tokens || []) {

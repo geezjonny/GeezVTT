@@ -1,18 +1,24 @@
 import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { importedTokens, tokenProperties, crossesWindow } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
-import { importedPortals, portalDestination } from './portal-model.js';
+import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
+import { onMapRightClick } from './map-right-click.js';
+import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
+import { PROPS, importedProps, propProperties, propDistance } from './prop-model.js';
+import { propIcon, propMarker } from './prop-icons.js';
 
 const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
 const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('edit-tool');
 const panel=$('editor-panel');
+const showHiddenPortals=()=>!panel.hidden && !$('portals-panel').hidden && layer()==='portals';
+const showHiddenProps=()=>!panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
 let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
 let pendingPortal, travelling=false;
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
-const pointLayer=()=>['lights','tokens','floors','portals'].includes(layer());
+const pointLayer=()=>['lights','tokens','floors','portals','props'].includes(layer());
 const materialInput=(name=layer())=>$(name==='floors'?'edit-floor-material':name==='doors'?'edit-door-material':'edit-material');
 const message=text=>{ $('editor-help').textContent=text; };
 const node=(tag,attrs={})=>{
@@ -20,7 +26,7 @@ const node=(tag,attrs={})=>{
   for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
   return el;
 };
-const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals});
+const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props});
 function portalEntries() {
   return (floor.sceneDocument?.floors || []).flatMap((entry,index)=>
     (index===floor.activeFloorIndex?model.portals:importedPortals(entry.map.geezvtt_editor?.portals)).map(portal=>({portal,index,entry})));
@@ -37,9 +43,9 @@ function buttons() {
   const destination=portal && portalDestination(portalEntries(),portal);
   $('portal-travel').disabled=travelling || !destination;
   const pending=model && pendingNode();
-  $('portal-status').textContent=pending?`First node on ${pending.entry.name}. Paint: click to place its partner.`:portal?
-    destination?`Linked to ${destination.entry.name}. Use this portal to move tokens standing on it.`:'Unpaired node. Choose Paint and click to place its partner.':
-    'Paint: click to place the first node, then click to place its partner. You can switch floors between clicks.';
+  $('portal-status').textContent=pending?`Unpaired portal: ${pending.entry.name}`:portal?
+    destination?`Linked to ${destination.entry.name}`:'Unpaired portal':'';
+  document.querySelectorAll('[data-prop-kind]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.propKind===$('prop-kind').value)));
   document.querySelectorAll('[data-tool]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.tool===tool()));
     button.disabled=toolInput.querySelector(`[value="${button.dataset.tool}"]`).disabled;
@@ -49,6 +55,7 @@ function buttons() {
   });
 }
 function settings() {
+  if(layer()==='props') return propProperties($('prop-kind').value,Number($('prop-size').value),Number($('prop-rotation').value));
   if(layer()==='portals') return {};
   if(layer()==='tokens') return {...(floor.tokenTemplate || {name:'Blank Token',size:1,hp:0}),npcId:floor.tokenTemplate?.npcId ?? null};
   if(layer()==='lights') {
@@ -60,16 +67,25 @@ function settings() {
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
-  for(const name of ['floors','walls','doors','lights','portals','tokens']) {
+  for(const name of ['floors','walls','doors','lights','props','portals','tokens']) {
     const group=$(name); group.replaceChildren();
     model[name].forEach((obj,index)=>{
       let el;
-      if(name==='portals') {
+      if(name==='props') {
+        if(obj.hidden && !showHiddenProps()) return;
+        el=propMarker(obj);
+        el.setAttribute('opacity',obj.hidden?.3:1);
+        el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+        el.setAttribute('aria-label',`${obj.hidden?'Hidden ':''}${PROPS[obj.kind].name}. Right-click for actions.`);
+        el.dataset.propId=obj.id;
+      } else if(name==='portals') {
+        if(obj.hidden && !showHiddenPortals()) return;
         const destination=portalDestination(portalEntries(),obj);
-        el=node('g',{transform:`translate(${obj.x} ${obj.y})`});
+        el=node('g',{transform:`translate(${obj.x} ${obj.y})`,opacity:obj.hidden?.3:1,tabindex:0,role:'button','aria-label':`${obj.hidden?'Hidden portal':'Portal'}. Right-click for actions.`});
+        el.dataset.portalId=obj.id;
         el.append(node('circle',{r:.42,fill:'#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':.3,fill:'#fff','pointer-events':'none'});
-        text.textContent='P'; el.append(text);
+        text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text);
       } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to edit.`});
         el.dataset.tokenId=obj.id;
@@ -85,11 +101,19 @@ function render(notify=true) {
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color,class:'light-source'}));
       } else {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
+        if(name==='doors' && obj.type!=='window') {
+          el.dataset.doorIndex=index;
+          el.setAttribute('tabindex','0');
+          el.setAttribute('role','button');
+          el.setAttribute('aria-label',`Door, ${obj.open?'open':'closed'}, ${obj.locked?'locked':'unlocked'}. Right-click for actions.`);
+        }
         if(obj.type!=='window') el.style.stroke=`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
       }
       const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':obj.type==='window'?'Window':'Door'} · ${obj.material || 'imported'}${name==='doors' && obj.type!=='window'?obj.open?' · open':' · closed':''}`;
       el.append(title);
-      if(name==='portals') title.textContent=portalDestination(portalEntries(),obj)?`Portal to ${portalDestination(portalEntries(),obj).entry.name}`:'Portal: waiting for second node';
+      if(name==='props') title.textContent=`${obj.hidden?'Hidden · ':''}${PROPS[obj.kind].name}`;
+      if(name==='doors' && obj.type!=='window') title.textContent+=obj.locked?' · locked':' · unlocked';
+      if(name==='portals') title.textContent=(obj.hidden?'Hidden · ':'')+(portalDestination(portalEntries(),obj)?`Portal to ${portalDestination(portalEntries(),obj).entry.name}`:'Portal: waiting for second node');
       if(name===layer() && selected.has(index)) {
         if(name==='lights' || name==='tokens' || name==='portals') el.querySelector(name==='lights'?'.light-source':'circle').classList.add('edit-selected');
         else el.classList.add('edit-selected');
@@ -98,7 +122,7 @@ function render(notify=true) {
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -108,7 +132,7 @@ function updateTools() {
   document.querySelectorAll('[data-swatch-layer]').forEach(panel=>{
     panel.dataset.active=String(panel.dataset.swatchLayer===layer());
   });
-  toolInput.querySelector('[value="bucket"]').disabled=['walls','portals'].includes(layer());
+  toolInput.querySelector('[value="bucket"]').disabled=['walls','portals','props'].includes(layer());
   toolInput.querySelector('[value="replace"]').disabled=layer()==='portals';
   if(toolInput.selectedOptions[0].disabled) toolInput.value='paint';
   $('spacing-label').hidden=tool()!=='bucket' || layer()==='floors';
@@ -119,7 +143,9 @@ function hit(p) {
   const matrix=svg.getScreenCTM(), tolerance=9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
   let index=-1, best=tolerance;
   model[layer()].forEach((obj,i)=>{
-    const d=layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:layer()==='portals'?.42:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
+    if(layer()==='portals' && obj.hidden && !showHiddenPortals()) return;
+    if(layer()==='props' && obj.hidden && !showHiddenProps()) return;
+    const d=layer()==='props'?propDistance(obj,p):layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:layer()==='portals'?.42:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
   return index;
@@ -127,7 +153,7 @@ function hit(p) {
 function point(event,snap=false) {
   const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!snap) return {x:p.x,y:p.y};
-  if(layer()==='floors' || layer()==='portals') return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
+  if(['floors','portals','props'].includes(layer())) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
   if(snap && layer()==='walls') {
     const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
@@ -143,6 +169,9 @@ function point(event,snap=false) {
 function contains(p) { return p.x>=-1e-7 && p.y>=-1e-7 && p.x<=model.width+1e-7 && p.y<=model.height+1e-7; }
 function drawPreview() {
   preview.replaceChildren();
+  if(layer()==='props' && tool()==='paint' && hover) {
+    attempt(()=>{ const marker=propMarker({...hover,...settings()}); marker.setAttribute('opacity','.55'); preview.append(marker); });
+  }
   if(layer()==='portals' && tool()==='paint' && hover) {
     const first=pendingNode();
     if(first?.index===floor.activeFloorIndex) preview.append(node('line',{x1:first.portal.x,y1:first.portal.y,x2:hover.x,y2:hover.y,stroke:'#d4a0ff','stroke-width':1,'stroke-dasharray':'4 4','vector-effect':'non-scaling-stroke'}));
@@ -154,12 +183,14 @@ function drawPreview() {
 function apply(indices,action) {
   if(!indices.length) { message('No objects found in the active layer.'); return; }
   const props=action==='replace'?settings():null;
+  if(props?.open && indices.some(i=>model[layer()][i].locked)) throw new Error('Unlock the door before opening it.');
+  if(layer()==='doors' && props?.type==='window') props.locked=false;
   remember();
   if(action==='erase') model[layer()]=model[layer()].filter((_,i)=>!indices.includes(i));
   else for(const i of indices) Object.assign(model[layer()][i],props);
   selected.clear(); render(); message(`${action==='erase'?'Erased':'Replaced'} ${indices.length} ${layer()}.`);
 }
-function addPoint(p,props) { return {x:p.x,y:p.y,...props,...(layer()==='tokens'?{id:crypto.randomUUID()}:{})}; }
+function addPoint(p,props) { return {x:p.x,y:p.y,...props,...(['tokens','props'].includes(layer())?{id:crypto.randomUUID()}:{})}; }
 function placeChain() {
   if(chain.length<2) { message('Choose at least two distinct points, then press Enter.'); return; }
   const props=settings(); remember();
@@ -203,7 +234,7 @@ svg.addEventListener('pointerdown',event=>{
   if(!model || panel.hidden || event.button!==0 || svg.hidden) return;
   // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
-  if(!['floors','portals'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
+  if(!['floors','portals','props'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
   event.preventDefault(); svg.focus();
   const p=point(event), index=hit(p);
   if(tool()==='paint' || tool()==='bucket') {
@@ -223,7 +254,7 @@ svg.addEventListener('pointermove',event=>{
       if($('edit-snap').checked) { dx=Math.round(dx); dy=Math.round(dy); }
       const originals=[...selected].map(i=>gesture.before[layer()][i]);
       const pts=originals.flatMap(o=>pointLayer()?[o]:o.points);
-      if(!['floors','portals'].includes(layer())) {
+      if(!['floors','portals','props'].includes(layer())) {
         dx=Math.max(-Math.min(...pts.map(p=>p.x)),Math.min(model.width-Math.max(...pts.map(p=>p.x)),dx));
         dy=Math.max(-Math.min(...pts.map(p=>p.y)),Math.min(model.height-Math.max(...pts.map(p=>p.y)),dy));
       }
@@ -253,6 +284,7 @@ svg.addEventListener('pointerup',event=>{
     if(selected.size===1) {
       const obj=model[layer()][[...selected][0]];
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
+      else if(layer()==='props') { $('prop-kind').value=obj.kind; $('prop-size').value=obj.size; $('prop-rotation').value=obj.rotation; }
       else if(layer()==='portals') { if(!portalDestination(portalEntries(),obj)) pendingPortal={scene:floor.sceneDocument,pairId:obj.pairId}; }
       else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') { $('edit-door-type').value=obj.type || 'door'; $('edit-door').value=obj.open?'open':'closed'; doorTypeChanged(); } }
     }
@@ -263,6 +295,113 @@ function cancelGesture() {
   if(gesture?.before) { Object.assign(model,gesture.before); render(false); }
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
 }
+function portalMenu(id,x,y,origin) {
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  const portal=model.portals.find(item=>item.id===id);
+  if(!portal) return;
+  cancelGesture();
+  const change=update=>{
+    if(!model.portals.includes(portal)) return;
+    remember(); update(); selected.clear(); render();
+  };
+  showMapMenu(x,y,[
+    {label:portal.hidden?'Show':'Hide',action:()=>change(()=>{portal.hidden=!portal.hidden;})},
+    {label:'Delete',action:()=>change(()=>{model.portals=model.portals.filter(item=>item!==portal);})},
+    {label:'Change icon…',action:()=>showMapMenu(x,y,Object.entries(PORTAL_ICONS).map(([icon,symbol])=>({
+      label:`${symbol} ${ {portal:'Portal',stairsUp:'Stairs up',stairsDown:'Stairs down',ladder:'Ladder',doorway:'Doorway',magic:'Magic'}[icon] }`,
+      action:()=>change(()=>{portal.icon=icon;})
+    })),origin)}
+  ],origin);
+}
+function doorMenu(index,x,y,origin) {
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  const door=model.doors[index];
+  if(!door || door.type==='window') return;
+  cancelGesture();
+  const change=update=>{
+    if(!model.doors.includes(door)) return;
+    remember(); update(); selected.clear(); render();
+  };
+  showMapMenu(x,y,[
+    {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>change(()=>{door.open=!door.open;})},
+    {label:door.locked?'Unlock':'Lock',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
+    {label:'Delete',action:()=>change(()=>{model.doors=model.doors.filter(item=>item!==door);})}
+  ],origin);
+}
+function propMenu(id,x,y,origin) {
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  cancelGesture();
+  const prop=model.props.find(item=>item.id===id);
+  if(!prop) return;
+  const change=update=>{
+    if(!model.props.includes(prop)) return;
+    remember(); update(); selected.clear(); render();
+  };
+  showMapMenu(x,y,[
+    {label:prop.hidden?'Show':'Hide',action:()=>change(()=>{prop.hidden=!prop.hidden;})},
+    {label:'Rotate 90°',action:()=>change(()=>{prop.rotation=(prop.rotation+90)%360;})},
+    {label:'Change object…',action:()=>showMapMenu(x,y,Object.entries(PROPS).map(([kind,entry])=>({
+      label:entry.name,action:()=>change(()=>{prop.kind=kind;})
+    })),origin)},
+    {label:'Delete',action:()=>change(()=>{model.props=model.props.filter(item=>item!==prop);})}
+  ],origin);
+}
+onMapRightClick(svg,event=>{
+  if(!model || svg.hidden) return;
+  const p=point(event);
+  // Tokens are drawn above portals and retain their own right-click action.
+  if(model.tokens.some(token=>Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
+  const portal=model.portals.findLast(item=>(!item.hidden || showHiddenPortals()) && Math.hypot(p.x-item.x,p.y-item.y)<=.42);
+  if(portal) { portalMenu(portal.id,event.clientX,event.clientY,svg); return; }
+  const prop=model.props.findLast(item=>(!item.hidden || showHiddenProps()) && propDistance(item,p)===0);
+  if(prop) { propMenu(prop.id,event.clientX,event.clientY,svg); return; }
+  const matrix=svg.getScreenCTM();
+  let best=9/Math.max(.001,Math.hypot(matrix.a,matrix.b)), index=-1;
+  model.doors.forEach((door,i)=>{
+    if(door.type==='window') return;
+    const d=Math.min(...segments(door.points).map(([a,b])=>distance(p,a,b)));
+    if(d<=best) { best=d; index=i; }
+  });
+  if(index>=0) doorMenu(index,event.clientX,event.clientY,svg);
+});
+$('portals').addEventListener('keydown',event=>{
+  const target=event.target.closest('[data-portal-id]');
+  if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const rect=target.getBoundingClientRect();
+  portalMenu(target.dataset.portalId,rect.right,rect.top,svg);
+});
+floor.addEventListener('portal-menu',event=>{
+  const {id,x,y}=event.detail;
+  portalMenu(id,x,y,document.activeElement);
+});
+$('doors').addEventListener('keydown',event=>{
+  const target=event.target.closest('[data-door-index]');
+  if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const rect=target.getBoundingClientRect();
+  doorMenu(Number(target.dataset.doorIndex),rect.right,rect.top,svg);
+});
+floor.addEventListener('door-menu',event=>{
+  const {index,x,y}=event.detail;
+  doorMenu(index,x,y,document.activeElement);
+});
+$('props').addEventListener('keydown',event=>{
+  const target=event.target.closest('[data-prop-id]');
+  if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const rect=target.getBoundingClientRect();
+  propMenu(target.dataset.propId,rect.right,rect.top,svg);
+});
+floor.addEventListener('prop-menu',event=>{
+  const {id,x,y}=event.detail;
+  propMenu(id,x,y,document.activeElement);
+});
+for(const element of [panel,$('portals-panel'),$('props-panel')]) new MutationObserver(()=>{
+  closeMapMenu();
+  if(model) render(false);
+}).observe(element,{attributes:true,attributeFilter:['hidden']});
+floor.addEventListener('map-changed',closeMapMenu);
 floor.addEventListener('token-update',event=>{
   try {
     cancelGesture();
@@ -276,10 +415,23 @@ svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});
 svg.tabIndex=0;
 svg.setAttribute('role','group');
-svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
+svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit or a portal or door for actions. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
 $('edit-door-type').addEventListener('change',doorTypeChanged);
+$('prop-kind').replaceChildren(...Object.entries(PROPS).map(([kind,entry])=>new Option(entry.name,kind)));
+for(const [kind,entry] of Object.entries(PROPS)) {
+  const button=document.createElement('button');
+  button.type='button'; button.dataset.propKind=kind;
+  button.append(propIcon(kind),document.createTextNode(entry.name));
+  button.addEventListener('click',()=>{
+    $('prop-kind').value=kind;
+    toolInput.value='paint'; toolInput.dispatchEvent(new Event('change'));
+    button.focus();
+  });
+  $('prop-palette').append(button);
+}
+for(const input of [$('prop-kind'),$('prop-size'),$('prop-rotation')]) input.addEventListener('input',()=>{buttons();drawPreview();});
 const toolIcons={
   select:'M4 3 19 13l-7 1-3 7Z',
   erase:'m4 13 9-9a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-9 9H8l-4-4a2 2 0 0 1 0-3Zm5-5 8 8M11 20h10',
@@ -402,6 +554,7 @@ document.addEventListener('keydown',event=>{
   else if(event.key==='Delete' && selected.size) { event.preventDefault(); apply([...selected],'erase'); }
 });
 floor.addEventListener('map-ready',()=>{
+  closeMapMenu();
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
@@ -411,9 +564,10 @@ floor.addEventListener('map-ready',()=>{
   Object.assign(imported.environment,floor.sceneDocument.environment);
   model={width:imported.width,height:imported.height,
     portals:importedPortals(saved?.portals),
+    props:importedProps(saved?.props),
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
-    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
+    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.source?.geezvtt_locked!==true && d.open,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
@@ -424,6 +578,7 @@ floor.addEventListener('map-ready',()=>{
   if(controls.disabled) message('Switch to 2D view to edit. Your changes are visible in 3D.');
 });
 function viewState() {
+  closeMapMenu();
   const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
   cancelGesture(); controls.disabled=!model || on;
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled; });
@@ -435,9 +590,9 @@ export function serializeMap() {
   const raw=clone(floor.sourceMap), origin=raw.resolution?.map_origin || {x:0,y:0};
   const offset=p=>({x:p.x+(Number.isFinite(origin.x)?origin.x:0),y:p.y+(Number.isFinite(origin.y)?origin.y:0)});
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
-  raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
+  raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
-  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
+  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;
 }
 $('edit-export').addEventListener('click',()=>{

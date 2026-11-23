@@ -1,0 +1,147 @@
+import * as THREE from 'three';
+
+// One kit per map build; the renderer owns disposal of the shared resources.
+export function createPropKit() {
+  const materials = new Map(), geometries = new Map();
+  const colors = { wood: '#90613c', trim: '#c19a64', metal: '#4c535d', stone: '#888b91', bone: '#dfd3ad', coal: '#29252a', flame: '#ff8a25', core: '#ffe29a' };
+  function material(role) {
+    if (!materials.has(role)) materials.set(role, new THREE.MeshStandardMaterial({
+      color: colors[role], roughness: role === 'metal' ? .55 : .9, metalness: role === 'metal' ? .65 : 0,
+      ...(role === 'flame' || role === 'core' ? { emissive: colors[role], emissiveIntensity: 1.5 } : {})
+    }));
+    return materials.get(role);
+  }
+  function geometry(shape) {
+    if (!geometries.has(shape)) geometries.set(shape, shape === 'box' ? new THREE.BoxGeometry(1,1,1) :
+      shape === 'sphere' ? new THREE.SphereGeometry(1,8,6) : shape === 'cone' ? new THREE.ConeGeometry(1,1,7) :
+      new THREE.CylinderGeometry(1,1,1,10));
+    return geometries.get(shape);
+  }
+  return function propMesh(prop) {
+    const group = new THREE.Group();
+    const part = (shape, role, x,y,z, sx,sy,sz) => {
+      const mesh = new THREE.Mesh(geometry(shape), material(role));
+      mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
+      mesh.castShadow = !['flame','core'].includes(role); mesh.receiveShadow = mesh.castShadow;
+      group.add(mesh);
+      return mesh;
+    };
+    const box = (role,x,y,z,w,h,d) => part('box',role,x,y,z,w,h,d);
+    const rod = (role,a,b,radius=.035) => {
+      const start=new THREE.Vector3(...a), end=new THREE.Vector3(...b), direction=end.clone().sub(start);
+      const mesh=part('cylinder',role,...start.clone().add(end).multiplyScalar(.5).toArray(),radius,direction.length(),radius);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+      return mesh;
+    };
+    const legs = (width,depth,height,role='wood') => {
+      for(const x of [-width/2,width/2]) for(const z of [-depth/2,depth/2]) box(role,x,height/2,z,.09,height,.09);
+    };
+    const fire = (y,radius) => {
+      part('cone','flame',0,y,0,radius,radius*3,radius);
+      const tip=part('cone','core',-.03,y-.04,.01,radius*.5,radius*1.8,radius*.5);
+      tip.rotation.z=-.16;
+    };
+    switch(prop.kind) {
+      case 'crate':
+        box('wood',0,.42,0,.86,.84,.86);
+        for(const z of [-.44,.44]) {
+          for(const x of [-.35,.35]) box('trim',x,.42,z,.1,.84,.045);
+          for(const y of [.08,.76]) box('trim',0,y,z,.86,.1,.045);
+          const brace=box('trim',0,.42,z,.085,.95,.045); brace.rotation.z=-Math.PI/4;
+        }
+        for(const x of [-.3,0,.3]) box('trim',x,.85,0,.025,.02,.85);
+        break;
+      case 'stairs':
+        for(let i=0;i<6;i++) {
+          const height=(i+1)*.22, z=.84-i/3;
+          box('stone',0,height/2,z,1,height,1/3);
+          box('trim',0,height+.012,z+.12,1.02,.025,.055);
+        }
+        break;
+      case 'ladder':
+        for(const x of [-.26,.26]) rod('wood',[x,.04,.35],[x,1.8,-.35],.045);
+        for(let i=0;i<8;i++) {
+          const t=(i+.5)/8;
+          rod('trim',[-.26,.04+1.76*t,.35-.7*t],[.26,.04+1.76*t,.35-.7*t],.035);
+        }
+        break;
+      case 'chest': {
+        box('wood',0,.23,0,.96,.46,.61);
+        if(!geometries.has('lid')) {
+          const arch=new THREE.Shape();
+          arch.moveTo(-.31,0); arch.absarc(0,0,.31,Math.PI,0,true); arch.lineTo(-.31,0);
+          const lidGeometry=new THREE.ExtrudeGeometry(arch,{depth:.96,bevelEnabled:false,curveSegments:8});
+          lidGeometry.translate(0,0,-.48);
+          geometries.set('lid',lidGeometry);
+        }
+        const lid=new THREE.Mesh(geometries.get('lid'),material('trim'));
+        lid.rotation.y=Math.PI/2; lid.position.y=.46; lid.castShadow=lid.receiveShadow=true; group.add(lid);
+        for(const x of [-.34,.34]) {
+          box('metal',x,.24,.318,.055,.48,.025);
+          box('metal',x,.24,-.318,.055,.48,.025);
+          box('metal',x,.47,0,.055,.04,.63);
+        }
+        box('metal',0,.37,.335,.14,.18,.04);
+        box('trim',0,.37,.36,.025,.055,.015);
+        break;
+      }
+      case 'bones':
+        for(const [a,b] of [[[-.34,.07,-.28],[.3,.07,.24]],[[-.3,.1,.28],[.34,.1,-.25]]]) {
+          rod('bone',a,b,.045);
+          for(const p of [a,b]) for(const offset of [-.03,.03]) part('sphere','bone',p[0]+offset,p[1],p[2],.07,.055,.06);
+        }
+        part('sphere','bone',0,.13,-.25,.14,.12,.16);
+        for(const x of [-.055,.055]) part('sphere','coal',x,.17,-.39,.035,.035,.018);
+        box('bone',0,.07,-.37,.15,.06,.1);
+        break;
+      case 'torch':
+        part('cylinder','metal',0,.04,0,.16,.08,.16);
+        rod('wood',[0,.08,0],[0,1.05,0],.045);
+        part('cylinder','metal',0,1.02,0,.1,.18,.1);
+        fire(1.24,.15);
+        break;
+      case 'brazier':
+        legs(.48,.48,.42,'metal');
+        part('cylinder','metal',0,.43,0,.38,.17,.38);
+        part('cylinder','coal',0,.525,0,.32,.025,.32);
+        for(let i=0;i<8;i++) {
+          const angle=i*Math.PI/4, x=Math.cos(angle)*.34,z=Math.sin(angle)*.34;
+          rod('metal',[x,.45,z],[x, .75,z],.025);
+        }
+        fire(.76,.23);
+        break;
+      case 'table':
+        legs(1.3,.64,.72);
+        for(let i=0;i<5;i++) box(i%2?'trim':'wood',0,.77,(i-2)*.176,1.6,.1,.17);
+        box('wood',0,.58,0,1.35,.12,.1);
+        break;
+      case 'chair':
+        legs(.46,.46,.42);
+        box('wood',0,.46,0,.63,.09,.62);
+        for(const x of [-.24,.24]) box('wood',x,.73,-.27,.07,.58,.07);
+        for(const y of [.74,.96]) box('trim',0,y,-.27,.55,.09,.07);
+        break;
+      case 'cobweb': {
+        const points=[], center=new THREE.Vector3(0,.035,0);
+        for(let i=0;i<8;i++) {
+          const angle=i*Math.PI/4;
+          points.push(center.clone(),new THREE.Vector3(Math.cos(angle)*.59,.035,Math.sin(angle)*.59));
+          for(const radius of [.2,.38,.56]) {
+            const next=angle+Math.PI/4;
+            points.push(new THREE.Vector3(Math.cos(angle)*radius,.035,Math.sin(angle)*radius),
+              new THREE.Vector3(Math.cos(next)*radius,.035,Math.sin(next)*radius));
+          }
+        }
+        if(!materials.has('web')) materials.set('web',new THREE.LineBasicMaterial({color:'#d6d9db',transparent:true,opacity:.75}));
+        group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),materials.get('web')));
+        break;
+      }
+    }
+    group.position.set(prop.x,.006,prop.y);
+    // SVG's clockwise rotation maps to a negative rotation about world Y.
+    group.rotation.y=-prop.rotation*Math.PI/180;
+    group.scale.setScalar(prop.size);
+    group.traverse(object=>{object.userData.propId=prop.id;});
+    return group;
+  };
+}

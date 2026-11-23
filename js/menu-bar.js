@@ -47,7 +47,7 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
     openPanel(swatches);
     input.value = button.dataset.editLayer;
     input.dispatchEvent(new Event('change'));
-    if (input.value === 'portals') {
+    if (['portals', 'props'].includes(input.value)) {
       document.querySelector('#edit-tool').value = 'paint';
       document.querySelector('#edit-tool').dispatchEvent(new Event('change'));
     }

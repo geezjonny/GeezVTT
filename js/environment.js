@@ -81,7 +81,7 @@ new MutationObserver(() => {
   if (!floor.tabletopMap) return;
   $('time-overlay').hidden = map.hidden;
   $('fog-tool').disabled = map.hidden;
-  $('fog-help').textContent = map.hidden ? 'Switch to 2D to paint fog.' : `Drag to paint fog. Cell size: ${fogSize(floor.tabletopMap)} square(s).`;
+  $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
 }).observe($('toggle-3d'), { attributes: true, attributeFilter: ['aria-pressed'] });
 floor.addEventListener('map-ready', () => {
   stroke = null;
@@ -89,7 +89,7 @@ floor.addEventListener('map-ready', () => {
   $('environment-time').value = floor.tabletopMap.environment.time;
   $('environment-weather').value = floor.tabletopMap.environment.weather;
   $('fog-tool').value = 'off';
-  $('fog-help').textContent = map.hidden ? 'Switch to 2D to paint fog.' : `Drag to paint fog. Cell size: ${fogSize(floor.tabletopMap)} square(s).`;
+  $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
   drawFog(); updateWeather();
 });
 floor.addEventListener('map-changed', () => {

@@ -180,6 +180,20 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
 
+## Object menus, procedural props, and compact windows saved - 2026-11-23
+
+- Adds portal right-click menus in 2D and 3D with Hide/Show, Delete, and Change Icon. Hidden endpoints remain faintly visible with the 2D Portals tools open so they can be restored. Icon and visibility settings persist with map and scene saves and participate in Undo/Redo.
+- Adds door right-click menus in both views with Open/Close, Lock/Unlock, and Delete. Locking closes an open door; locked doors cannot be opened through the menu or Apply until unlocked. Lock state persists in the DD2VTT editor extension. Windows retain their separate behavior.
+- Adds Edit > Props with crate, stairs, ladder, chest, bones, torch, brazier, table, chair, and cobweb. Uses code-drawn SVG icons in 2D and procedural Three.js geometry in 3D, sharing geometry and materials within each map build without external assets.
+- Props support Paint, selection and box selection, movement, size, rotation, Replace/Apply, deletion, and Undo/Redo. Right-click in either view to hide/show, rotate, change object type, or delete. Hidden props remain accessible through the open 2D Props tools. Map exports and portable scenes preserve prop identities, transforms, types, and visibility. 3D framing includes exterior props.
+- Props are decorative: stairs and ladders do not replace paired portal travel, and torch/brazier flames do not add map lighting or fog reveal.
+- Makes Lights use the standard floating-window width with wrapping controls. Removes explanatory paragraphs from floating windows and shortens portal/fog status text. Records the standard width and no-description rule for future floating windows in AGENTS.md.
+- Adds focused prop data round-trip, invalid-data, rotated picking, and box-selection tests; these have not been run.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise portal and door menus in both views, locked-door behavior, hidden-object restoration, menu keyboard controls, prop placement/movement/size/rotation/replacement and history, all ten icons and 3D models, map/scene round trips across floors, and standard window widths. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
 ## Scene environment and windows saved - 2026-11-23
 
 - Weather and time of day now apply across every map in a scene, including added and replaced floor maps. Scene saves persist these shared settings; fog remains per map. Older scenes initialize shared weather and time from their selected map.

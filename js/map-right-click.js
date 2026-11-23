@@ -1,4 +1,4 @@
-// Open token properties on release, after distinguishing a click from an orbit drag.
+// Open object actions on release, after distinguishing a click from an orbit drag.
 export function onMapRightClick(element, callback) {
   let press;
   const down = event => {
