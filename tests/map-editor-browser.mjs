@@ -82,7 +82,7 @@ try {
   await evaluate(`[...document.querySelectorAll('#library-list button')].find(button=>button.textContent==='camp').click()`);
   await wait(`document.querySelector('#library-panel').hidden && document.querySelector('#floor').sourceName==='camp.dd2vtt'`);
   await clickButton('load-scene');
-  await wait(`document.querySelector('#library-status').textContent==='No files available.'`);
+  await wait(`document.querySelectorAll('#library-list button').length > 0`);
   assert.equal(await evaluate(`document.querySelector('#library-panel').dataset.kind`),'scene');
   await evaluate(`document.querySelector('#library-panel .editor-close').click()`);
 
@@ -221,13 +221,13 @@ try {
   assert.equal(await count('tokens'),18);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].material`),'wood');
   // Portable scenes retain the same prep data and reject unsupported versions without replacing it.
-  await evaluate(`window.mapExportBlob=window.exportBlob;document.getElementById('scene-name').value='Prepared ambush';document.getElementById('save-scene').click()`);
+  await evaluate(`window.originalSavePicker=window.showSaveFilePicker;window.showSaveFilePicker=undefined;window.mapExportBlob=window.exportBlob;document.getElementById('scene-name').value='Prepared ambush';document.getElementById('save-scene').click()`);
   const scene=await evaluate(`window.exportBlob.text().then(JSON.parse)`);
-  assert.equal(scene.format,'geezvtt');assert.equal(scene.version,1);
+  assert.equal(scene.format,'geezvtt');assert.equal(scene.version,2);
   assert.equal(scene.name,'Prepared ambush');
-  for(const field of ['image','resolution','line_of_sight','portals','lights']) assert.deepEqual(scene.map[field],exported[field]);
-  assert.deepEqual(scene.map.geezvtt_editor.floors,exported.geezvtt_editor.floors);
-  assert.deepEqual(scene.map.geezvtt_editor.tokens.map(({id,...token})=>token),exported.geezvtt_editor.tokens.map(({id,...token})=>token));
+  for(const field of ['image','resolution','line_of_sight','portals','lights']) assert.deepEqual(scene.floors[0].map[field],exported[field]);
+  assert.deepEqual(scene.floors[0].map.geezvtt_editor.floors,exported.geezvtt_editor.floors);
+  assert.deepEqual(scene.floors[0].map.geezvtt_editor.tokens.map(({id,...token})=>token),exported.geezvtt_editor.tokens.map(({id,...token})=>token));
   await evaluate(`window.sceneText=window.exportBlob.text();window.openScene=async text=>{const data=new DataTransfer();data.items.add(new File([text],'ambush.geezvtt'));const input=document.getElementById('scene-file');input.files=data.files;input.dispatchEvent(new Event('change'));};window.openScene(await window.sceneText)`);
   await wait(`document.querySelector('#status').textContent.startsWith('ambush.geezvtt ·')`);
   assert.equal(await evaluate(`document.getElementById('scene-name').value`),'Prepared ambush');
@@ -239,6 +239,24 @@ try {
   await evaluate(`document.getElementById('scene-name').dispatchEvent(new Event('input'));window.confirm=()=>false;window.openScene(await window.sceneText)`);
   assert.equal(await evaluate(`document.getElementById('scene-state').textContent`),'Unsaved scene');
   await evaluate(`window.confirm=()=>true;window.exportBlob=window.mapExportBlob`);
+  // Mock file handles so Save, Save As, cancellation, and failures never touch disk.
+  await evaluate(`window.pickerCalls=0;window.sceneWrites=[];window.fileHandle={name:'ambush.geezvtt',createWritable:async()=>({write:async blob=>window.sceneWrites.push(await blob.text()),close:async()=>{},abort:async()=>{}})};window.showSaveFilePicker=async()=>{window.pickerCalls++;return window.fileHandle};document.getElementById('save-scene').click()`);
+  await wait(`!document.getElementById('save-scene').disabled`);
+  assert.equal(await evaluate(`window.pickerCalls`),1);
+  assert.equal(await evaluate(`JSON.parse(window.sceneWrites[0]).name`),'Prepared ambush');
+  await clickButton('save-scene');
+  await wait(`!document.getElementById('save-scene').disabled`);
+  assert.equal(await evaluate(`window.pickerCalls`),1,'Save reuses the chosen file');
+  await clickButton('save-scene-as');
+  await wait(`!document.getElementById('save-scene').disabled`);
+  assert.equal(await evaluate(`window.pickerCalls`),2,'Save As opens a picker');
+  await evaluate(`document.getElementById('scene-name').dispatchEvent(new Event('input'));window.showSaveFilePicker=async()=>{throw new DOMException('Cancelled','AbortError')};document.getElementById('save-scene-as').click()`);
+  await wait(`!document.getElementById('save-scene').disabled`);
+  assert.equal(await evaluate(`document.getElementById('scene-state').textContent`),'Unsaved scene');
+  await evaluate(`window.fileHandle.createWritable=async()=>{throw new Error('Permission denied')};document.getElementById('save-scene').click()`);
+  await wait(`document.getElementById('scene-state').textContent.includes('Permission denied')`);
+  assert.equal(await evaluate(`document.getElementById('floor').sceneFileHandle===window.fileHandle`),true,'failed Save As retains the previous handle');
+  await evaluate(`window.showSaveFilePicker=window.originalSavePicker`);
   // Nonzero origins, invalid optional entries, and unknown exporter metadata.
   await evaluate(`(async()=>{
     const raw=JSON.parse(await window.exportBlob.text());raw.resolution={...raw.resolution,map_origin:{x:10,y:20},map_size:{x:4,y:4}};

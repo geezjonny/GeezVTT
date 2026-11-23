@@ -183,6 +183,7 @@
             </details>
             <button id="edit-export" type="button" disabled>Save Map</button>
             <button id="save-scene" type="button" disabled>Save Scene (.geezvtt)</button>
+            <button id="save-scene-as" type="button" disabled>Save Scene As…</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -595,6 +596,8 @@
           floor.activeFloorIndex = activeFloorIndex;
           floor.sceneName = sceneName || file.name.replace(/\.dd2vtt$/i, '').slice(0, 100);
           floor.sceneSaved = sceneFile;
+          floor.sceneFileHandle = options.fileHandle || null;
+          floor.sceneFileName = sceneFile ? file.name : null;
         }
         mapView.setAttribute('viewBox', `0 0 ${overlay.width} ${overlay.height}`);
         floorImage.setAttribute('href', preview.src);

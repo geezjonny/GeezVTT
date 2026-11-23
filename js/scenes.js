@@ -4,20 +4,33 @@ const floor = document.getElementById('floor');
 const name = document.getElementById('scene-name');
 const state = document.getElementById('scene-state');
 const save = document.getElementById('save-scene');
+const saveAs = document.getElementById('save-scene-as');
 const floors = document.getElementById('scene-floor');
 let dirty = false;
+let revision = 0;
+let saving = false;
+const sceneFileTypes = [{ description: 'GeezVTT scene', accept: { 'application/json': ['.geezvtt'] } }];
 
 function changed() {
+  revision++;
   dirty = true;
   state.textContent = 'Unsaved scene';
 }
 floor.confirmMapReplace = () => !dirty || window.confirm('Discard unsaved scene changes and open another scene?');
 window.addEventListener('beforeunload', event => {
-  if (!dirty) return;
+  if (!dirty && !saving) return;
   event.preventDefault();
   event.returnValue = '';
 });
-document.getElementById('open-scene').addEventListener('click', () => document.getElementById('scene-file').click());
+document.getElementById('open-scene').addEventListener('click', async () => {
+  if (!window.showOpenFilePicker) { document.getElementById('scene-file').click(); return; }
+  try {
+    const [handle] = await window.showOpenFilePicker({ types: sceneFileTypes, multiple: false });
+    await floor.loadMap(await handle.getFile(), { fileHandle: handle });
+  } catch (error) {
+    if (error.name !== 'AbortError') state.textContent = `Scene open failed: ${error.message}`;
+  }
+});
 name.addEventListener('input', () => { name.setCustomValidity(''); changed(); });
 floor.addEventListener('map-changed', () => { if (!floor.changingMap) changed(); });
 floor.addEventListener('environment-changed', () => { if (!floor.changingMap) changed(); });
@@ -38,7 +51,9 @@ function updateFloors() {
   document.getElementById('map-title').textContent = `Floor map: ${floor.sceneDocument.floors[floor.activeFloorIndex].name}`;
 }
 function loaded(event) {
-  name.disabled = save.disabled = false;
+  revision++;
+  name.disabled = false;
+  save.disabled = saveAs.disabled = saving;
   if (!event?.detail?.preserveScene) {
     name.value = floor.sceneName;
     name.setCustomValidity('');
@@ -125,22 +140,59 @@ document.getElementById('remove-floor').addEventListener('click', async () => {
   changed();
 });
 
-save.addEventListener('click', () => {
-  if (floor.getAttribute('aria-busy') === 'true') return;
+async function saveScene(asNewFile = false) {
+  if (saving || floor.getAttribute('aria-busy') === 'true') return;
   if (!name.value.trim()) { name.setCustomValidity('Enter a scene name.'); name.reportValidity(); name.focus(); return; }
+  const sceneDocument = floor.sceneDocument;
+  const savedRevision = revision;
+  saving = save.disabled = saveAs.disabled = true;
   try {
     floor.captureFloor();
     const scene = { format: 'geezvtt', version: 2, name: name.value.trim(), activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment, floors: floor.sceneDocument.floors };
-    const url = URL.createObjectURL(new Blob([JSON.stringify(scene)], { type: 'application/json' }));
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = scene.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') + '.geezvtt';
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    floor.sceneName = name.value = scene.name;
-    dirty = false;
-    state.textContent = 'Scene download started';
+    const blob = new Blob([JSON.stringify(scene)], { type: 'application/json' });
+    const filename = scene.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') + '.geezvtt';
+    let handle = asNewFile ? null : floor.sceneFileHandle;
+    if (!handle && window.showSaveFilePicker) {
+      handle = await window.showSaveFilePicker({
+        suggestedName: asNewFile ? filename : floor.sceneFileName || filename,
+        types: sceneFileTypes
+      });
+    }
+    if (handle) {
+      const writable = await handle.createWritable();
+      try {
+        await writable.write(blob);
+        await writable.close();
+      } catch (error) {
+        try { await writable.abort(); } catch { /* The stream may already be closed. */ }
+        throw error;
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    if (floor.sceneDocument !== sceneDocument) return;
+    if (handle) {
+      floor.sceneFileHandle = handle;
+      floor.sceneFileName = handle.name;
+    }
+    if (revision === savedRevision) {
+      floor.sceneName = name.value = scene.name;
+      if (handle) dirty = false;
+    }
+    state.textContent = handle
+      ? dirty ? 'Saved; newer changes unsaved' : `Saved ${handle.name}`
+      : 'Scene download started';
   } catch (error) {
-    state.textContent = `Scene save failed: ${error.message}`;
+    if (floor.sceneDocument === sceneDocument && error.name !== 'AbortError') state.textContent = `Scene save failed: ${error.message}`;
+  } finally {
+    saving = false;
+    save.disabled = saveAs.disabled = !floor.tabletopMap;
   }
-});
+}
+save.addEventListener('click', () => saveScene());
+saveAs.addEventListener('click', () => saveScene(true));

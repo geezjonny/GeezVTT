@@ -44,7 +44,8 @@ const libraryList = document.querySelector('#library-list');
 const libraryStatus = document.querySelector('#library-status');
 let libraryVersion = 0;
 document.querySelector('#library-local').addEventListener('click', () => {
-  document.querySelector(library.dataset.kind === 'scene' ? '#scene-file' : '#map-file').click();
+  if (library.dataset.kind === 'scene') document.querySelector('#open-scene').click();
+  else document.querySelector('#map-file').click();
 });
 document.querySelectorAll('[data-library]').forEach(button => {
   button.addEventListener('click', async () => {

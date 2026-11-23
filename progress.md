@@ -273,3 +273,14 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify both library listings, hosted and local map/scene loading, inventory updates, and the repository push script. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Local scene Save and Save As saved - 2026-11-23
+
+- Adds File > Save Scene As and updates Save Scene to write directly to a chosen local .geezvtt file using browser file access. Save reuses the file handle during the current session; Save As opens a new picker.
+- Local scene import and the library local-file option use the browser open picker when supported and remember the opened file for later saves. Loading another scene resets the file association; changing or replacing floors preserves it.
+- Serializes the scene before asynchronous writes, clears unsaved status only after a completed local write with no newer edits, retains the previous handle when Save As fails or is cancelled, and reports write failures. Browsers without file access support retain downloads without marking edits saved.
+- Adds unrun browser coverage for file-handle reuse, Save As, cancellation and permission failures, and updates existing scene export expectations to version 2 and the populated scene library.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify local open/save permissions, repeated Save, Save As, cancellation and failed writes, edits during a save, file association across floor and scene changes, download fallback, and pushing updated files from the repo scene folder. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
