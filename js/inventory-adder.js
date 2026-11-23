@@ -38,7 +38,7 @@ export function mountInventoryAdder(container, getToken, onSaved) {
       await addPCInventoryItem(token, item, qty, pending.key);
       pending = null; name.value = ''; quantity.value = '1';
       status.textContent = `Added ${qty} × ${item.name}.`;
-      try { await onSaved(token); }
+      try { await onSaved?.(token); }
       catch (error) { status.textContent = `Item saved; refresh failed: ${error.message}`; }
     } catch (error) { status.textContent = `Could not add item: ${error.message}`; }
     finally { saving = false; button.disabled = false; name.disabled = quantity.disabled = false; }

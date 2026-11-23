@@ -5,6 +5,7 @@ import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
 import { mountInventoryAdder } from './inventory-adder.js';
+import { applyFirebaseEvent } from './firebase-events.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
@@ -37,7 +38,7 @@ async function openSheet(token, section) {
     $(`${sheetId(section)}-status`).textContent = error.message;
   }
 }
-const subscriptions = new Map();
+let pcStream;
 const knownPCs = new Set();
 const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
 async function read(path) {
@@ -47,11 +48,7 @@ async function read(path) {
 }
 const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcId.slice(3)) ? token.npcId.slice(3) : null;
 mountInventoryAdder($('sheet-inventory-content').parentElement,
-  () => tokens().find(token => token.id === sheetTokens.get('Inventory')),
-  async token => {
-    const id = pcId(token);
-    if (id) { entities[id] = await read(`v2/worlds/gaia/entities/${encodeURIComponent(id)}`); applyPC(id); }
-  });
+  () => tokens().find(token => token.id === sheetTokens.get('Inventory')));
 const status = text => { $('token-status').textContent = text; };
 function pcSyncStatus(id, message) {
   status(message);
@@ -93,39 +90,33 @@ function applyPC(id) {
 
 function syncPCs() {
   const ids = new Set([...tokens(), floor.tokenTemplate].map(pcId).filter(Boolean));
-  for (const [id, subscription] of subscriptions) {
-    if (!ids.has(id)) { subscription.stream.close(); subscriptions.delete(id); }
-  }
-  for (const id of ids) {
-    if (subscriptions.has(id)) continue;
-    const stream = new EventSource(`${base}/v2/worlds/gaia/entities/${encodeURIComponent(id)}.json`);
-    const subscription = { stream, reading: false, dirty: false };
-    subscriptions.set(id, subscription);
-    const refresh = async () => {
-      subscription.dirty = true;
-      if (subscription.reading) return;
-      subscription.reading = true;
-      try {
-        while (subscription.dirty && subscriptions.get(id) === subscription) {
-          subscription.dirty = false;
-          const entity = await read(`v2/worlds/gaia/entities/${encodeURIComponent(id)}`);
-          if (subscriptions.get(id) !== subscription) return;
-          entities[id] = entity;
-          applyPC(id);
-          pcSyncStatus(id, entity?.kind === 'pc' && !entity.data?._sheetsDeleted ? '' : 'A linked PC is unavailable.');
-        }
-      } catch (error) { pcSyncStatus(id, `PC sync failed: ${error.message}`); }
-      finally { subscription.reading = false; }
-    };
-    stream.addEventListener('put', refresh);
-    stream.addEventListener('patch', refresh);
-    stream.addEventListener('error', () => pcSyncStatus(id, 'PC sync disconnected; reconnecting.'));
-    for (const type of ['cancel', 'auth_revoked']) stream.addEventListener(type, () => {
-      stream.close(); pcSyncStatus(id, 'PC sync denied by Firebase. Reopen Tokens to retry.');
-      subscriptions.delete(id);
-    });
-  }
+  if (!ids.size) { pcStream?.close(); pcStream = null; return; }
+  if (pcStream) return;
+  // One stream leaves connections available for item saves and tabletop requests.
+  const stream = pcStream = new EventSource(`${base}/v2/worlds/gaia/entities.json`);
+  const report = message => {
+    for (const id of new Set([...tokens(), floor.tokenTemplate].map(pcId).filter(Boolean))) pcSyncStatus(id, message);
+  };
+  const update = event => {
+    if (pcStream !== stream) return;
+    try {
+      entities = applyFirebaseEvent(entities, event.type, JSON.parse(event.data)) || {};
+      for (const [id, entity] of Object.entries(entities)) if (entity?.kind === 'pc') knownPCs.add(id);
+      for (const id of new Set([...tokens(), floor.tokenTemplate].map(pcId).filter(Boolean))) {
+        applyPC(id);
+        pcSyncStatus(id, entities[id]?.kind === 'pc' && !entities[id].data?._sheetsDeleted ? '' : 'A linked PC is unavailable.');
+      }
+    } catch (error) { report(`PC sync failed: ${error.message}`); }
+  };
+  stream.addEventListener('put', update);
+  stream.addEventListener('patch', update);
+  stream.addEventListener('error', () => report('PC sync disconnected; reconnecting.'));
+  for (const type of ['cancel', 'auth_revoked']) stream.addEventListener(type, () => {
+    stream.close();
+    if (pcStream === stream) { pcStream = null; report('PC sync denied by Firebase. Reopen Tokens to retry.'); }
+  });
 }
+window.addEventListener('pagehide', () => { pcStream?.close(); pcStream = null; });
 
 async function loadNPCs() {
   if (loading) return;

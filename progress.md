@@ -464,3 +464,14 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: one window per category; opening that category for another PC changes its displayed character. Each inventory addition creates a separate bag entry instead of merging same-name stacks. Stats, equipment assignment, feats, spells, and existing bag entries remain view-only. GM controls follow the existing session-role convention and Firebase access still depends on the project's rules.
 
 Save requested with commit and push to origin/main. All changes in this save are confined to GeezVTT.
+
+## PC synchronization timeout fix saved - 2026-11-23
+
+- Investigated the reported "PC sync failed: signal timed out" by reading inventory writes, PC subscriptions, and tabletop listeners. The existing PC code held one EventSource connection per linked character and issued another GET after every stream event. Combined with tabletop listeners, this can exhaust HTTP/1 browser connection slots and leave inventory writes or refreshes waiting until their 15-second timeout. This is a code-based diagnosis; no browser or live Firebase validation was performed.
+- Replaces per-character subscriptions with one shared entities stream, matching the existing collection read scope. Applies Firebase put/patch payloads directly to cached records and refreshes linked token values and open character windows without additional GETs. Preserves reconnect, access-denied, unavailable-character, and error reporting and closes the shared stream when unused or the page exits.
+- Removes the redundant post-inventory-save GET in the VTT; successful saves update through the shared stream. Retains existing inventory write validation and stable keys for safe retries. The standalone sheet retains its single-character stream and refresh callback.
+- Adds unrun assertions for streamed snapshots, nested inventory additions, multi-path patches, deletions, array paths, unrelated characters, and rejection of unsafe paths before mutation.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: reload the VTT to replace the old connections, add an SRD item with multiple PCs placed, confirm the bag and GeezSheets update, and check live HP/spell/feat updates, reconnect and unavailable-character behavior. Other network or Firebase availability problems could still produce timeouts; the reported runtime cause has not been independently confirmed.
+
+Saved for commit and push to origin/main under the existing save/commit/push request. Changes remain confined to GeezVTT.
