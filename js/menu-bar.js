@@ -58,7 +58,7 @@ function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
+  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
 new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
@@ -145,7 +145,7 @@ for (const panel of panels) {
   panel.addEventListener('focusin', () => raisePanel(panel));
   panel.querySelector('.editor-close').addEventListener('click', () => {
     panel.hidden = true;
-    document.querySelector(panel.id === 'dice-panel' ? '#open-dice' : '#open-tools').closest('.menu').querySelector('summary').focus();
+    document.querySelector(panel.id === 'dice-panel' ? '#open-dice' : panel.id === 'environment-panel' ? '#open-environment' : '#open-tools').closest('.menu').querySelector('summary').focus();
   });
   titlebar.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;

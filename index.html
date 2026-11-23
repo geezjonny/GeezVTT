@@ -64,6 +64,11 @@
     .roll-critical { color: #ffd86b; }
     .roll-fumble { color: #ffb4ac; }
     #view-3d { position: absolute; inset: 0; }
+    #time-overlay, #weather-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+    #fog-of-war { fill: #080b10; pointer-events: none; }
+    #environment-panel .editor-body { display: grid; gap: .5rem; }
+    #environment-panel label { display: grid; gap: .2rem; }
+    #fog-help { margin: 0; font-size: .7rem; color: #b4c0ce; }
     #view-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     #view-help { position: absolute; bottom: 0.5rem; left: 0.75rem; right: 0.75rem; margin: 0; pointer-events: none; color: #e6ebf1; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
@@ -161,6 +166,7 @@
             <button id="toggle-3d" type="button" aria-pressed="false" aria-controls="view-3d" disabled>Toggle (2D/3D)</button>
             <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
             <button id="fit-3d" type="button" hidden>Fit map</button>
+            <button id="open-environment" type="button" aria-controls="environment-panel" disabled>Environment</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -275,6 +281,20 @@
         <p id="token-properties-status" role="status"></p>
       </form>
     </section>
+    <section id="environment-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="environment-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move environment window. Drag or use arrow keys.">
+        <h2 id="environment-title">Environment</h2>
+        <button class="editor-close" type="button" aria-label="Close environment">&times;</button>
+      </div>
+      <div class="editor-body">
+        <label>Time of day <select id="environment-time"><option value="original">Original lighting</option><option value="day">Day</option><option value="dawn">Dawn</option><option value="dusk">Dusk</option><option value="night">Night</option></select></label>
+        <label>Weather <select id="environment-weather"><option value="clear">Clear</option><option value="rain">Rain</option><option value="snow">Snow</option></select></label>
+        <fieldset><legend>Fog of war</legend><button id="fog-cover" type="button">Cover map</button><button id="fog-reveal" type="button">Reveal map</button></fieldset>
+        <label>Fog brush <select id="fog-tool"><option value="off">Off</option><option value="reveal">Reveal</option><option value="hide">Hide</option></select></label>
+        <p id="fog-help">Switch to 2D to paint fog.</p>
+        <p style="margin:0;font-size:.7rem;color:#b4c0ce">Map lights reveal covered fog within their range. Walls and closed doors block the reveal. Time of day changes brightness.</p>
+      </div>
+    </section>
     <section id="floor" aria-label="Tabletop floor" aria-busy="false">
       <p id="empty">Choose a .dd2vtt file to place its map on the floor.</p>
       <svg id="map-view" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="map-title" hidden>
@@ -292,8 +312,11 @@
         <g id="doors"></g>
         <g id="tokens"></g>
         <g id="edit-preview"></g>
+        <g id="fog-of-war"></g>
       </svg>
       <div id="view-3d" role="region" aria-label="3D map. Middle-drag to pan, scroll to zoom, right-drag to orbit." hidden></div>
+      <div id="time-overlay" aria-hidden="true"></div>
+      <canvas id="weather-overlay" aria-hidden="true"></canvas>
       <p id="view-help" hidden>Middle-drag: pan · Scroll: zoom · Right-drag: orbit · Right-click token: edit · Touch: one finger orbit, two fingers pan/zoom</p>
       <div id="dice-overlay" aria-hidden="true"></div>
     </section>
@@ -492,5 +515,6 @@
   <script type="module" src="js/menu-bar.js"></script>
   <script type="module" src="js/tokens.js"></script>
   <script type="module" src="js/scenes.js"></script>
+  <script type="module" src="js/environment.js"></script>
 </body>
 </html>

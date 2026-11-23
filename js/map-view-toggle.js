@@ -58,3 +58,7 @@ floor.addEventListener('map-changed', () => {
     layers();
   } catch (error) { fallback(error); }
 });
+floor.addEventListener('environment-changed', () => {
+  try { view?.setEnvironment(floor.tabletopMap.environment); }
+  catch (error) { fallback(error); }
+});

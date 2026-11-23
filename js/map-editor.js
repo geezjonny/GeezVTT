@@ -1,5 +1,6 @@
 import { MATERIALS, clone, segments, distance, inBox, bucketCells } from './map-editor-model.js';
 import { importedTokens, tokenProperties } from './token-model.js';
+import { environmentSettings } from './environment-model.js';
 
 const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
@@ -313,6 +314,7 @@ floor.addEventListener('map-ready',()=>{
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
+  imported.environment=environmentSettings(saved?.environment,imported);
   model={width:imported.width,height:imported.height,
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
@@ -340,7 +342,7 @@ export function serializeMap() {
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
   raw.portals=model.doors.map(d=>({...d.source,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
-  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || [])};
+  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;
 }
 $('edit-export').addEventListener('click',()=>{

@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
+import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
 
 export function createMapView3D(host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -35,6 +36,9 @@ export function createMapView3D(host) {
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
+  const fogGroup = new THREE.Group();
+  scene.add(fogGroup);
+  const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10' });
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
   let bounds;
   const raycaster = new THREE.Raycaster();
@@ -43,8 +47,8 @@ export function createMapView3D(host) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects(groups.tokens.children)[0];
-    if (hit) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...fogGroup.children])[0];
+    if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
   });
   const invalidate = () => { dirty = true; };
   controls.addEventListener('change', invalidate);
@@ -207,8 +211,7 @@ export function createMapView3D(host) {
     sun.position.copy(sun.target.position).add(new THREE.Vector3(-1, 2, 1).normalize().multiplyScalar(radius * 2));
     Object.assign(sun.shadow.camera, { left: -radius, right: radius, top: radius, bottom: -radius, near: 0.1, far: radius * 4 });
     sun.shadow.camera.updateProjectionMatrix();
-    ambient.intensity = lights.length ? 0.03 : 0.8;
-    sun.intensity = lights.length ? 0 : 2.5;
+    setEnvironment(model.environment);
     renderer.shadowMap.needsUpdate = true;
     invalidate();
     if (refit) pendingFit = true;
@@ -219,6 +222,26 @@ export function createMapView3D(host) {
     controls.update();
     if (dirty) { dirty = false; renderer.render(scene, camera); }
     raf = requestAnimationFrame(loop);
+  }
+  function setEnvironment(next) {
+    if (!model) return;
+    model.environment = environmentSettings(next, model);
+    const time = TIMES[model.environment.time];
+    const localLighting = model.environment.time === 'original' && groups.lights.children.length > 0;
+    ambient.intensity = localLighting ? .03 : time.ambient;
+    sun.intensity = localLighting ? 0 : time.sun;
+    sun.color.set(time.color);
+    ambient.color.set(model.environment.time === 'night' ? '#91b8ff' : '#e6f0ff');
+    fogGroup.children.forEach(mesh => mesh.geometry.dispose());
+    fogGroup.clear();
+    // Cover wall height too, so orbiting cannot expose geometry beneath the fog.
+    for (const rect of fogRectangles(model)) {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(rect.width, 2.2, rect.height), fogMaterial);
+      mesh.position.set(rect.x + rect.width / 2, 1.05, rect.y + rect.height / 2);
+      fogGroup.add(mesh);
+    }
+    renderer.shadowMap.needsUpdate = true;
+    invalidate();
   }
   function setActive(on) {
     active = on;
@@ -240,10 +263,13 @@ export function createMapView3D(host) {
     observer.disconnect();
     controls.dispose();
     disposeContents();
+    fogGroup.children.forEach(mesh => mesh.geometry.dispose());
+    fogGroup.clear();
+    fogMaterial.dispose();
     sun.shadow.dispose();
     renderer.dispose();
     renderer.forceContextLoss();
     renderer.domElement.remove();
   }
-  return { setMap, setLayers, setActive, fit, destroy };
+  return { setMap, setEnvironment, setLayers, setActive, fit, destroy };
 }

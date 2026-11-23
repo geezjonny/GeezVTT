@@ -19,6 +19,7 @@ window.addEventListener('beforeunload', event => {
 document.getElementById('open-scene').addEventListener('click', () => document.getElementById('scene-file').click());
 name.addEventListener('input', () => { name.setCustomValidity(''); changed(); });
 floor.addEventListener('map-changed', changed);
+floor.addEventListener('environment-changed', changed);
 function loaded() {
   name.disabled = save.disabled = false;
   name.value = floor.sceneName;

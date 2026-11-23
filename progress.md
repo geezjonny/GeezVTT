@@ -156,3 +156,15 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
 
+## Fog of war, weather, and time of day saved - 2026-11-22
+
+- Adds View > Environment as a draggable floating window available in both views. Includes Cover map, Reveal map, and manual reveal/hide brushes in 2D. Fog appears in both 2D and 3D and covers the imported map area; exterior painted floors are outside its bounds. Large maps use larger fog cells to bound geometry costs.
+- Active map lights temporarily reveal fog within their range. Walls and closed doors block this reveal; opening doors or editing/moving/removing lights updates fog in both views. Disabling lights restores fog unless an area was manually revealed. Light reveal uses fog-cell centers, so boundaries follow cell resolution.
+- Adds clear/rain/snow weather overlays with reduced-motion support, plus Original lighting, Day, Dawn, Dusk, and Night. Time presets change 3D lighting and apply a tint in 2D. Ambient/time-of-day light does not reveal fog.
+- Persists environment and manual fog settings in the map editor extension for both DD2VTT exports and portable scenes. Environment changes mark scenes unsaved. Existing maps default to original lighting, clear weather, and no fog.
+- Adds unrun regression coverage for imported settings, fog cells and bounds, light reveal, disabled lights, retained manual reveals, and wall/door blocking.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise cover/reveal and brushes in both views, lights and wall/door blocking, light removal and manual reveal persistence, weather and reduced-motion behavior, time presets, and scene/map export round trips. Fog has no automatic token vision and is not a server-side access boundary. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt out of the commit.
+
