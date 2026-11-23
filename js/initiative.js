@@ -12,7 +12,7 @@ function render() {
   for (const entry of initiativeOrder(state).slice(0, 4)) {
     const token = map.tokens.find(token => token.id === entry.id);
     const row = document.createElement('li'), name = document.createElement('span');
-    name.textContent = `${entry.score} · ${token.name}`;
+    name.textContent = token.name;
     name.title = name.textContent;
     row.append(name);
     if (isGM) {

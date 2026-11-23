@@ -81,11 +81,10 @@
     #environment-panel label { display: grid; gap: .2rem; }
     #fog-help { margin: 0; font-size: .7rem; color: #b4c0ce; }
     #view-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-    #view-help { position: absolute; bottom: 0.5rem; left: 0.75rem; right: 0.75rem; margin: 0; pointer-events: none; color: #e6ebf1; font-size: 0.85rem; text-shadow: 0 1px 3px #000; }
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
     .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
-    #vtt-panel, #build-panel, #scene-panel { min-width: 2.5rem; }
+    #vtt-panel, #build-panel, #scene-panel, #initiative-panel { min-width: 2.5rem; }
     #dice-panel { min-width: 4rem; }
     .editor-panel:has(.editor-close[aria-expanded="false"]) { resize: none; height: auto !important; min-height: 0; }
     .editor-panel > .editor-titlebar { flex-shrink: 0; }
@@ -102,17 +101,17 @@
     :is(#vtt-panel, #build-panel, #initiative-panel, #scene-panel) .editor-close { padding: 0 .14rem; min-width: .84rem; }
     #scene-panel { left: 35rem; top: auto; bottom: 2rem; }
     #initiative-panel { left: 25rem; top: auto; bottom: 2rem; }
-    #initiative-panel .editor-body { padding: .28rem; font-size: .6rem; }
-    #initiative-list { margin: 0 0 .175rem; padding: 0; list-style: none; }
-    #initiative-list li { display: flex; align-items: center; gap: .175rem; min-height: 1rem; }
-    #initiative-list li:first-child { color: #ffd86b; }
-    #initiative-list span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #initiative-panel button:not(.editor-close) { padding: .07rem .2rem; font-size: .6rem; }
-    #initiative-next { width: 100%; }
-    #vtt-controls, #build-controls, #scene-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .175rem; padding: .28rem; }
-    #vtt-controls, #build-controls, #scene-controls { grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); }
-    #vtt-controls button, #build-controls button, #scene-controls button { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
-    #vtt-controls svg, #build-controls svg, #scene-controls svg { width: 9.8px; height: 9.8px; margin: 2.1px; pointer-events: none; }
+    #initiative-list { display: contents; margin: 0; padding: 0; list-style: none; }
+    #initiative-list li { display: flex; align-items: center; min-width: 0; min-height: 1.5rem; padding: .2rem .3rem; gap: .3rem; border: 1px solid #61758f; border-radius: .35rem; background: #293544; font-size: .7rem; }
+    #initiative-list li:first-child { color: #ffd86b; border-color: #ffd86b; }
+    #initiative-list span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    #initiative-controls #initiative-list button { flex: none; width: 1.2rem; height: 1.2rem; padding: 0; border: 0; background: transparent; font-size: .7rem; }
+    #initiative-list button:hover { color: #ffb4ac; }
+    #vtt-controls, #build-controls, #scene-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); gap: .175rem; padding: .28rem; }
+    #initiative-controls { display: flex; flex-direction: column; gap: .175rem; padding: .28rem; }
+    #initiative-next { align-self: flex-start; width: 1.8rem; }
+    #vtt-controls button, #build-controls button, #scene-controls button, #initiative-next { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
+    #vtt-controls svg, #build-controls svg, #scene-controls svg, #initiative-controls svg { width: 9.8px; height: 9.8px; margin: 2.1px; pointer-events: none; }
     #vtt-floors { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); aspect-ratio: 1; }
     #vtt-controls #vtt-floors button { aspect-ratio: auto; }
     #vtt-floors svg { margin: 0; }
@@ -330,9 +329,9 @@
         <h2 id="initiative-title">Initiative</h2>
         <button class="editor-close" type="button" aria-label="Close initiative">&times;</button>
       </div>
-      <div class="editor-body">
-        <ol id="initiative-list" aria-label="Next four turns" aria-live="polite"></ol>
-        <button id="initiative-next" type="button" data-gm-only disabled>Next Turn</button>
+      <div id="initiative-controls" class="editor-body">
+        <ol id="initiative-list" role="list" aria-label="Next four turns" aria-live="polite"></ol>
+        <button id="initiative-next" type="button" title="Next Turn" aria-label="Next Turn" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 4 10 8-10 8ZM19 4v16"/></svg></button>
       </div>
     </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>
@@ -472,6 +471,7 @@
       </div>
       <form id="token-form" class="editor-body token-fields">
         <label>Name <input id="token-name" maxlength="100" required></label>
+        <label>Icon <select id="token-icon"></select></label>
         <label>Size (grid squares) <input id="token-size" type="number" min="0.5" max="20" step="0.5" required></label>
         <label>HP <input id="token-hp" type="number" min="0" max="999999" step="1" required></label>
         <button type="submit">Apply</button>
@@ -515,7 +515,6 @@
       <div id="view-3d" role="region" aria-label="3D map. Middle-drag to pan, scroll to zoom, right-drag to orbit." hidden></div>
       <div id="time-overlay" aria-hidden="true"></div>
       <canvas id="weather-overlay" aria-hidden="true"></canvas>
-      <p id="view-help" hidden>Middle-drag: pan · Scroll: zoom · Right-drag: orbit · Right-click token: edit · Touch: one finger orbit, two fingers pan/zoom</p>
       <div id="dice-overlay" aria-hidden="true"></div>
       <svg id="vtt-overlay" aria-hidden="true"></svg>
     </section>

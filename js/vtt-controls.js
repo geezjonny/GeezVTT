@@ -32,7 +32,6 @@ new MutationObserver(() => {
 }).observe($('toggle-3d'), { attributes: true, attributeFilter: ['disabled', 'aria-pressed'] });
 if (!isGM) {
   $('empty').textContent = 'Waiting for the GM’s map.';
-  $('view-help').textContent = 'WASD: move selected PC · Space: door · Middle-drag: pan · Scroll: zoom · Right-drag: orbit';
   map.setAttribute('aria-label', 'Player tabletop. Select a PC; WASD to move, Space to open nearby doors.');
 }
 const svgNode = (tag, attributes) => {

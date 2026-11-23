@@ -3,7 +3,7 @@ import { buildRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
 import { MATERIALS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { isGM } from './session-role.js';
-import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus } from './token-model.js';
+import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
 import { initiativeState } from './initiative-model.js';
@@ -110,6 +110,12 @@ function render(notify=true) {
         el.append(node('circle',{r:obj.size/2,fill:'#344f70',stroke:'#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
+        const symbol=TOKEN_SYMBOLS[tokenIcon(obj.icon)];
+        if(symbol) {
+          text.setAttribute('y',obj.size*.32); text.setAttribute('font-size',obj.size*.14);
+          const icon=node('text',{'text-anchor':'middle','dominant-baseline':'central',y:-obj.size*.06,'font-size':obj.size*.48,fill:'#fff','pointer-events':'none'});
+          icon.textContent=symbol; el.append(icon);
+        }
         el.append(text);
         const status=pcTokenStatus(obj);
         if(status) {
@@ -753,6 +759,7 @@ floor.addEventListener('token-update',event=>{
     const token=model?.tokens.find(token=>token.id===event.detail.id);
     if(!token) throw new Error('This token no longer exists.');
     const props=tokenProperties(event.detail.name,event.detail.size,event.detail.hp);
+    props.icon=tokenIcon(event.detail.icon ?? token.icon);
     remember(); Object.assign(token,props); render();
   } catch(error) { event.detail.error=error.message; }
 });

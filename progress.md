@@ -2,6 +2,17 @@
 
 Updated: 2026-11-23
 
+## Token miniatures and Initiative update — 2026-11-23
+
+- Added code-built 3D token miniatures with shared geometry/materials, including a bard with a feathered hat, cape, boots, and lute. Miniatures scale with token size and retain token picking, movement, context menus, and PC health labels.
+- Added Token > Right Click > Edit Token > Icon: Generic, Fighter, Hunter, Druid, Wizard, Sorcerer, Bard, Monk, Rogue, Barbarian, Cleric, Paladin, Ranger, Warlock, and Artificer. Selections use class symbols in 2D and class equipment/silhouettes in 3D. Missing or invalid selections use Generic.
+- Icon selections are per placed token, retained in map exports/imports and local token updates, including edits to linked PCs. Character stat synchronization preserves each token's icon.
+- Initiative now shows readable name rows instead of cramped square score tiles, with the current turn highlighted and GM removal/Next Turn controls retained. It uses the compact Controls window width and existing window resizing.
+- Removed the visible map navigation help overlay and its references in the view toggle/player controls.
+- Verification: left to the user as instructed. No tests, browser checks, visual inspections, or validation commands were run for these changes.
+- Outstanding: user verification of miniature appearance, class selection, token interactions, save/reload behavior, PC edits, and Initiative readability. Class miniatures are static stylized variants; no animation was added.
+- Unrelated existing workspace changes are excluded from this commit.
+
 ## Current implementation
 
 The initial map importer is implemented in the root `index.html`. Open it in a modern browser and choose a local `.dd2vtt` file.

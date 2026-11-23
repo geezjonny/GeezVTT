@@ -1,12 +1,13 @@
 import { openPanel } from './menu-bar.js';
 import { isGM } from './session-role.js';
-import { npcCatalog, tokenProperties } from './token-model.js';
+import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
 const tokens = () => floor.tabletopMap?.tokens || [];
+$('token-icon').replaceChildren(...TOKEN_ICONS.map(label => new Option(label, label.toLowerCase())));
 let npcs = [], editingId, loading = false;
 let entities = {}, editingValues;
 const subscriptions = new Map();
@@ -114,6 +115,7 @@ function editToken(token) {
   $('token-name').value = token.name;
   $('token-size').value = token.size;
   $('token-hp').value = token.hp;
+  $('token-icon').value = tokenIcon(token.icon);
   $('token-properties-status').textContent = '';
   openPanel(properties);
   $('token-name').focus();
@@ -155,7 +157,7 @@ floor.addEventListener('token-menu', event => {
 });
 $('token-form').addEventListener('submit', async event => {
   event.preventDefault();
-  const detail = { id: editingId, name: $('token-name').value, size: Number($('token-size').value), hp: Number($('token-hp').value) };
+  const detail = { id: editingId, name: $('token-name').value, size: Number($('token-size').value), hp: Number($('token-hp').value), icon: $('token-icon').value };
   const token = tokens().find(token => token.id === detail.id), id = pcId(token);
   if (id) {
     const before = { ...editingValues };
@@ -180,6 +182,12 @@ $('token-form').addEventListener('submit', async event => {
       }
       entities[id] = await read(`v2/worlds/gaia/entities/${encodeURIComponent(id)}`);
       applyPC(id);
+      const updatedToken = tokens().find(token => token.id === detail.id);
+      if (updatedToken) {
+        const update = { ...updatedToken, icon: detail.icon };
+        floor.dispatchEvent(new CustomEvent('token-update', { detail: update }));
+        if (update.error) throw new Error(update.error);
+      }
       if (editingId === detail.id) {
         const updated = tokens().find(token => token.id === detail.id);
         if (updated) editToken(updated);

@@ -1,5 +1,12 @@
 import { crosses, distance, segments } from './map-editor-model.js';
 
+export const TOKEN_ICONS = ['Generic', 'Fighter', 'Hunter', 'Druid', 'Wizard', 'Sorcerer', 'Bard', 'Monk', 'Rogue', 'Barbarian', 'Cleric', 'Paladin', 'Ranger', 'Warlock', 'Artificer'];
+export const TOKEN_SYMBOLS = { fighter: '⚔', hunter: '➶', druid: '❧', wizard: '✦', sorcerer: 'ϟ', bard: '♫', monk: '☯', rogue: '†', barbarian: '⚒', cleric: '✚', paladin: '⛨', ranger: '➹', warlock: '☾', artificer: '⚙' };
+
+export function tokenIcon(value) {
+  return TOKEN_ICONS.some(label => label.toLowerCase() === value) ? value : 'generic';
+}
+
 export function crossesWindow(token, destination, doors) {
   return doors.filter(door => door.type === 'window').some(door => segments(door.points).some(([a, b]) =>
     crosses(token, destination, a, b) || Math.min(distance(token, a, b), distance(destination, a, b),
@@ -63,6 +70,7 @@ export function importedTokens(value, width, height) {
       const id = typeof token.id === 'string' && token.id.length > 0 && token.id.length <= 100 && !ids.has(token.id) ? token.id : crypto.randomUUID();
       ids.add(id);
       return [{ id, ...props, x: token.x, y: token.y,
+        ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }

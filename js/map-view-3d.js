@@ -11,6 +11,7 @@ import { TIMES, environmentSettings, fogRectangles } from './environment-model.j
 import { MATERIALS } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
 import { pcTokenStatus } from './token-model.js';
+import { createTokenMiniKit } from './token-meshes.js';
 
 export function createMapView3D(host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -335,6 +336,7 @@ export function createMapView3D(host) {
       ring.userData.portalId=portal.id;
       groups.portals.add(ring);
     }
+    const tokenMini = model.tokens?.length ? createTokenMiniKit() : null;
     for (const token of model.tokens || []) {
       const status = pcTokenStatus(token);
       const canvas = document.createElement('canvas');
@@ -343,8 +345,8 @@ export function createMapView3D(host) {
       context.fillStyle = '#344f70';
       context.beginPath(); context.arc(128, 128, 124, 0, Math.PI * 2); context.fill();
       context.strokeStyle = '#a2cbff'; context.lineWidth = 8; context.stroke();
-      context.fillStyle = '#fff'; context.font = 'bold 76px system-ui'; context.textAlign = 'center'; context.textBaseline = 'middle';
-      context.fillText(token.name.split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join(''), 128, 128);
+      context.fillStyle = '#fff'; context.font = 'bold 22px system-ui'; context.textAlign = 'center'; context.textBaseline = 'middle';
+      context.fillText(token.name.split(/\s+/).slice(0, 2).map(word => Array.from(word)[0]).join(''), 128, 237);
       if (status) {
         context.fillStyle = '#17212b'; context.fillRect(13, 272, 230, 23);
         context.fillStyle = status.color; context.fillRect(13, 272, 230 * status.fraction, 23);
@@ -359,9 +361,13 @@ export function createMapView3D(host) {
       const mesh = new THREE.Mesh(geometry,
         new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .1 }));
       mesh.rotation.x = -Math.PI / 2;
-      mesh.position.set(token.x, .03, token.y);
-      mesh.userData.tokenId = token.id;
-      groups.tokens.add(mesh);
+      const miniature = tokenMini(token.icon);
+      miniature.scale.setScalar(token.size);
+      const group = new THREE.Group();
+      group.position.set(token.x, .03, token.y);
+      group.add(mesh, miniature);
+      group.traverse(object => { object.userData.tokenId = token.id; });
+      groups.tokens.add(group);
     }
     // Dispose materials for degenerate segments which produced no mesh.
     const used = new Set();

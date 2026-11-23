@@ -3,7 +3,6 @@ const host = document.querySelector('#view-3d');
 const map = document.querySelector('#map-view');
 const toggle = document.querySelector('#toggle-3d');
 const fit = document.querySelector('#fit-3d');
-const help = document.querySelector('#view-help');
 let view, active = false;
 
 export function tabletopPoint(event) {
@@ -33,7 +32,6 @@ function layers() {
 function show(on) {
   active = on;
   host.hidden = !on;
-  help.hidden = !on;
   fit.hidden = !on;
   map.hidden = on;
   toggle.setAttribute('aria-pressed', String(on));
