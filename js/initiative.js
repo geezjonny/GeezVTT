@@ -9,31 +9,24 @@ function render() {
   const state = initiativeState(map?.initiative, map?.tokens || []);
   if (map) map.initiative = state;
   list.replaceChildren();
-  for (const entry of initiativeOrder(state).slice(0, 4)) {
-    const token = map.tokens.find(token => token.id === entry.id);
-    const row = document.createElement('li'), name = document.createElement('span');
-    name.textContent = token.name;
-    name.title = name.textContent;
-    row.append(name);
-    if (isGM) {
-      const remove = document.createElement('button');
-      remove.type = 'button'; remove.textContent = '×';
-      remove.setAttribute('aria-label', `Remove ${token.name} from initiative`);
-      remove.addEventListener('click', () => {
-        const order = initiativeOrder(map.initiative);
-        if (order[0]?.id === entry.id) map.initiative.currentId = order[1]?.id || null;
-        map.initiative.entries = map.initiative.entries.filter(item => item.id !== entry.id);
-        changed();
-      });
-      row.append(remove);
+  const order = initiativeOrder(state).slice(0, 4);
+  for (let i = 0; i < 4; i++) {
+    const token = map?.tokens.find(token => token.id === order[i]?.id);
+    const tile = document.createElement('li');
+    tile.textContent = token ? Array.from(token.name.trim())[0].toUpperCase() : '·';
+    tile.title = token ? token.name : 'Empty turn';
+    tile.setAttribute('aria-label', token ? `${i === 0 ? 'Current turn' : `Turn ${i + 1}`}: ${token.name}` : 'Empty turn');
+    if (token) {
+      if (i === 0) tile.setAttribute('aria-current', 'true');
+      const image = document.createElement('img');
+      image.alt = '';
+      image.addEventListener('error', () => image.remove(), { once: true });
+      image.src = `token/${encodeURIComponent(token.name)}.png`;
+      tile.append(image);
     }
-    list.append(row);
+    list.append(tile);
   }
-  if (!state.entries.length) {
-    const empty = document.createElement('li');
-    empty.textContent = 'No initiative'; list.append(empty);
-  }
-  $('initiative-next').disabled = state.entries.length < 2;
+  $('initiative-next').disabled = !isGM || state.entries.length < 2;
 }
 function changed() {
   render();

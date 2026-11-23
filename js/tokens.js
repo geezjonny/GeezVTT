@@ -155,6 +155,14 @@ floor.addEventListener('token-menu', event => {
   const token = tokens().find(token => token.id === event.detail.id);
   if (token) tokenMenu(token, event.detail.x, event.detail.y, document.activeElement);
 });
+$('token-icon').addEventListener('change', () => {
+  if (!isGM) return;
+  const token = tokens().find(token => token.id === editingId);
+  if (!token) return;
+  const detail = { ...token, icon: $('token-icon').value };
+  floor.dispatchEvent(new CustomEvent('token-update', { detail }));
+  $('token-properties-status').textContent = detail.error || 'Icon updated.';
+});
 $('token-form').addEventListener('submit', async event => {
   event.preventDefault();
   const detail = { id: editingId, name: $('token-name').value, size: Number($('token-size').value), hp: Number($('token-hp').value), icon: $('token-icon').value };

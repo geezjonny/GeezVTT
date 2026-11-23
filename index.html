@@ -102,15 +102,13 @@
     #scene-panel { left: 35rem; top: auto; bottom: 2rem; }
     #initiative-panel { left: 25rem; top: auto; bottom: 2rem; }
     #initiative-list { display: contents; margin: 0; padding: 0; list-style: none; }
-    #initiative-list li { display: flex; align-items: center; min-width: 0; min-height: 1.5rem; padding: .2rem .3rem; gap: .3rem; border: 1px solid #61758f; border-radius: .35rem; background: #293544; font-size: .7rem; }
-    #initiative-list li:first-child { color: #ffd86b; border-color: #ffd86b; }
-    #initiative-list span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-    #initiative-controls #initiative-list button { flex: none; width: 1.2rem; height: 1.2rem; padding: 0; border: 0; background: transparent; font-size: .7rem; }
-    #initiative-list button:hover { color: #ffb4ac; }
-    #vtt-controls, #build-controls, #scene-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); gap: .175rem; padding: .28rem; }
-    #initiative-controls { display: flex; flex-direction: column; gap: .175rem; padding: .28rem; }
-    #initiative-next { align-self: flex-start; width: 1.8rem; }
-    #vtt-controls button, #build-controls button, #scene-controls button, #initiative-next { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
+    #initiative-list li { position: relative; border: 1px solid #61758f; border-radius: .35rem; background: #293544; overflow: hidden; }
+    #initiative-list li[aria-current="true"] { color: #ffd86b; border-color: #ffd86b; box-shadow: inset 0 0 0 1px #ffd86b; }
+    #initiative-list img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    #vtt-controls, #build-controls, #scene-controls, #initiative-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); gap: .175rem; padding: .28rem; }
+    #initiative-controls { grid-template-columns: repeat(auto-fit, minmax(1.4rem, 1fr)); }
+    #vtt-controls button, #build-controls button, #scene-controls button, #initiative-next, #initiative-list li { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
+    #initiative-list li { font-size: .7rem; }
     #vtt-controls svg, #build-controls svg, #scene-controls svg, #initiative-controls svg { width: 9.8px; height: 9.8px; margin: 2.1px; pointer-events: none; }
     #vtt-floors { display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); aspect-ratio: 1; }
     #vtt-controls #vtt-floors button { aspect-ratio: auto; }
@@ -331,7 +329,7 @@
       </div>
       <div id="initiative-controls" class="editor-body">
         <ol id="initiative-list" role="list" aria-label="Next four turns" aria-live="polite"></ol>
-        <button id="initiative-next" type="button" title="Next Turn" aria-label="Next Turn" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 4 10 8-10 8ZM19 4v16"/></svg></button>
+        <button id="initiative-next" type="button" title="Next Turn" aria-label="Next Turn" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 4 10 8-10 8ZM19 4v16"/></svg></button>
       </div>
     </section>
     <section id="editor-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="editor-title" hidden>

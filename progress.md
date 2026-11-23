@@ -2,6 +2,15 @@
 
 Updated: 2026-11-23
 
+## Initiative five-tile layout and immediate miniature updates — 2026-11-23
+
+- Replaced Initiative name rows with exactly five square tiles: four turn slots and Next Turn. Turn tiles show the first letter of the name, or `token/<exact character name>.png` when that image loads. Missing pictures retain the letter. Empty turn slots remain visible, the current turn is highlighted, and full names appear on hover and in accessible labels.
+- Reused the Controls grid, square styling, compact panel width, and existing resizing; five tiles fit across at the default width and wrap as the window narrows. Removed the per-tile removal buttons. Next Turn stays visible for all roles but is enabled only for the GM with at least two entries.
+- Changing Edit Token > Icon now updates the placed token and 3D miniature immediately, without Apply or Firebase stat saves.
+- Verification: left to the user. No tests, browser checks, visual inspections, or validation commands were run.
+- Outstanding: user verification of tile sizing/resizing, turn progression, image fallback/loading, and immediate 3D selection changes. No `token` directory currently exists in the repository; pictures must be supplied using the filename convention above.
+- Unrelated existing workspace changes are excluded from this commit.
+
 ## Token miniatures and Initiative update — 2026-11-23
 
 - Added code-built 3D token miniatures with shared geometry/materials, including a bard with a feathered hat, cape, boots, and lute. Miniatures scale with token size and retain token picking, movement, context menus, and PC health labels.
