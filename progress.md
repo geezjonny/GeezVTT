@@ -216,3 +216,16 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise two-click pairing on the same floor and across floors, shared portal tools and history, unpaired-node repair and deletion, token travel and failed destination loading, map/scene round trips, and all five textures on palettes and surfaces in both views. Stairs presentation is not implemented. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## Light and portal prop appearances, and 3D grid saved - 2026-11-23
+
+- Right-click lights and portals to choose any of the ten prop appearances. The picker includes SVG previews and retains the original portal symbols and default light option.
+- Uses SVG prop markers in 2D and the existing shared procedural models in 3D. Appearance changes preserve light settings, fog reveal, portal identity, pairing, and travel behavior, and participate in Undo/Redo.
+- Adds clickable default light markers and light context menus in 3D. Prop-shaped light and portal models open their original object's menu rather than the scenery menu. Picking, box selection, and 3D framing include their prop footprints.
+- Persists light appearances through the geezvtt_icon light metadata and portal appearances through geezvtt_editor.portals for map and scene round trips. Invalid prop icon names fall back to the original appearance; legacy portal symbols remain supported.
+- Raises the 3D grid slightly above ground and strengthens its polygon depth offset so the image's depth offset and painted floors do not cover grid lines. Keeps the existing Grid toggle and depth occlusion by other objects.
+- Adds unrun regression cases for prop appearance validation, preserved portal identity and icon metadata, legacy icons, invalid icon fallback, and light/portal box selection.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise all light and portal appearance choices in both views, default restoration, right-click and keyboard menus, selection and movement, Undo/Redo, map/scene round trips across floors, retained lighting/fog and portal travel, and 3D grid visibility above images and painted floors at different zoom levels with the Grid toggle. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.

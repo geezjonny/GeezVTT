@@ -1,4 +1,4 @@
-import { propCorners, propDistance } from './prop-model.js';
+import { propCorners, propDistance, propAppearance } from './prop-model.js';
 
 export const MATERIALS = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
 export const clone = value => JSON.parse(JSON.stringify(value));
@@ -19,6 +19,8 @@ export function crosses(a, b, c, d) {
     Math.abs(x)<1e-9 && on(a,b,c) || Math.abs(y)<1e-9 && on(a,b,d) || Math.abs(z)<1e-9 && on(c,d,a) || Math.abs(w)<1e-9 && on(c,d,b);
 }
 export function inBox(object, a, b, layer) {
+  const appearance=['lights','portals'].includes(layer()) && propAppearance(object);
+  if(appearance) return inBox(appearance,a,b,'props');
   const left=Math.min(a.x,b.x), right=Math.max(a.x,b.x), top=Math.min(a.y,b.y), bottom=Math.max(a.y,b.y);
   const inside = p => p.x>=left && p.x<=right && p.y>=top && p.y<=bottom;
   if (layer==='lights' || layer==='portals') return inside(object);

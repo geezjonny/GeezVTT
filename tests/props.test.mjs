@@ -1,7 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PROPS, importedProps, propProperties, propDistance } from '../js/prop-model.js';
+import { PROPS, importedProps, propProperties, propDistance, propAppearance } from '../js/prop-model.js';
 import { inBox } from '../js/map-editor-model.js';
+
+test('light and portal prop appearances validate the icon and use the prop footprint', () => {
+  const light={x:3,y:4,range:8,intensity:2,icon:'prop:stairs'};
+  assert.deepEqual(propAppearance(light),{x:3,y:4,kind:'stairs',size:1,rotation:0});
+  assert.equal(light.range,8);
+  assert.equal(light.intensity,2);
+  assert.equal(propAppearance({...light,icon:'prop:unknown'}),null);
+  assert.equal(propAppearance({...light,icon:'ladder'}),null);
+  assert.equal(inBox(light,{x:2.9,y:4.7},{x:3.1,y:4.9},'lights'),true);
+  assert.equal(inBox(light,{x:2.9,y:4.7},{x:3.1,y:4.9},'portals'),true);
+});
 
 test('props survive saving with identity, visibility, size, and rotation', () => {
   const props=Object.keys(PROPS).map((kind,i)=>({id:String(i),kind,x:-2,y:3,size:1.5,rotation:90,hidden:true}));

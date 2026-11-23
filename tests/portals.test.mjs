@@ -2,6 +2,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { importedPortals, portalDestination } from '../js/portal-model.js';
 import { inBox } from '../js/map-editor-model.js';
+import { PROPS } from '../js/prop-model.js';
+
+test('portal prop appearances survive import without changing pair identities', () => {
+  for(const kind of Object.keys(PROPS)) {
+    const portal={id:'a',pairId:'pair',x:.5,y:.5,icon:`prop:${kind}`};
+    assert.deepEqual(importedPortals(JSON.parse(JSON.stringify([portal]))),[portal]);
+  }
+  const portal={id:'a',pairId:'pair',x:.5,y:.5};
+  assert.deepEqual(importedPortals([{...portal,icon:'prop:unknown'}]),[portal]);
+  assert.deepEqual(importedPortals([{...portal,icon:'ladder'}]),[{...portal,icon:'ladder'}]);
+});
 
 test('portal import preserves pair identities and rejects invalid or duplicate endpoints', () => {
   const portal={id:'a',pairId:'pair',x:-2.5,y:3.5};

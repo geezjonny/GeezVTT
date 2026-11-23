@@ -5,7 +5,7 @@ import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
-import { PROPS, importedProps, propProperties, propDistance } from './prop-model.js';
+import { PROPS, importedProps, propProperties, propDistance, propAppearance } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
 
 const $ = id => document.getElementById(id);
@@ -85,7 +85,9 @@ function render(notify=true) {
         el.dataset.portalId=obj.id;
         el.append(node('circle',{r:.42,fill:'#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':.3,fill:'#fff','pointer-events':'none'});
-        text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text);
+        const appearance=propAppearance(obj);
+        if(appearance) el.append(propMarker({...appearance,x:0,y:0}));
+        else { text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text); }
       } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to edit.`});
         el.dataset.tokenId=obj.id;
@@ -96,9 +98,12 @@ function render(notify=true) {
       } else if(name==='floors') {
         el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
       } else if(name==='lights') {
-        el=node('g');
+        el=node('g',{tabindex:0,role:'button','aria-label':'Light. Right-click for actions.'});
+        el.dataset.lightIndex=index;
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.opacity,class:'light-range'}));
-        el.append(node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color,class:'light-source'}));
+        const appearance=propAppearance(obj);
+        const marker=appearance?propMarker(appearance):node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color});
+        marker.classList.add('light-source'); el.append(marker);
       } else {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
         if(name==='doors' && obj.type!=='window') {
@@ -145,6 +150,12 @@ function hit(p) {
   model[layer()].forEach((obj,i)=>{
     if(layer()==='portals' && obj.hidden && !showHiddenPortals()) return;
     if(layer()==='props' && obj.hidden && !showHiddenProps()) return;
+    const appearance=['lights','portals'].includes(layer()) && propAppearance(obj);
+    if(appearance) {
+      const d=propDistance(appearance,p);
+      if(d<=best) { best=d; index=i; }
+      return;
+    }
     const d=layer()==='props'?propDistance(obj,p):layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:layer()==='portals'?.42:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
@@ -295,11 +306,20 @@ function cancelGesture() {
   if(gesture?.before) { Object.assign(model,gesture.before); render(false); }
   gesture=null; chain=[]; hover=null; preview.replaceChildren();
 }
+function iconMenu(x,y,change,origin,portal=false) {
+  const defaults=portal?Object.entries(PORTAL_ICONS).map(([icon,symbol])=>({
+    label:`${symbol} ${{portal:'Portal',stairsUp:'Stairs up',stairsDown:'Stairs down',ladder:'Ladder',doorway:'Doorway',magic:'Magic'}[icon]}`,
+    action:()=>change(icon)
+  })):[{label:'Default light',action:()=>change('')}];
+  showMapMenu(x,y,[...defaults,...Object.entries(PROPS).map(([kind,entry])=>({
+    label:entry.name,icon:propIcon(kind),action:()=>change(`prop:${kind}`)
+  }))],origin);
+}
 function portalMenu(id,x,y,origin) {
   if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  cancelGesture();
   const portal=model.portals.find(item=>item.id===id);
   if(!portal) return;
-  cancelGesture();
   const change=update=>{
     if(!model.portals.includes(portal)) return;
     remember(); update(); selected.clear(); render();
@@ -307,10 +327,23 @@ function portalMenu(id,x,y,origin) {
   showMapMenu(x,y,[
     {label:portal.hidden?'Show':'Hide',action:()=>change(()=>{portal.hidden=!portal.hidden;})},
     {label:'Delete',action:()=>change(()=>{model.portals=model.portals.filter(item=>item!==portal);})},
-    {label:'Change icon…',action:()=>showMapMenu(x,y,Object.entries(PORTAL_ICONS).map(([icon,symbol])=>({
-      label:`${symbol} ${ {portal:'Portal',stairsUp:'Stairs up',stairsDown:'Stairs down',ladder:'Ladder',doorway:'Doorway',magic:'Magic'}[icon] }`,
-      action:()=>change(()=>{portal.icon=icon;})
-    })),origin)}
+    {label:'Change icon…',action:()=>iconMenu(x,y,icon=>change(()=>{portal.icon=icon;}),origin,true)}
+  ],origin);
+}
+function lightMenu(index,x,y,origin) {
+  if(!model || travelling || floor.getAttribute('aria-busy')==='true') return;
+  cancelGesture();
+  const light=model.lights[index];
+  if(!light) return;
+  showMapMenu(x,y,[
+    {label:'Change icon…',action:()=>iconMenu(x,y,icon=>{
+      if(!model.lights.includes(light)) return;
+      remember(); light.icon=icon; render();
+    },origin)},
+    {label:'Delete',action:()=>{
+      if(!model.lights.includes(light)) return;
+      remember(); model.lights=model.lights.filter(item=>item!==light); selected.clear(); render();
+    }}
   ],origin);
 }
 function doorMenu(index,x,y,origin) {
@@ -351,7 +384,10 @@ onMapRightClick(svg,event=>{
   const p=point(event);
   // Tokens are drawn above portals and retain their own right-click action.
   if(model.tokens.some(token=>Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
-  const portal=model.portals.findLast(item=>(!item.hidden || showHiddenPortals()) && Math.hypot(p.x-item.x,p.y-item.y)<=.42);
+  const portal=model.portals.findLast(item=>{
+    const appearance=propAppearance(item);
+    return (!item.hidden || showHiddenPortals()) && (appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=.42);
+  });
   if(portal) { portalMenu(portal.id,event.clientX,event.clientY,svg); return; }
   const prop=model.props.findLast(item=>(!item.hidden || showHiddenProps()) && propDistance(item,p)===0);
   if(prop) { propMenu(prop.id,event.clientX,event.clientY,svg); return; }
@@ -362,7 +398,25 @@ onMapRightClick(svg,event=>{
     const d=Math.min(...segments(door.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
-  if(index>=0) doorMenu(index,event.clientX,event.clientY,svg);
+  if(index>=0) { doorMenu(index,event.clientX,event.clientY,svg); return; }
+  const lightIndex=model.lights.findLastIndex(item=>{
+    const appearance=propAppearance(item);
+    return appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=Math.max(.12,best);
+  });
+  if(lightIndex>=0) lightMenu(lightIndex,event.clientX,event.clientY,svg);
+});
+$('lights').addEventListener('keydown',event=>{
+  const target=event.target.closest('[data-light-index]');
+  if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const light=model?.lights[Number(target.dataset.lightIndex)];
+  if(!light) return;
+  const point=new DOMPoint(light.x,light.y).matrixTransform(svg.getScreenCTM());
+  lightMenu(Number(target.dataset.lightIndex),point.x,point.y,svg);
+});
+floor.addEventListener('light-menu',event=>{
+  const {index,x,y}=event.detail;
+  lightMenu(index,x,y,document.activeElement);
 });
 $('portals').addEventListener('keydown',event=>{
   const target=event.target.closest('[data-portal-id]');
@@ -415,7 +469,7 @@ svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});
 svg.tabIndex=0;
 svg.setAttribute('role','group');
-svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit or a portal or door for actions. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
+svg.setAttribute('aria-label','Map editor. Click objects or drag to select. Middle-drag to pan; scroll to zoom. Right-click a token to edit or a light, portal, door, or prop for actions. Walls snap to grid intersections; hold Shift for grid-line midpoints. Enter finishes painting; Escape cancels.');
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
 $('edit-door-type').addEventListener('change',doorTypeChanged);
@@ -568,7 +622,7 @@ floor.addEventListener('map-ready',()=>{
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
     doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.source?.geezvtt_locked!==true && d.open,material:saved?.doorMaterials?.[i]})),
-    lights:imported.lights.map(l=>({...l})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
+    lights:imported.lights.map(l=>({...l,icon:propAppearance({icon:l.source?.geezvtt_icon})?l.source.geezvtt_icon:''})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
@@ -591,7 +645,7 @@ export function serializeMap() {
   const offset=p=>({x:p.x+(Number.isFinite(origin.x)?origin.x:0),y:p.y+(Number.isFinite(origin.y)?origin.y:0)});
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
   raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
-  raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
+  raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;
 }

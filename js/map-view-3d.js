@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { PORTAL_ICONS } from './portal-model.js';
 import { createPropKit } from './prop-meshes.js';
-import { propCorners } from './prop-model.js';
+import { propCorners, propAppearance } from './prop-model.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
 import { MATERIALS } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
@@ -19,7 +19,7 @@ export function createMapView3D(host) {
   renderer.shadowMap.autoUpdate = false;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.domElement.tabIndex = 0;
-  renderer.domElement.setAttribute('aria-label', '3D tabletop. Middle-drag to pan; scroll to zoom; right-drag to orbit. Right-click a token to edit or a portal or door for actions.');
+  renderer.domElement.setAttribute('aria-label', '3D tabletop. Middle-drag to pan; scroll to zoom; right-drag to orbit. Right-click a token to edit or a light, portal, door, or prop for actions.');
   host.prepend(renderer.domElement);
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#15191f');
@@ -37,7 +37,7 @@ export function createMapView3D(host) {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.screenSpacePanning = false;
-  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group(), portals: new THREE.Group(), props: new THREE.Group() };
+  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), lightMarkers: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group(), portals: new THREE.Group(), props: new THREE.Group() };
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
@@ -53,7 +53,7 @@ export function createMapView3D(host) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...fogGroup.children],true)[0];
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...fogGroup.children],true)[0];
     if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-edit', { detail: hit.object.userData.tokenId }));
     else if (hit?.object.userData.portalId) host.closest('#floor').dispatchEvent(new CustomEvent('portal-menu', {
       detail: { id: hit.object.userData.portalId, x: event.clientX, y: event.clientY }
@@ -63,6 +63,9 @@ export function createMapView3D(host) {
     }));
     else if (hit?.object.userData.propId) host.closest('#floor').dispatchEvent(new CustomEvent('prop-menu', {
       detail: { id: hit.object.userData.propId, x: event.clientX, y: event.clientY }
+    }));
+    else if (hit?.object.userData.lightIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('light-menu', {
+      detail: { index: hit.object.userData.lightIndex, x: event.clientX, y: event.clientY }
     }));
   });
   const invalidate = () => { dirty = true; };
@@ -148,6 +151,13 @@ export function createMapView3D(host) {
       bounds.left=Math.min(bounds.left,point.x); bounds.right=Math.max(bounds.right,point.x);
       bounds.top=Math.min(bounds.top,point.y); bounds.bottom=Math.max(bounds.bottom,point.y);
     }
+    for(const object of [...(model.portals || []).filter(portal=>!portal.hidden),...model.lights]) {
+      const appearance=propAppearance(object);
+      if(appearance) for(const point of propCorners(appearance)) {
+        bounds.left=Math.min(bounds.left,point.x); bounds.right=Math.max(bounds.right,point.x);
+        bounds.top=Math.min(bounds.top,point.y); bounds.bottom=Math.max(bounds.bottom,point.y);
+      }
+    }
     const texture = new THREE.Texture(model.image);
     texture.colorSpace = THREE.SRGBColorSpace;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -160,6 +170,8 @@ export function createMapView3D(host) {
     root.add(ground);
     const gridMaterial = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false,
+      // Keep the grid above the image's negative depth offset and painted floors.
+      polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
       uniforms: { size: { value: new THREE.Vector2(bounds.right-bounds.left, bounds.bottom-bounds.top) }, origin: { value: new THREE.Vector2(bounds.left, bounds.top) } },
       vertexShader: `varying vec2 gridUv;
         void main() { gridUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
@@ -173,7 +185,8 @@ export function createMapView3D(host) {
     });
     const grid = new THREE.Mesh(new THREE.PlaneGeometry(bounds.right-bounds.left, bounds.bottom-bounds.top), gridMaterial);
     grid.rotation.x = -Math.PI / 2;
-    grid.position.set((bounds.left+bounds.right)/2, 0, (bounds.top+bounds.bottom)/2);
+    grid.position.set((bounds.left+bounds.right)/2, .01, (bounds.top+bounds.bottom)/2);
+    grid.renderOrder = 1;
     groups.grid.add(grid);
     const palette = MATERIALS;
     const materials = new Map();
@@ -204,9 +217,28 @@ export function createMapView3D(host) {
       slabs(door.points, surface, groups.doors, !window && door.open, window?undefined:index);
     });
     const propMesh=createPropKit();
+    const appearanceMesh=(appearance,key,value)=>{
+      const mesh=propMesh(appearance);
+      mesh.traverse(object=>{delete object.userData.propId; object.userData[key]=value;});
+      return mesh;
+    };
     for (const prop of model.props || []) if(!prop.hidden) groups.props.add(propMesh(prop));
+    model.lights.forEach((light,index)=>{
+      const appearance=propAppearance(light);
+      if(appearance) groups.lightMarkers.add(appearanceMesh(appearance,'lightIndex',index));
+      else {
+        const marker=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:light.color}));
+        marker.position.set(light.x,.12,light.y); marker.userData.lightIndex=index;
+        groups.lightMarkers.add(marker);
+      }
+    });
     for (const portal of model.portals || []) {
       if (portal.hidden) continue;
+      const appearance=propAppearance(portal);
+      if(appearance) {
+        groups.portals.add(appearanceMesh(appearance,'portalId',portal.id));
+        continue;
+      }
       const canvas=document.createElement('canvas');
       canvas.width=canvas.height=128;
       const context=canvas.getContext('2d');

@@ -1,3 +1,5 @@
+import { propAppearance } from './prop-model.js';
+
 // These paired endpoints also provide the connection model for stairs.
 export const PORTAL_ICONS = { portal: 'P', stairsUp: '↗', stairsDown: '↘', ladder: '☷', doorway: '▣', magic: '✦' };
 
@@ -11,7 +13,7 @@ export function importedPortals(value) {
     ids.add(portal.id);
     return [{ id: portal.id, pairId: portal.pairId, x: portal.x, y: portal.y,
       ...(portal.hidden === true ? { hidden: true } : {}),
-      ...(Object.hasOwn(PORTAL_ICONS, portal.icon) ? { icon: portal.icon } : {}) }];
+      ...(Object.hasOwn(PORTAL_ICONS, portal.icon) || propAppearance(portal) ? { icon: portal.icon } : {}) }];
   });
 }
 

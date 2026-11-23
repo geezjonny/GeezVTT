@@ -11,6 +11,11 @@ export const PROPS = {
   cobweb: { name: 'Cobweb', width: 1.2, depth: 1.2, color: '#d6d9db', path: 'M2 2l20 20M12 2v20M2 12h20M22 2 2 22 M5 5q7 3 14 0-3 7 0 14-7-3-14 0 3-7 0-14Z M8 8q4 2 8 0-2 4 0 8-4-2-8 0 2-4 0-8Z' }
 };
 
+export function propAppearance(object) {
+  const kind = typeof object.icon === 'string' && object.icon.startsWith('prop:') ? object.icon.slice(5) : '';
+  return Object.hasOwn(PROPS, kind) ? { x: object.x, y: object.y, kind, size: 1, rotation: 0 } : null;
+}
+
 export function propProperties(kind, size = 1, rotation = 0) {
   if (!Object.hasOwn(PROPS, kind)) throw new Error('Choose a prop from the palette.');
   if (!Number.isFinite(size) || size < .25 || size > 10) throw new Error('Prop size must be between 0.25 and 10.');

@@ -10,11 +10,12 @@ export function closeMapMenu() {
 }
 export function showMapMenu(x, y, actions, origin = document.activeElement) {
   menuOrigin = origin;
-  objectMenu.replaceChildren(...actions.map(({ label, action, disabled = false }) => {
+  objectMenu.replaceChildren(...actions.map(({ label, action, icon, disabled = false }) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.setAttribute('role', 'menuitem');
     button.textContent = label;
+    if (icon) button.prepend(icon);
     button.disabled = disabled;
     button.addEventListener('click', () => {
       closeMapMenu();
