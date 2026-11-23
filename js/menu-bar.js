@@ -39,6 +39,66 @@ document.addEventListener('keydown', event => {
 document.querySelector('#import-map').addEventListener('click', () => {
   document.querySelector('#map-file').click();
 });
+const library = document.querySelector('#library-panel');
+const libraryList = document.querySelector('#library-list');
+const libraryStatus = document.querySelector('#library-status');
+let libraryVersion = 0;
+document.querySelector('#library-local').addEventListener('click', () => {
+  document.querySelector(library.dataset.kind === 'scene' ? '#scene-file' : '#map-file').click();
+});
+document.querySelectorAll('[data-library]').forEach(button => {
+  button.addEventListener('click', async () => {
+    const kind = button.dataset.library;
+    const version = ++libraryVersion;
+    library.dataset.kind = kind;
+    document.querySelector('#library-title').textContent = kind === 'scene' ? 'Load Scene' : 'Load Battlemap';
+    libraryList.replaceChildren();
+    libraryList.setAttribute('aria-busy', 'false');
+    libraryStatus.textContent = 'Loading…';
+    openPanel(library);
+    document.querySelector('#library-local').focus();
+    try {
+      const response = await fetch(`${kind}/index.json`, { cache: 'no-cache' });
+      if (!response.ok) throw new Error(`Library unavailable (${response.status}).`);
+      const entries = await response.json();
+      const extension = kind === 'scene' ? '.geezvtt' : '.dd2vtt';
+      if (!Array.isArray(entries) || entries.some(entry => !entry || typeof entry.file !== 'string' ||
+          /[/\\?#]/.test(entry.file) || !entry.file.toLowerCase().endsWith(extension))) {
+        throw new Error('Invalid library index.');
+      }
+      if (version !== libraryVersion) return;
+      libraryStatus.textContent = entries.length ? '' : 'No files available.';
+      for (const entry of entries) {
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.textContent = typeof entry.name === 'string' ? entry.name : entry.file;
+        item.addEventListener('click', async () => {
+          if (floor.getAttribute('aria-busy') === 'true' || libraryList.getAttribute('aria-busy') === 'true') return;
+          libraryList.setAttribute('aria-busy', 'true');
+          libraryStatus.textContent = `Loading ${item.textContent}…`;
+          try {
+            const response = await fetch(`${kind}/${encodeURIComponent(entry.file)}`);
+            if (!response.ok) throw new Error(`File unavailable (${response.status}).`);
+            const file = new File([await response.blob()], entry.file);
+            if (version !== libraryVersion) return;
+            const loaded = await floor.loadMap(file);
+            if (version !== libraryVersion) return;
+            if (loaded) library.hidden = true;
+            else libraryStatus.textContent = document.querySelector('#status').classList.contains('error')
+              ? document.querySelector('#status').textContent : 'Load cancelled.';
+          } catch (error) {
+            if (version === libraryVersion) libraryStatus.textContent = error.message;
+          } finally {
+            if (version === libraryVersion) libraryList.setAttribute('aria-busy', 'false');
+          }
+        });
+        libraryList.append(item);
+      }
+    } catch (error) {
+      if (version === libraryVersion) libraryStatus.textContent = error.message;
+    }
+  });
+});
 document.querySelectorAll('[data-edit-layer]').forEach(button => {
   button.addEventListener('click', () => {
     const input = document.querySelector('#edit-layer');
@@ -62,7 +122,7 @@ function editState() {
   const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
+  if (disabled) panels.filter(panel => !['dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
 new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
@@ -149,7 +209,7 @@ for (const panel of panels) {
   panel.addEventListener('focusin', () => raisePanel(panel));
   panel.querySelector('.editor-close:not(#vtt-collapse)')?.addEventListener('click', () => {
     panel.hidden = true;
-    document.querySelector(panel.id === 'dice-panel' ? '#open-dice' : panel.id === 'environment-panel' ? '#open-environment' : '#open-tools').closest('.menu').querySelector('summary').focus();
+    document.querySelector(panel.id === 'library-panel' ? '#load-battlemap' : panel.id === 'dice-panel' ? '#open-dice' : panel.id === 'environment-panel' ? '#open-environment' : '#open-tools').closest('.menu').querySelector('summary').focus();
   });
   titlebar.addEventListener('pointerdown', event => {
     if (event.button !== 0 || event.target.closest('button')) return;

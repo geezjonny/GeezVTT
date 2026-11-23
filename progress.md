@@ -261,3 +261,15 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: confirm PC selection and placement; live Firebase changes and token property saves, including failures and reconnection; multiple tokens linked to one PC; status visibility in both views; and map/scene round trips and floor switching. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## File libraries and repository scripts saved - 2026-11-23
+
+- Adds File > Load > Battlemap / Scene with a shared draggable library window, folder index listings, concise error states, and an optional local file picker. File > Import > Battlemap / Scene opens the existing file inputs directly.
+- Refreshes battlemap/index.json to match available maps and adds scene/index.json listing the three supplied scene files. Library loads reuse the existing map and scene handling.
+- Adds update_indexes.py to append newly discovered .dd2vtt and .geezvtt files to their respective indexes while retaining existing entries and labels. New entries omit bytes; deleted files remain listed.
+- Adds push_repo.py to update indexes, record changed files and verification status in progress.md, commit all changes, and push the current branch to origin. It stops on Git failures and never force pushes. The script requires existing Git/GitHub authentication and stages all files when run.
+- Adds unrun browser coverage for library loading and Python coverage for append-only indexing and stopping before push when commit fails.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify both library listings, hosted and local map/scene loading, inventory updates, and the repository push script. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

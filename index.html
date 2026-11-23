@@ -22,6 +22,11 @@
     .menu-items button:disabled { cursor: default; }
     .menu-items label { cursor: pointer; }
     .menu-items input { margin: 0; }
+    .submenu > summary { cursor: pointer; padding: .2rem .375rem; font-size: .7rem; }
+    .submenu .menu-items { position: static; border: 0; box-shadow: none; padding-left: .5rem; }
+    #library-panel .editor-body, #library-list { display: grid; gap: .3rem; }
+    #library-list button { text-align: left; overflow-wrap: anywhere; }
+    #library-status { font-size: .75rem; }
     h1 { font-size: .8rem; margin: 0; }
     #scene-name { margin-left: auto; min-width: 0; width: 12rem; padding: .15rem .3rem; font-size: .75rem; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .2rem; }
     #scene-state { white-space: nowrap; font-size: .7rem; }
@@ -162,9 +167,21 @@
         <details class="menu" name="application-menu">
           <summary>File</summary>
           <div class="menu-items">
-            <button id="import-map" type="button">Import Map</button>
+            <details class="submenu" name="file-submenu">
+              <summary>Load</summary>
+              <div class="menu-items">
+                <button id="load-battlemap" type="button" data-library="battlemap" aria-controls="library-panel">Battlemap</button>
+                <button id="load-scene" type="button" data-library="scene" aria-controls="library-panel">Scene</button>
+              </div>
+            </details>
+            <details class="submenu" name="file-submenu">
+              <summary>Import</summary>
+              <div class="menu-items">
+                <button id="import-map" type="button">Battlemap</button>
+                <button id="open-scene" type="button">Scene</button>
+              </div>
+            </details>
             <button id="edit-export" type="button" disabled>Save Map</button>
-            <button id="open-scene" type="button">Open Scene</button>
             <button id="save-scene" type="button" disabled>Save Scene (.geezvtt)</button>
           </div>
         </details>
@@ -213,6 +230,17 @@
       <button id="floor-up-control" type="button" aria-label="Floor up" title="Floor up; create a blank floor at the top">&#9650;</button>
       <span id="scene-state" role="status" aria-live="polite"></span>
     </header>
+    <section id="library-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="library-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move library window. Drag or use arrow keys.">
+        <h2 id="library-title">Load Battlemap</h2>
+        <button class="editor-close" type="button" aria-label="Close library">&times;</button>
+      </div>
+      <div class="editor-body">
+        <button id="library-local" type="button">Choose local file…</button>
+        <span id="library-status" role="status"></span>
+        <div id="library-list"></div>
+      </div>
+    </section>
     <section id="vtt-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="vtt-title">
       <div class="editor-titlebar" tabindex="0" aria-label="Move VTT controls. Drag or use arrow keys.">
         <h2 id="vtt-title">VTT Controls</h2>

@@ -76,6 +76,16 @@ try {
   const drag=async(x,y,xx,yy)=>{await mouse('mousePressed',await point(x,y));await mouse('mouseMoved',await point(xx,yy));await mouse('mouseReleased',await point(xx,yy));};
   const key=async key=>{await send('Input.dispatchKeyEvent',{type:'keyDown',key});await send('Input.dispatchKeyEvent',{type:'keyUp',key});};
 
+  await clickButton('load-battlemap');
+  await wait(`document.querySelectorAll('#library-list button').length > 0`);
+  assert.equal(await evaluate(`document.querySelector('#library-panel').hidden`),false);
+  await evaluate(`[...document.querySelectorAll('#library-list button')].find(button=>button.textContent==='camp').click()`);
+  await wait(`document.querySelector('#library-panel').hidden && document.querySelector('#floor').sourceName==='camp.dd2vtt'`);
+  await clickButton('load-scene');
+  await wait(`document.querySelector('#library-status').textContent==='No files available.'`);
+  assert.equal(await evaluate(`document.querySelector('#library-panel').dataset.kind`),'scene');
+  await evaluate(`document.querySelector('#library-panel .editor-close').click()`);
+
   for(const name of ['camp','chapel_dungeon','prison_00','forestroad']) {
     await importFile(name);
     assert.equal(await evaluate(`document.getElementById('editor-controls').disabled`),false);
