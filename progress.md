@@ -432,3 +432,13 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: named PC appearances are chosen manually from each token's Icon menu; rotation uses 90-degree steps. Window layouts remain local to the browser.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion, scene/blackpearl-whole.geezvtt modification, and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Remove tokens from initiative saved - 2026-11-23
+
+- Adds Remove from initiative to the GM token right-click menu when the token is in initiative, using the shared menu for both views and keyboard access.
+- Removing the current token advances to the next turn; removing the last entry clears the current turn. Uses the existing map change flow for rendering, saving, and synchronization.
+- Investigated the VTT floor up/down report by reading code. The user reported it working again before any floor navigation changes were made.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: check conditional menu visibility, removal of current and other tokens, empty initiative, both views, saving/reloading, and shared synchronization. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion, scene/blackpearl-whole.geezvtt modification, and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.

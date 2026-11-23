@@ -125,7 +125,10 @@ function tokenMenu(token, x, y, origin) {
   showMapMenu(x, y, [
     { label: 'Edit token...', action: () => editToken(token) },
     { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
-    { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) }
+    { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },
+    ...(floor.tabletopMap?.initiative?.entries.some(entry => entry.id === token.id) ? [
+      { label: 'Remove from initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-remove', { detail: token.id })) }
+    ] : [])
   ], origin);
 }
 onMapRightClick(svg, event => {

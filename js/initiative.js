@@ -48,6 +48,16 @@ floor.addEventListener('initiative-add', event => {
   map.initiative = state;
   changed(); openPanel(panel);
 });
+floor.addEventListener('initiative-remove', event => {
+  const map = floor.tabletopMap;
+  if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
+  const state = initiativeState(map.initiative, map.tokens);
+  const order = initiativeOrder(state);
+  state.entries = state.entries.filter(entry => entry.id !== event.detail);
+  if (order[0]?.id === event.detail) state.currentId = order[1]?.id ?? null;
+  map.initiative = state;
+  changed();
+});
 $('initiative-next').addEventListener('click', () => {
   const map = floor.tabletopMap;
   if (!isGM || !map || floor.getAttribute('aria-busy') === 'true') return;
