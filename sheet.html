@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Character · GeezVTT</title>
+  <link rel="stylesheet" href="sheet.css">
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #202731; color: #e6ebf1; }
+    body { max-width: 40rem; margin: auto; padding: 1rem; }
+    h1 { font-size: 1.1rem; }
+    nav { display: flex; flex-wrap: wrap; gap: .4rem; }
+    button { padding: .4rem; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .25rem; cursor: pointer; }
+    button[aria-pressed="true"] { background: #344f70; border-color: #a2cbff; }
+  </style>
+</head>
+<body>
+  <h1 id="sheet-name">Character</h1>
+  <nav id="sheet-sections" aria-label="Character sections"></nav>
+  <p id="sheet-status" role="status">Loading…</p>
+  <main id="sheet-content" class="sheet-content"></main>
+  <script src="js/firebase-config.js"></script>
+  <script type="module" src="js/sheet.js"></script>
+</body>
+</html>

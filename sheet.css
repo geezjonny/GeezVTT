@@ -1,0 +1,15 @@
+.sheet-content { font-size: .8rem; line-height: 1.5; overflow-wrap: anywhere; }
+.sheet-content h3 { margin: .6rem 0 .3rem; font-size: .85rem; color: #a2cbff; }
+.sheet-content article { padding: .4rem 0; border-bottom: 1px solid #48576b; }
+.sheet-content p { margin: .3rem 0; white-space: pre-wrap; }
+.sheet-content small { display: block; color: #c0ccda; }
+.sheet-row { display: flex; justify-content: space-between; gap: .5rem; padding: .2rem 0; }
+.sheet-row strong { text-align: right; }
+.sheet-slots { display: grid; gap: .25rem; margin-bottom: .5rem; }
+.sheet-pips { display: flex; flex-wrap: wrap; gap: .3rem; }
+.sheet-pip { width: .65rem; height: .65rem; border: 1px solid #a2cbff; border-radius: 50%; background: #a2cbff; }
+.sheet-pip.used { background: transparent; border-color: #8794a5; }
+.sheet-inventory-add { display: grid; gap: .4rem; margin-top: .6rem; font-size: .8rem; }
+.sheet-inventory-add label { display: grid; gap: .2rem; }
+.sheet-inventory-add input { width: 100%; min-width: 0; box-sizing: border-box; }
+.sheet-inventory-add p { margin: 0; }

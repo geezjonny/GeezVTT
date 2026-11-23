@@ -13,6 +13,19 @@ export async function readPC(token) {
 export function pcInventory(pc) {
   return Object.entries(pc.inventory || {}).flatMap(([id,item])=>item && typeof item.name==='string'?[{...item,id}]:[]);
 }
+export async function addPCInventoryItem(token, item, qty, key) {
+  if (typeof item?.name !== 'string' || !item.name.trim()) throw new Error('Choose an SRD item.');
+  if (!Number.isSafeInteger(qty) || qty < 1 || qty > 9999) throw new Error('Quantity must be 1–9999.');
+  if (typeof key !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(key)) throw new Error('Invalid inventory key.');
+  await readPC(token);
+  const entry = { name: item.name, qty, category: item.equipment_category?.name || item.gear_category?.name || '',
+    desc: [...(item.desc || []), ...(item.special || [])].join('\n\n') };
+  // A new stable key preserves existing bag items and makes a failed request safe to retry.
+  const response = await fetch(`${base}/${entityPath(token)}/data/inventory/${key}.json`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry), signal: AbortSignal.timeout(15000)
+  });
+  if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+}
 export async function takeChestItem(token,chest,item,props) {
   const receiptPath=`v2/worlds/gaia/vtt/loot/${encodeURIComponent(item.id)}`;
   const receipt=await fetch(`${base}/${receiptPath}.json`,{signal:AbortSignal.timeout(15000)});

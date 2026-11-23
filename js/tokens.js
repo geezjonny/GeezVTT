@@ -3,6 +3,8 @@ import { isGM } from './session-role.js';
 import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
+import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
+import { mountInventoryAdder } from './inventory-adder.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), svg = $('map-view'), group = $('tokens'), properties = $('token-properties-panel');
@@ -10,6 +12,31 @@ const tokens = () => floor.tabletopMap?.tokens || [];
 $('token-icon').replaceChildren(...TOKEN_ICONS.map(label => new Option(label, label.toLowerCase())));
 let npcs = [], editingId, loading = false;
 let entities = {}, editingValues;
+let sheetReference = {};
+const sheetTokens = new Map();
+const sheetId = section => `sheet-${section.toLowerCase()}`;
+function drawSheet(section) {
+  const token = tokens().find(token => token.id === sheetTokens.get(section));
+  if (!token) return;
+  const entity = entities[pcId(token)];
+  $(`${sheetId(section)}-title`).textContent = `${entity?.name || token.name} · ${section}`;
+  $(`${sheetId(section)}-content`).innerHTML = entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted
+    ? sheetHTML(entity.data, section, sheetReference) : '<p>Linked PC unavailable.</p>';
+}
+async function openSheet(token, section) {
+  sheetTokens.set(section, token.id);
+  const panel = $(`${sheetId(section)}-panel`);
+  $(`${sheetId(section)}-status`).textContent = '';
+  drawSheet(section);
+  openPanel(panel);
+  panel.querySelector('.editor-titlebar').focus();
+  try {
+    sheetReference = await loadSheetReference();
+    drawSheet(section);
+  } catch (error) {
+    $(`${sheetId(section)}-status`).textContent = error.message;
+  }
+}
 const subscriptions = new Map();
 const knownPCs = new Set();
 const base = window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '');
@@ -19,7 +46,19 @@ async function read(path) {
   return response.json();
 }
 const pcId = token => token?.npcId?.startsWith('v2:') && knownPCs.has(token.npcId.slice(3)) ? token.npcId.slice(3) : null;
+mountInventoryAdder($('sheet-inventory-content').parentElement,
+  () => tokens().find(token => token.id === sheetTokens.get('Inventory')),
+  async token => {
+    const id = pcId(token);
+    if (id) { entities[id] = await read(`v2/worlds/gaia/entities/${encodeURIComponent(id)}`); applyPC(id); }
+  });
 const status = text => { $('token-status').textContent = text; };
+function pcSyncStatus(id, message) {
+  status(message);
+  for (const [section, tokenId] of sheetTokens) {
+    if (tokens().some(token => token.id === tokenId && pcId(token) === id)) $(`${sheetId(section)}-status`).textContent = message;
+  }
+}
 const tokenAt = event => tokens().find(token => token.id === event.target.closest('[data-token-id]')?.dataset.tokenId);
 function template() {
   floor.tokenTemplate = { ...(npcs.find(npc => npc.npcId === $('token-source').value) || { name: 'Blank Token', size: 1, hp: 0, npcId: null }) };
@@ -38,6 +77,9 @@ function applyPC(id) {
   }
   template();
   if (character) floor.dispatchEvent(new CustomEvent('token-sync', { detail: character }));
+  for (const [section, tokenId] of sheetTokens) {
+    if (tokens().some(token => token.id === tokenId && token.npcId === `v2:${id}`)) drawSheet(section);
+  }
   if (character && tokens().some(token => token.id === editingId && token.npcId === character.npcId)) {
     for (const key of ['name', 'size', 'hp']) {
       const input = $(`token-${key}`);
@@ -70,16 +112,16 @@ function syncPCs() {
           if (subscriptions.get(id) !== subscription) return;
           entities[id] = entity;
           applyPC(id);
-          status(entity?.kind === 'pc' && !entity.data?._sheetsDeleted ? '' : 'A linked PC is unavailable.');
+          pcSyncStatus(id, entity?.kind === 'pc' && !entity.data?._sheetsDeleted ? '' : 'A linked PC is unavailable.');
         }
-      } catch (error) { status(`PC sync failed: ${error.message}`); }
+      } catch (error) { pcSyncStatus(id, `PC sync failed: ${error.message}`); }
       finally { subscription.reading = false; }
     };
     stream.addEventListener('put', refresh);
     stream.addEventListener('patch', refresh);
-    stream.addEventListener('error', () => status('PC sync disconnected; reconnecting.'));
+    stream.addEventListener('error', () => pcSyncStatus(id, 'PC sync disconnected; reconnecting.'));
     for (const type of ['cancel', 'auth_revoked']) stream.addEventListener(type, () => {
-      stream.close(); status('PC sync denied by Firebase. Reopen Tokens to retry.');
+      stream.close(); pcSyncStatus(id, 'PC sync denied by Firebase. Reopen Tokens to retry.');
       subscriptions.delete(id);
     });
   }
@@ -121,13 +163,16 @@ function editToken(token) {
   $('token-name').focus();
 }
 function tokenMenu(token, x, y, origin) {
-  if (!isGM) return;
+  if (!isGM && !pcId(token)) return;
   showMapMenu(x, y, [
-    { label: 'Edit token...', action: () => editToken(token) },
-    { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
-    { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },
-    ...(floor.tabletopMap?.initiative?.entries.some(entry => entry.id === token.id) ? [
-      { label: 'Remove from initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-remove', { detail: token.id })) }
+    ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
+    ...(isGM ? [
+      { label: 'Edit token...', action: () => editToken(token) },
+      { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
+      { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },
+      ...(floor.tabletopMap?.initiative?.entries.some(entry => entry.id === token.id) ? [
+        { label: 'Remove from initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-remove', { detail: token.id })) }
+      ] : [])
     ] : [])
   ], origin);
 }
@@ -143,7 +188,6 @@ onMapRightClick(svg, event => {
   tokenMenu(token, event.clientX, event.clientY, svg);
 });
 group.addEventListener('keydown', event => {
-  if (!isGM) return;
   const token = tokenAt(event);
   if (token && ['Enter', ' ', 'ContextMenu'].includes(event.key)) {
     event.preventDefault(); event.stopPropagation();
@@ -212,8 +256,16 @@ $('token-form').addEventListener('submit', async event => {
   floor.dispatchEvent(new CustomEvent('token-update', { detail }));
   $('token-properties-status').textContent = detail.error || 'Token updated.';
 });
-floor.addEventListener('map-ready', () => { editingId = null; properties.hidden = true; loadNPCs(); });
+floor.addEventListener('map-ready', () => {
+  editingId = null; properties.hidden = true;
+  for (const section of SHEET_SECTIONS) $(`${sheetId(section)}-panel`).hidden = true;
+  sheetTokens.clear();
+  loadNPCs();
+});
 floor.addEventListener('map-changed', () => {
+  for (const [section, tokenId] of sheetTokens) if (!tokens().some(token => token.id === tokenId)) {
+    sheetTokens.delete(section); $(`${sheetId(section)}-panel`).hidden = true;
+  }
   if (editingId && !tokens().some(token => token.id === editingId)) { editingId = null; properties.hidden = true; }
   syncPCs();
   for (const id of new Set(tokens().map(pcId).filter(Boolean))) applyPC(id);

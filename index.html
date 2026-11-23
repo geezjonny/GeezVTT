@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GeezVTT — Map import</title>
   <script type="module" src="js/session-role.js"></script>
+  <link rel="stylesheet" href="sheet.css">
   <style>
     :root { color-scheme: dark; font-family: system-ui, sans-serif; }
     * { box-sizing: border-box; }
@@ -461,6 +462,46 @@
         <label>Token <select id="token-source"><option value="">Blank Token</option></select></label>
         </fieldset>
         <p id="token-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <section id="sheet-stats-panel" class="editor-panel sheet-panel" style="left: 1rem" role="dialog" aria-modal="false" aria-labelledby="sheet-stats-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move stats window. Drag or use arrow keys.">
+        <h2 id="sheet-stats-title">Stats</h2>
+        <button class="editor-close" type="button" aria-label="Close stats">&times;</button>
+      </div>
+      <div class="editor-body">
+        <div id="sheet-stats-content" class="sheet-content"></div>
+        <p id="sheet-stats-status" role="status"></p>
+      </div>
+    </section>
+    <section id="sheet-inventory-panel" class="editor-panel sheet-panel" style="left: 15rem" role="dialog" aria-modal="false" aria-labelledby="sheet-inventory-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move inventory window. Drag or use arrow keys.">
+        <h2 id="sheet-inventory-title">Inventory</h2>
+        <button class="editor-close" type="button" aria-label="Close inventory">&times;</button>
+      </div>
+      <div class="editor-body">
+        <div id="sheet-inventory-content" class="sheet-content"></div>
+        <p id="sheet-inventory-status" role="status"></p>
+      </div>
+    </section>
+    <section id="sheet-feats-panel" class="editor-panel sheet-panel" style="left: 29rem" role="dialog" aria-modal="false" aria-labelledby="sheet-feats-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move feats window. Drag or use arrow keys.">
+        <h2 id="sheet-feats-title">Feats</h2>
+        <button class="editor-close" type="button" aria-label="Close feats">&times;</button>
+      </div>
+      <div class="editor-body">
+        <div id="sheet-feats-content" class="sheet-content"></div>
+        <p id="sheet-feats-status" role="status"></p>
+      </div>
+    </section>
+    <section id="sheet-spells-panel" class="editor-panel sheet-panel" style="left: 43rem" role="dialog" aria-modal="false" aria-labelledby="sheet-spells-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move spells window. Drag or use arrow keys.">
+        <h2 id="sheet-spells-title">Spells</h2>
+        <button class="editor-close" type="button" aria-label="Close spells">&times;</button>
+      </div>
+      <div class="editor-body">
+        <div id="sheet-spells-content" class="sheet-content"></div>
+        <p id="sheet-spells-status" role="status"></p>
       </div>
     </section>
     <section id="token-properties-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="token-properties-title" hidden>

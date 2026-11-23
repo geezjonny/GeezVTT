@@ -450,3 +450,17 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: check conditional menu visibility, removal of current and other tokens, empty initiative, both views, saving/reloading, and shared synchronization. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion, scene/blackpearl-whole.geezvtt modification, and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of this commit.
+
+## Firebase character windows and GM SRD inventory saved - 2026-11-23
+
+- Adds separate Stats, Inventory, Feats, and Spells entries to the shared token right-click menu for linked PCs in 2D and 3D. Each opens its own standard-width closeable floating window, with existing dragging, resizing, snapping, and remembered layout support. Players can view the windows; existing token editing actions remain GM-only.
+- Reuses the existing Firebase PC subscriptions to refresh combat values, spell-slot pips, equipment and bag contents, ability charges, origin feats and feature notes, and spells/cantrips. Reports synchronization failures in the affected windows and closes windows when their token or map is removed.
+- Adds GeezVTT sheet.html with ?pc=<v2 entity ID> (or ?char=) and optional ?section=, using the same renderer and live Firebase reads. Copies SRD spells, equipment, and magic-item data from GeezSheets into GeezVTT for descriptions and item selection; GeezSheets remains unchanged.
+- Adds a GM-only searchable SRD item field and quantity control to Inventory in the floating window and standalone sheet. Accepts equipment and magic items from the bundled SRD, validates the quantity and linked PC, and saves the item name, quantity, category, and description into the existing Firebase bag. Each addition uses its own key and retries reuse that key, preserving other bag entries and avoiding duplicate writes on a retry.
+- Adds unrun renderer and inventory-write assertions covering sparse records, escaped text, spell pips, equipment, feats, quantities, stable write keys, unavailable PCs, and Firebase failures.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: check all four windows together in 2D/3D, closing/reopening and layout persistence, player viewing without add controls, live GeezSheets changes, standalone sheet URLs, SRD item search and quantities, saved bag items appearing in GeezSheets, failed-write retries, Firebase denial messages, and switching characters while saving. Earlier verification items remain outstanding.
+
+Known limits: one window per category; opening that category for another PC changes its displayed character. Each inventory addition creates a separate bag entry instead of merging same-name stacks. Stats, equipment assignment, feats, spells, and existing bag entries remain view-only. GM controls follow the existing session-role convention and Firebase access still depends on the project's rules.
+
+Save requested with commit and push to origin/main. All changes in this save are confined to GeezVTT.
