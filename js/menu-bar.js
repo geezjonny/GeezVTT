@@ -47,7 +47,11 @@ document.querySelectorAll('[data-edit-layer]').forEach(button => {
     openPanel(swatches);
     input.value = button.dataset.editLayer;
     input.dispatchEvent(new Event('change'));
-    swatches.querySelector('button[data-material]:not([hidden]), input, select:not([hidden])').focus();
+    if (input.value === 'portals') {
+      document.querySelector('#edit-tool').value = 'paint';
+      document.querySelector('#edit-tool').dispatchEvent(new Event('change'));
+    }
+    swatches.querySelector('button[data-material]:not([hidden]), input, select:not([hidden]), button:not(.editor-close)').focus();
   });
 });
 document.querySelector('#open-tools').addEventListener('click', () => {

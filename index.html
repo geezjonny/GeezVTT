@@ -83,6 +83,8 @@
     #floors-panel { top: 11rem; left: 29rem; }
     #lights-panel { top: 11rem; left: 15rem; }
     #doors-panel { top: 21rem; left: 15rem; }
+    #portals-panel { top: 21rem; left: 29rem; }
+    #portal-status { margin: 0; font-size: .7rem; color: #b4c0ce; }
     .swatch-panel[data-active="true"] { border-color: #a2cbff; }
     .editor-body { padding: .4rem; overflow: auto; min-height: 0; }
     .editor-group { width: 100%; }
@@ -168,6 +170,7 @@
             <button type="button" data-edit-layer="floors" disabled>Floors</button>
             <button type="button" data-edit-layer="lights" disabled>Lights</button>
             <button type="button" data-edit-layer="doors" disabled>Doors</button>
+            <button id="open-portals" type="button" data-edit-layer="portals" aria-controls="portals-panel" disabled>Portals</button>
             <button id="open-tokens" type="button" data-edit-layer="tokens" aria-controls="tokens-panel" disabled>Tokens</button>
           </div>
         </details>
@@ -201,7 +204,7 @@
       <div class="editor-body">
       <fieldset id="editor-controls" disabled>
         <legend>Object editing</legend>
-        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="floors">Floors</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option></select></label>
+        <label hidden>Object <select id="edit-layer"><option value="walls">Walls</option><option value="floors">Floors</option><option value="lights">Lights</option><option value="doors">Doors</option><option value="tokens">Tokens</option><option value="portals">Portals</option></select></label>
         <label hidden>Tool <select id="edit-tool"><option value="select">Select</option><option value="erase">Erase</option><option value="paint">Paint</option><option value="bucket">Bucket</option><option value="replace">Replace</option></select></label>
         <div class="editor-group" role="group" aria-labelledby="tools-title">
           <span id="tools-title" class="editor-group-title">Tools:</span>
@@ -271,6 +274,20 @@
         </fieldset>
       </div>
     </section>
+    <section id="portals-panel" class="editor-panel swatch-panel" data-swatch-layer="portals" role="dialog" aria-modal="false" aria-labelledby="portals-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move portals window. Drag or use arrow keys.">
+        <h2 id="portals-title">Portals</h2>
+        <button class="editor-close" type="button" aria-label="Close portals">&times;</button>
+      </div>
+      <div class="editor-body">
+        <fieldset disabled>
+          <legend>Portal settings</legend>
+          <p id="portal-status" role="status" aria-live="polite">Paint: click to place the first node, then click to place its partner. You can switch floors between clicks.</p>
+          <button id="portal-new-pair" type="button">New pair</button>
+          <button id="portal-travel" type="button" disabled>Use selected portal</button>
+        </fieldset>
+      </div>
+    </section>
     <section id="tokens-panel" class="editor-panel swatch-panel" data-swatch-layer="tokens" role="dialog" aria-modal="false" aria-labelledby="tokens-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move tokens window. Drag or use arrow keys.">
         <h2 id="tokens-title">Tokens</h2>
@@ -327,6 +344,7 @@
         <g id="lights"></g>
         <g id="walls"></g>
         <g id="doors"></g>
+        <g id="portals"></g>
         <g id="tokens"></g>
         <g id="edit-preview"></g>
         <g id="fog-of-war"></g>

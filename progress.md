@@ -190,3 +190,15 @@ Save requested with commit and push to origin/main. Leave the unrelated README.m
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: verify scene-wide environment settings when switching, adding, and replacing maps; scene and map export/reimport; Door/Window editing and history; window appearance and lighting in both views; and token movement near windows. Earlier verification items remain outstanding.
 
 Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.
+
+## Paired portals and procedural materials saved - 2026-11-23
+
+- Adds Edit > Portals with a matching draggable, snapping floating window and the shared Tools window. Opening Portals activates Paint: click once for the first node and again for its partner, including switching floors between clicks. Provides placement previews, Select, group movement, Erase/Delete, and local Undo/Redo. Bucket, Replace, and Apply are disabled for portals because endpoints have no material settings.
+- Stores endpoint and pair identities in geezvtt_editor.portals for map exports and portable scenes. Pair resolution works independently of floor names and order, providing the connection model for future stairs. Unpaired nodes display distinctly; selecting one resumes pairing, and New pair starts another connection.
+- Use selected portal moves tokens whose centers stand within half a square of the endpoint to its partner, switching floors when needed. Destinations outside map bounds cannot receive tokens. Cross-floor travel resets local undo history; deleting a node or floor leaves its partner unpaired.
+- Adds deterministic, cached canvas textures for wood grain/planks, stone blocks/cracks, cobbles, brickwork, and brushed metal plates/rivets. Uses the generated textures in material swatches, SVG floor fills and wall/door strokes, and 3D floor/wall/door materials with bump detail and material-specific roughness. Scales wall texture coordinates by segment dimensions. Imported walls and doors without a material use stone and wood respectively; windows retain their transparent presentation.
+- Adds unrun regression cases for portal import filtering, persistent pair identities, cross-floor destination resolution, incomplete/ambiguous pairs, and exterior box selection.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or other application validation commands were run. Outstanding work: exercise two-click pairing on the same floor and across floors, shared portal tools and history, unpaired-node repair and deletion, token travel and failed destination loading, map/scene round trips, and all five textures on palettes and surfaces in both views. Stairs presentation is not implemented. Earlier verification items remain outstanding.
+
+Save requested with commit and push to origin/main. Leave the unrelated README.md deletion and untracked battlemap/mistyoaks.dd2vtt and to-do.md out of the commit.

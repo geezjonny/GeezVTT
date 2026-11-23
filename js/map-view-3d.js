@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
+import { MATERIALS } from './map-editor-model.js';
+import { materialCanvas } from './material-textures.js';
 
 export function createMapView3D(host) {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -32,7 +34,7 @@ export function createMapView3D(host) {
   controls.enableDamping = true;
   controls.maxPolarAngle = Math.PI / 2 - 0.03;
   controls.screenSpacePanning = false;
-  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group() };
+  const groups = { floors: new THREE.Group(), walls: new THREE.Group(), doors: new THREE.Group(), lights: new THREE.Group(), grid: new THREE.Group(), tokens: new THREE.Group(), portals: new THREE.Group() };
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
@@ -104,6 +106,12 @@ export function createMapView3D(host) {
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, 0.12), material);
+      // Keep texture density constant on every face, regardless of segment length.
+      const positions=mesh.geometry.attributes.position, normals=mesh.geometry.attributes.normal, uv=mesh.geometry.attributes.uv;
+      for(let vertex=0;vertex<positions.count;vertex++) {
+        const x=positions.getX(vertex)+length/2, y=positions.getY(vertex)+1, z=positions.getZ(vertex)+.06;
+        uv.setXY(vertex,Math.abs(normals.getX(vertex))>.5?z:x,Math.abs(normals.getY(vertex))>.5?z:y);
+      }
       mesh.castShadow = mesh.receiveShadow = !material.transparent;
       mesh.position.set((a.x + b.x) / 2, 1, (a.y + b.y) / 2);
       mesh.rotation.y = -Math.atan2(dz, dx);
@@ -149,27 +157,39 @@ export function createMapView3D(host) {
     grid.rotation.x = -Math.PI / 2;
     grid.position.set((bounds.left+bounds.right)/2, 0, (bounds.top+bounds.bottom)/2);
     groups.grid.add(grid);
-    const palette = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
+    const palette = MATERIALS;
     const materials = new Map();
     const material = (name, fallback) => {
-      const color = palette[name] || fallback;
-      if (!materials.has(color)) materials.set(color, new THREE.MeshStandardMaterial({ color, roughness: name === 'metal' ? 0.35 : 0.85, metalness: name === 'metal' ? 0.65 : 0 }));
-      return materials.get(color);
+      name=Object.hasOwn(palette,name)?name:fallback;
+      if (!materials.has(name)) {
+        const texture=new THREE.CanvasTexture(materialCanvas(name));
+        texture.colorSpace=THREE.SRGBColorSpace;
+        texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
+        texture.anisotropy=renderer.capabilities.getMaxAnisotropy();
+        materials.set(name,new THREE.MeshStandardMaterial({map:texture,bumpMap:texture,bumpScale:name==='metal'?.008:.035,
+          roughness:name==='metal'?.4:name==='wood'?.8:.95,metalness:name==='metal'?.65:0}));
+      }
+      return materials.get(name);
     };
     for (const tile of model.floors || []) {
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, palette.stone));
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, 'stone'));
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(tile.x, -0.001, tile.y);
       mesh.receiveShadow = true;
       groups.floors.add(mesh);
     }
-    model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], '#a7aabb'), groups.walls));
+    model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls));
     model.doors.forEach(door => {
       const window = door.type === 'window';
       const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
-        : material(door.material, door.open ? '#75b89a' : '#b47c42');
+        : material(door.material, 'wood');
       slabs(door.points, surface, groups.doors, !window && door.open);
     });
+    for (const portal of model.portals || []) {
+      const ring=new THREE.Mesh(new THREE.RingGeometry(.3,.43,32),new THREE.MeshBasicMaterial({color:'#d4a0ff',side:THREE.DoubleSide}));
+      ring.rotation.x=-Math.PI/2; ring.position.set(portal.x,.015,portal.y);
+      groups.portals.add(ring);
+    }
     for (const token of model.tokens || []) {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 256;
@@ -191,7 +211,7 @@ export function createMapView3D(host) {
     // Dispose materials for degenerate segments which produced no mesh.
     const used = new Set();
     root.traverse(object => { if (object.material) used.add(object.material); });
-    materials.forEach(value => { if (!used.has(value)) value.dispose(); });
+    materials.forEach(value => { if (!used.has(value)) { value.map?.dispose(); value.dispose(); } });
     const strength = light => Math.max(0, Number.isFinite(light.intensity) ? light.intensity : 1) *
       THREE.MathUtils.clamp(Number.isFinite(light.opacity) ? light.opacity : 1, 0, 1);
     const lights = model.lights.filter(light => strength(light) > 0 && Number.isFinite(light.range) && light.range > 0);

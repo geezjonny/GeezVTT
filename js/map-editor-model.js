@@ -19,7 +19,7 @@ export function crosses(a, b, c, d) {
 export function inBox(object, a, b, layer) {
   const left=Math.min(a.x,b.x), right=Math.max(a.x,b.x), top=Math.min(a.y,b.y), bottom=Math.max(a.y,b.y);
   const inside = p => p.x>=left && p.x<=right && p.y>=top && p.y<=bottom;
-  if (layer==='lights') return inside(object);
+  if (layer==='lights' || layer==='portals') return inside(object);
   if (layer==='floors') return object.x+.5>=left && object.x-.5<=right && object.y+.5>=top && object.y-.5<=bottom;
   if (layer==='tokens') return Math.hypot(object.x-Math.max(left,Math.min(right,object.x)),object.y-Math.max(top,Math.min(bottom,object.y)))<=object.size/2;
   const corners=[{x:left,y:top},{x:right,y:top},{x:right,y:bottom},{x:left,y:bottom}];

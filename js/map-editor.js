@@ -1,14 +1,18 @@
 import { MATERIALS, clone, segments, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { importedTokens, tokenProperties, crossesWindow } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
+import { importedPortals, portalDestination } from './portal-model.js';
+import { installMaterialPatterns, materialURL } from './material-textures.js';
 
 const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
 const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('edit-tool');
 const panel=$('editor-panel');
+installMaterialPatterns(svg);
 let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
+let pendingPortal, travelling=false;
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
-const pointLayer=()=>['lights','tokens','floors'].includes(layer());
+const pointLayer=()=>['lights','tokens','floors','portals'].includes(layer());
 const materialInput=(name=layer())=>$(name==='floors'?'edit-floor-material':name==='doors'?'edit-door-material':'edit-material');
 const message=text=>{ $('editor-help').textContent=text; };
 const node=(tag,attrs={})=>{
@@ -16,10 +20,26 @@ const node=(tag,attrs={})=>{
   for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
   return el;
 };
-const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens});
+const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals});
+function portalEntries() {
+  return (floor.sceneDocument?.floors || []).flatMap((entry,index)=>
+    (index===floor.activeFloorIndex?model.portals:importedPortals(entry.map.geezvtt_editor?.portals)).map(portal=>({portal,index,entry})));
+}
+function pendingNode() {
+  const matches=pendingPortal?.scene===floor.sceneDocument?portalEntries().filter(({portal})=>portal.pairId===pendingPortal.pairId):[];
+  return matches.length===1?matches[0]:null;
+}
 function remember() { undo.push(geometry()); if(undo.length>50) undo.shift(); redo=[]; }
 function buttons() {
   $('edit-apply').disabled=$('edit-delete').disabled=!selected.size;
+  if(layer()==='portals') $('edit-apply').disabled=true;
+  const portal=layer()==='portals' && selected.size===1?model?.portals[[...selected][0]]:null;
+  const destination=portal && portalDestination(portalEntries(),portal);
+  $('portal-travel').disabled=travelling || !destination;
+  const pending=model && pendingNode();
+  $('portal-status').textContent=pending?`First node on ${pending.entry.name}. Paint: click to place its partner.`:portal?
+    destination?`Linked to ${destination.entry.name}. Use this portal to move tokens standing on it.`:'Unpaired node. Choose Paint and click to place its partner.':
+    'Paint: click to place the first node, then click to place its partner. You can switch floors between clicks.';
   document.querySelectorAll('[data-tool]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.tool===tool()));
     button.disabled=toolInput.querySelector(`[value="${button.dataset.tool}"]`).disabled;
@@ -29,6 +49,7 @@ function buttons() {
   });
 }
 function settings() {
+  if(layer()==='portals') return {};
   if(layer()==='tokens') return {...(floor.tokenTemplate || {name:'Blank Token',size:1,hp:0}),npcId:floor.tokenTemplate?.npcId ?? null};
   if(layer()==='lights') {
     const range=Number($('edit-range').value), intensity=Number($('edit-intensity').value);
@@ -39,11 +60,17 @@ function settings() {
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
-  for(const name of ['floors','walls','doors','lights','tokens']) {
+  for(const name of ['floors','walls','doors','lights','portals','tokens']) {
     const group=$(name); group.replaceChildren();
     model[name].forEach((obj,index)=>{
       let el;
-      if(name==='tokens') {
+      if(name==='portals') {
+        const destination=portalDestination(portalEntries(),obj);
+        el=node('g',{transform:`translate(${obj.x} ${obj.y})`});
+        el.append(node('circle',{r:.42,fill:'#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
+        const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':.3,fill:'#fff','pointer-events':'none'});
+        text.textContent='P'; el.append(text);
+      } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to edit.`});
         el.dataset.tokenId=obj.id;
         el.append(node('circle',{r:obj.size/2,fill:'#344f70',stroke:'#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
@@ -51,26 +78,27 @@ function render(notify=true) {
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
         el.append(text);
       } else if(name==='floors') {
-        el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:MATERIALS[obj.material] || MATERIALS.stone,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
+        el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
       } else if(name==='lights') {
         el=node('g');
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.opacity,class:'light-range'}));
         el.append(node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color,class:'light-source'}));
       } else {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
-        if(obj.material && obj.type!=='window') el.style.stroke=MATERIALS[obj.material] || MATERIALS.stone;
+        if(obj.type!=='window') el.style.stroke=`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
       }
       const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':obj.type==='window'?'Window':'Door'} · ${obj.material || 'imported'}${name==='doors' && obj.type!=='window'?obj.open?' · open':' · closed':''}`;
       el.append(title);
+      if(name==='portals') title.textContent=portalDestination(portalEntries(),obj)?`Portal to ${portalDestination(portalEntries(),obj).entry.name}`:'Portal: waiting for second node';
       if(name===layer() && selected.has(index)) {
-        if(name==='lights' || name==='tokens') el.querySelector(name==='lights'?'.light-source':'circle').classList.add('edit-selected');
+        if(name==='lights' || name==='tokens' || name==='portals') el.querySelector(name==='lights'?'.light-source':'circle').classList.add('edit-selected');
         else el.classList.add('edit-selected');
       }
       group.append(el);
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -80,8 +108,9 @@ function updateTools() {
   document.querySelectorAll('[data-swatch-layer]').forEach(panel=>{
     panel.dataset.active=String(panel.dataset.swatchLayer===layer());
   });
-  toolInput.querySelector('[value="bucket"]').disabled=layer()==='walls';
-  if(layer()==='walls' && tool()==='bucket') toolInput.value='paint';
+  toolInput.querySelector('[value="bucket"]').disabled=['walls','portals'].includes(layer());
+  toolInput.querySelector('[value="replace"]').disabled=layer()==='portals';
+  if(toolInput.selectedOptions[0].disabled) toolInput.value='paint';
   $('spacing-label').hidden=tool()!=='bucket' || layer()==='floors';
   message('');
   if(model) render(false);
@@ -90,7 +119,7 @@ function hit(p) {
   const matrix=svg.getScreenCTM(), tolerance=9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
   let index=-1, best=tolerance;
   model[layer()].forEach((obj,i)=>{
-    const d=layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
+    const d=layer()==='floors'?Math.hypot(Math.max(0,Math.abs(p.x-obj.x)-.5),Math.max(0,Math.abs(p.y-obj.y)-.5)):pointLayer()?Math.hypot(p.x-obj.x,p.y-obj.y)-(layer()==='tokens'?obj.size/2:layer()==='portals'?.42:0):Math.min(...segments(obj.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
   return index;
@@ -98,7 +127,7 @@ function hit(p) {
 function point(event,snap=false) {
   const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!snap) return {x:p.x,y:p.y};
-  if(layer()==='floors') return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
+  if(layer()==='floors' || layer()==='portals') return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
   if(snap && layer()==='walls') {
     const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
@@ -114,6 +143,11 @@ function point(event,snap=false) {
 function contains(p) { return p.x>=-1e-7 && p.y>=-1e-7 && p.x<=model.width+1e-7 && p.y<=model.height+1e-7; }
 function drawPreview() {
   preview.replaceChildren();
+  if(layer()==='portals' && tool()==='paint' && hover) {
+    const first=pendingNode();
+    if(first?.index===floor.activeFloorIndex) preview.append(node('line',{x1:first.portal.x,y1:first.portal.y,x2:hover.x,y2:hover.y,stroke:'#d4a0ff','stroke-width':1,'stroke-dasharray':'4 4','vector-effect':'non-scaling-stroke'}));
+    preview.append(node('circle',{cx:hover.x,cy:hover.y,r:.42,fill:'none',stroke:'#d4a0ff','stroke-width':2,'stroke-dasharray':'4 4','vector-effect':'non-scaling-stroke'}));
+  }
   if(chain.length) preview.append(node('polyline',{points:[...chain,...(hover?[hover]:[])].map(p=>`${p.x},${p.y}`).join(' '),fill:'none',stroke:'#fff','stroke-width':3,'stroke-dasharray':'6 4','vector-effect':'non-scaling-stroke'}));
   if(gesture?.box && hover) preview.append(node('rect',{x:Math.min(gesture.start.x,hover.x),y:Math.min(gesture.start.y,hover.y),width:Math.abs(hover.x-gesture.start.x),height:Math.abs(hover.y-gesture.start.y),fill:'#a2cbff','fill-opacity':.15,stroke:'#a2cbff','stroke-width':1,'vector-effect':'non-scaling-stroke'}));
 }
@@ -133,6 +167,17 @@ function placeChain() {
   chain=[]; hover=null; preview.replaceChildren(); render(); message('Placed segments. Click to begin another chain.');
 }
 function paint(p) {
+  if(layer()==='portals') {
+    const first=pendingNode();
+    if(first?.index===floor.activeFloorIndex && Math.hypot(first.portal.x-p.x,first.portal.y-p.y)<.01) {
+      message('Place the second node at a different position.'); return;
+    }
+    remember();
+    const pairId=first?.portal.pairId || crypto.randomUUID();
+    model.portals.push({id:crypto.randomUUID(),pairId,x:p.x,y:p.y});
+    pendingPortal={scene:floor.sceneDocument,pairId};
+    render(); return;
+  }
   const props=settings();
   if(layer()==='floors' && model.floors.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<.01)) return;
   if(pointLayer()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
@@ -158,7 +203,7 @@ svg.addEventListener('pointerdown',event=>{
   if(!model || panel.hidden || event.button!==0 || svg.hidden) return;
   // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
-  if(layer()!=='floors' && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
+  if(!['floors','portals'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
   event.preventDefault(); svg.focus();
   const p=point(event), index=hit(p);
   if(tool()==='paint' || tool()==='bucket') {
@@ -178,7 +223,7 @@ svg.addEventListener('pointermove',event=>{
       if($('edit-snap').checked) { dx=Math.round(dx); dy=Math.round(dy); }
       const originals=[...selected].map(i=>gesture.before[layer()][i]);
       const pts=originals.flatMap(o=>pointLayer()?[o]:o.points);
-      if(layer()!=='floors') {
+      if(!['floors','portals'].includes(layer())) {
         dx=Math.max(-Math.min(...pts.map(p=>p.x)),Math.min(model.width-Math.max(...pts.map(p=>p.x)),dx));
         dy=Math.max(-Math.min(...pts.map(p=>p.y)),Math.min(model.height-Math.max(...pts.map(p=>p.y)),dy));
       }
@@ -208,6 +253,7 @@ svg.addEventListener('pointerup',event=>{
     if(selected.size===1) {
       const obj=model[layer()][[...selected][0]];
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
+      else if(layer()==='portals') { if(!portalDestination(portalEntries(),obj)) pendingPortal={scene:floor.sceneDocument,pairId:obj.pairId}; }
       else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') { $('edit-door-type').value=obj.type || 'door'; $('edit-door').value=obj.open?'open':'closed'; doorTypeChanged(); } }
     }
     render(false); message(`Selected ${selected.size} ${layer()}. Drag selected objects to move, or apply settings.`);
@@ -275,6 +321,8 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
     button.type='button'; button.dataset.material=material; button.title=material;
     button.setAttribute('aria-label',material);
     swatch.className='material-swatch'; swatch.style.setProperty('--material-color',color); swatch.setAttribute('aria-hidden','true');
+    swatch.style.backgroundImage=`url("${materialURL(material)}")`;
+    swatch.style.backgroundSize='64px 64px';
     button.append(swatch);
     button.addEventListener('click',()=>{ input.value=material; input.dispatchEvent(new Event('change')); button.focus(); });
     swatches.set(material,button);
@@ -300,6 +348,43 @@ $('editor-close').addEventListener('click',()=>{
 });
 $('edit-apply').addEventListener('click',()=>attempt(()=>apply([...selected],'replace')));
 $('edit-delete').addEventListener('click',()=>apply([...selected],'erase'));
+$('portal-new-pair').addEventListener('click',()=>{
+  pendingPortal=null; selected.clear(); toolInput.value='paint'; updateTools();
+});
+$('portal-travel').addEventListener('click',async()=>{
+  if(travelling || floor.getAttribute('aria-busy')==='true' || layer()!=='portals' || selected.size!==1) return;
+  cancelGesture();
+  const source=model.portals[[...selected][0]], destination=source && portalDestination(portalEntries(),source);
+  if(!destination) { message('This portal needs a second node.'); return; }
+  const passengers=model.tokens.filter(token=>Math.hypot(token.x-source.x,token.y-source.y)<=.5);
+  if(!passengers.length) { message('Move a token center onto this portal first.'); return; }
+  const moved=passengers.map(token=>({...clone(token),x:destination.portal.x,y:destination.portal.y}));
+  // Token imports require centers inside the map, including after saving travel.
+  const resolution=destination.entry.map.resolution;
+  const width=destination.index===floor.activeFloorIndex?model.width:resolution?.map_size?.x;
+  const height=destination.index===floor.activeFloorIndex?model.height:resolution?.map_size?.y;
+  if(destination.portal.x<0 || destination.portal.y<0 || destination.portal.x>width || destination.portal.y>height) {
+    message('The destination must be inside its map to receive tokens.'); return;
+  }
+  if(destination.index===floor.activeFloorIndex) {
+    remember();
+    for(const token of moved) Object.assign(model.tokens.find(item=>item.id===token.id),token);
+    render(); message(`Moved ${moved.length} tokens through the portal.`); return;
+  }
+  travelling=true; buttons();
+  const scene=floor.sceneDocument, sourceEntry=scene.floors[floor.activeFloorIndex];
+  try {
+    if(!await floor.loadMap({name:destination.entry.sourceName},{entry:destination.entry,index:destination.index})) return;
+    if(floor.sceneDocument!==scene) return;
+    const ids=new Set(passengers.map(token=>token.id));
+    sourceEntry.map.geezvtt_editor.tokens=sourceEntry.map.geezvtt_editor.tokens.filter(token=>!ids.has(token.id));
+    model.tokens.push(...moved.map(token=>({...token,id:crypto.randomUUID()})));
+    // Floor switches reset local history; travel must not be undone on only one floor.
+    undo=[]; redo=[]; selected.clear(); render(); floor.captureFloor();
+    message(`Moved ${moved.length} tokens to ${destination.entry.name}.`);
+  } catch(error) { message(`Portal travel failed: ${error.message}`); }
+  finally { travelling=false; buttons(); }
+});
 function history(back) {
   cancelGesture(); const from=back?undo:redo, to=back?redo:undo;
   if(!from.length) return;
@@ -325,6 +410,7 @@ floor.addEventListener('map-ready',()=>{
   floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather};
   Object.assign(imported.environment,floor.sceneDocument.environment);
   model={width:imported.width,height:imported.height,
+    portals:importedPortals(saved?.portals),
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
     doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
@@ -351,7 +437,7 @@ export function serializeMap() {
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
   raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
-  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
+  raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   return raw;
 }
 $('edit-export').addEventListener('click',()=>{
