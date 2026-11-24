@@ -1,6 +1,20 @@
 import { propCorners, propDistance, propAppearance } from './prop-model.js';
 
-export const MATERIALS = { wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4' };
+export const MATERIALS = {
+  wood: '#a97848', stone: '#9ca3af', cobble: '#7e8275', brick: '#b96750', metal: '#a9c8d4',
+  water: '#377eaa', grass: '#648448', dirt: '#876448', 'cracked rock': '#777875', snow: '#e5edf0',
+  marble: '#dedbd3', 'burnt wood': '#39302c', moss: '#526b38', blood: '#842b30', sand: '#cbb47c',
+  mud: '#604c38', gravel: '#939087', ice: '#acd4df', lava: '#da5327', swamp: '#556345',
+  tile: '#b69b81', carpet: '#853d50', ash: '#686260', 'dark wood': '#604331',
+  'reinforced wood': '#94704c', 'rusty iron': '#865b45', bronze: '#aa8750', curtain: '#88465d',
+  sandstone: '#c5a474', limestone: '#bab7a1', plaster: '#d3c6af', timber: '#815b3b',
+  'mossy stone': '#73806a', cave: '#68615a', hedge: '#486239', obsidian: '#34303f'
+};
+export const MATERIAL_LAYERS = {
+  floors: ['wood','stone','cobble','brick','metal','water','grass','dirt','cracked rock','snow','marble','burnt wood','moss','blood','sand','mud','gravel','ice','lava','swamp','tile','carpet','ash'],
+  doors: ['wood','stone','cobble','brick','metal','dark wood','reinforced wood','burnt wood','rusty iron','bronze','marble','curtain'],
+  walls: ['wood','stone','cobble','brick','metal','sandstone','limestone','marble','plaster','timber','mossy stone','cave','hedge','ice','obsidian','burnt wood']
+};
 export const clone = value => JSON.parse(JSON.stringify(value));
 export function portalType(portal) {
   return ['door','window'].includes(portal?.geezvtt_type) ? portal.geezvtt_type : portal?.closed === false ? 'window' : 'door';

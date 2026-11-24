@@ -7,7 +7,7 @@ import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
 import { COIN_TYPES } from './inventory-model.js';
 import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
-import { MATERIALS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
+import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
@@ -747,7 +747,7 @@ function floorMenu(index,x,y,origin) {
   };
   showMapMenu(x,y,[
     triggerMenuItem(objectRef('floors',tile)), resizeMenuItem('floors',tile), {label:tile.hidden?'Show':'Hide',action:()=>change(()=>{tile.hidden=!tile.hidden;})},
-    {label:'Change material...',action:()=>showMapMenu(x,y,Object.keys(MATERIALS).map(material=>({
+    {label:'Change material...',action:()=>showMapMenu(x,y,MATERIAL_LAYERS.floors.map(material=>({
       label:material,action:()=>change(()=>{tile.material=material;})
     })),origin)},
     {label:'Delete',action:()=>change(()=>{model.floors=model.floors.filter(item=>item!==tile);})}
@@ -1116,23 +1116,24 @@ for(const option of toolInput.options) {
   $('tool-buttons').append(button);
 }
 for(const palette of document.querySelectorAll('[data-material-layer]')) {
-  const input=materialInput(palette.dataset.materialLayer), swatches=new Map();
-  let recent=[input.value,...Object.keys(MATERIALS).filter(material=>material!==input.value)].slice(0,4);
+  const input=materialInput(palette.dataset.materialLayer), materials=MATERIAL_LAYERS[palette.dataset.materialLayer], swatches=new Map();
+  let recent=[input.value,...materials.filter(material=>material!==input.value)].slice(0,4);
   const more=document.createElement('select');
   more.className='material-more';
   more.setAttribute('aria-label',`More ${palette.dataset.materialLayer} materials`);
   const initial=input.value;
-  input.replaceChildren(...Object.keys(MATERIALS).map(material=>new Option(material,material)));
+  input.replaceChildren(...materials.map(material=>new Option(material,material)));
   input.value=initial;
   function updatePalette() {
     recent=[input.value,...recent.filter(material=>material!==input.value)].slice(0,4);
     for(const [material,button] of swatches) button.hidden=!recent.includes(material);
     for(const material of recent) palette.append(swatches.get(material));
-    more.replaceChildren(new Option('More…',''),...Object.keys(MATERIALS).filter(material=>!recent.includes(material)).map(material=>new Option(material,material)));
-    more.disabled=recent.length===Object.keys(MATERIALS).length;
+    more.replaceChildren(new Option('More…',''),...materials.filter(material=>!recent.includes(material)).map(material=>new Option(material,material)));
+    more.disabled=recent.length===materials.length;
     palette.append(more);
   }
-  for(const [material,color] of Object.entries(MATERIALS)) {
+  for(const material of materials) {
+    const color=MATERIALS[material];
     const button=document.createElement('button'), swatch=document.createElement('span');
     button.type='button'; button.dataset.material=material; button.title=material;
     button.setAttribute('aria-label',material);

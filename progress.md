@@ -640,3 +640,15 @@ Save, commit, and push requested to origin/main. Leave the unrelated scene/black
 Verification is left to the user. No tests, browser checks, visual inspections, or application validation commands were run. Outstanding work: exercise all three dropdowns, placement and replacement, PC synchronization, blank tokens, image rendering, and saving/reloading spawned tokens. Folder images have no linked character stats; adjust size and HP as needed.
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
+## Expanded map materials saved - 2026-11-23
+
+- Adds separate floor, door, and wall material selections to build menus and editor palettes; floor context menus use the floor selection. Retains the original five materials in every layer for compatibility.
+- Floors add water, grass, dirt, cracked rock, snow, marble, burnt wood, moss, blood, sand, mud, gravel, ice, lava, swamp, tile, carpet, and ash.
+- Doors add dark wood, reinforced wood, burnt wood, rusty iron, bronze, marble, and curtain finishes. Walls add sandstone, limestone, marble, plaster, timber, mossy stone, cave, hedge, ice, obsidian, and burnt wood.
+- Adds procedural textures shared by swatches, 2D patterns, and 3D materials, with metallic shading for rusty iron and bronze. Existing material metadata carries the new names through map saving and loading.
+- Adds an unrun regression case for layer material definitions, texture generation, caching, and unknown-material fallback.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify all material menus, swatches, placement and repainting, 2D/3D appearance, and save/reload behavior. Door additions are visual finishes using existing door interactions; curtain uses ordinary door behavior. Earlier verification items remain outstanding.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.

@@ -1,6 +1,6 @@
 import { openPanel } from './menu-bar.js';
 import { isGM } from './session-role.js';
-import { MATERIALS } from './map-editor-model.js';
+import { MATERIAL_LAYERS } from './map-editor-model.js';
 import { PROPS } from './prop-model.js';
 import { propIcon } from './prop-icons.js';
 import { materialURL } from './material-textures.js';
@@ -31,7 +31,7 @@ for(const button of buttons) {
       })),button,rect);
     } else if(['walls','floors','doors'].includes(layer)) {
       const input=$(layer==='walls'?'edit-material':layer==='floors'?'edit-floor-material':'edit-door-material');
-      showMapMenu(rect.left,rect.bottom,Object.keys(MATERIALS).map(material=>{
+      showMapMenu(rect.left,rect.bottom,MATERIAL_LAYERS[layer].map(material=>{
         const icon=document.createElement('span'); icon.className='material-swatch'; icon.setAttribute('aria-hidden','true');
         icon.style.backgroundImage=`url("${materialURL(material)}")`;
         return {label:material,icon,action:()=>{input.value=material; input.dispatchEvent(new Event('change')); start(layer);}};

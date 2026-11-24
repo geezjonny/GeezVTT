@@ -345,12 +345,13 @@ export function createMapView3D(host) {
     const material = (name, fallback) => {
       name=Object.hasOwn(palette,name)?name:fallback;
       if (!materials.has(name)) {
+        const metallic=['metal','rusty iron','bronze'].includes(name);
         const texture=new THREE.CanvasTexture(materialCanvas(name));
         texture.colorSpace=THREE.SRGBColorSpace;
         texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
         texture.anisotropy=renderer.capabilities.getMaxAnisotropy();
-        materials.set(name,new THREE.MeshStandardMaterial({map:texture,bumpMap:texture,bumpScale:name==='metal'?.008:.035,
-          roughness:name==='metal'?.4:name==='wood'?.8:.95,metalness:name==='metal'?.65:0}));
+        materials.set(name,new THREE.MeshStandardMaterial({map:texture,bumpMap:texture,bumpScale:metallic?.008:.035,
+          roughness:metallic?.4:name==='wood'?.8:.95,metalness:metallic?.65:0}));
       }
       return materials.get(name);
     };

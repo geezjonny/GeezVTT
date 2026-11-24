@@ -15,7 +15,7 @@ export function materialCanvas(name) {
     for(const point of points.slice(1)) ctx.lineTo(...point);
     ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
   };
-  if(name==='wood') {
+  if(['wood','dark wood','burnt wood','reinforced wood','timber'].includes(name)) {
     for(let plank=0;plank<4;plank++) {
       const x=plank*32;
       ctx.fillStyle=`rgba(${plank%2?255:20},${plank%2?220:12},${plank%2?160:5},.08)`;
@@ -28,7 +28,12 @@ export function materialCanvas(name) {
       ctx.strokeStyle='#674022'; ctx.lineWidth=1;
       ctx.beginPath(); ctx.ellipse(x+16,28+plank*21,3,9,0,0,Math.PI*2); ctx.stroke();
     }
-  } else if(name==='brick' || name==='stone' || name==='cobble') {
+    if(name==='reinforced wood') for(const y of [22,100]) {
+      ctx.fillStyle='#51565b'; ctx.fillRect(0,y,128,9);
+      ctx.fillStyle='#b4b5ad';
+      for(const x of [8,40,88,120]) { ctx.beginPath(); ctx.arc(x,y+4,2,0,Math.PI*2); ctx.fill(); }
+    }
+  } else if(['brick','stone','cobble','sandstone','limestone','mossy stone','tile'].includes(name)) {
     const rows=name==='brick'?4:name==='stone'?2:4, h=128/rows;
     const w=name==='brick'?64:name==='stone'?64:32;
     ctx.fillStyle=name==='brick'?'#b5a18a':'#484b48'; ctx.fillRect(0,0,128,128);
@@ -41,7 +46,10 @@ export function materialCanvas(name) {
       line([[x+inset+3,y+h-inset-2],[x+inset+3,y+inset+2],[x+w-inset-3,y+inset+2]],'#ffffff25');
       if(name==='stone') line([[x+18,y+10],[x+24,y+24],[x+20,y+30],[x+29,y+41]],'#333b4648');
     }
-  } else if(name==='metal') {
+    if(name==='mossy stone') for(let i=0;i<45;i++) {
+      ctx.fillStyle='#45633388'; ctx.beginPath(); ctx.arc(random()*128,random()*128,2+random()*7,0,Math.PI*2); ctx.fill();
+    }
+  } else if(['metal','rusty iron','bronze'].includes(name)) {
     for(let y=0;y<128;y++) {
       ctx.fillStyle=`rgba(${y%3?'255,255,255':'10,25,35'},${random()*.1})`; ctx.fillRect(0,y,128,1);
     }
@@ -49,6 +57,41 @@ export function materialCanvas(name) {
     for(const x of [7,121]) for(const y of [7,121]) {
       ctx.fillStyle='#42525b'; ctx.beginPath(); ctx.arc(x,y,2.5,0,Math.PI*2); ctx.fill();
       line([[x-1,y-1],[x+1,y-1]],'#e3f2f7');
+    }
+    if(name==='rusty iron') for(let i=0;i<60;i++) {
+      ctx.fillStyle='#ab4e2580'; ctx.beginPath(); ctx.arc(random()*128,random()*128,1+random()*5,0,Math.PI*2); ctx.fill();
+    }
+  } else if(['water','swamp','blood'].includes(name)) {
+    for(let i=0;i<16;i++) {
+      const x=random()*128,y=random()*128;
+      ctx.beginPath(); ctx.ellipse(x,y,6+random()*15,1+random()*2,0,0,Math.PI);
+      ctx.strokeStyle='#ffffff35'; ctx.lineWidth=1.5; ctx.stroke();
+    }
+    if(name==='swamp') for(let i=0;i<30;i++) {
+      const x=random()*128,y=random()*128;
+      line([[x,y],[x+3,y-9],[x+5,y]],'#88904e88',2);
+    }
+  } else if(['grass','moss','hedge'].includes(name)) {
+    for(let i=0;i<180;i++) {
+      const x=random()*128,y=random()*128;
+      line([[x-2,y+3],[x,y-3-random()*5],[x+2,y+2]],random()>.5?'#bdd07c66':'#233d2466',name==='grass'?1:3);
+    }
+  } else if(['cracked rock','cave','ice','lava','obsidian','marble'].includes(name)) {
+    for(let i=0;i<10;i++) {
+      const x=random()*128,y=random()*128;
+      const points=[[x,y],[x+12,y+8],[x+8,y+23],[x+24,y+34],[x+20,y+54]];
+      if(name==='lava') line(points,'#ffce56',5);
+      line(points,name==='lava'?'#ffe58a':name==='ice'?'#edfaff99':name==='marble'?'#7b788866':'#201e2388',name==='marble'?1:2);
+    }
+  } else if(name==='curtain' || name==='carpet') {
+    for(let x=0;x<128;x+=name==='curtain'?16:4) {
+      line([[x,0],[x,128]],'#210b2333',name==='curtain'?5:1);
+    }
+    if(name==='carpet') for(let y=0;y<128;y+=4) line([[0,y],[128,y]],'#efcba329');
+  } else if(['dirt','sand','mud','gravel','snow','ash','plaster'].includes(name)) {
+    for(let i=0;i<140;i++) {
+      ctx.fillStyle=random()>.5?'#ffffff25':'#201a1633';
+      ctx.beginPath(); ctx.ellipse(random()*128,random()*128,name==='gravel'?2+random()*4:1+random()*2,1+random()*2,random()*Math.PI,0,Math.PI*2); ctx.fill();
     }
   }
   for(let i=0;i<1800;i++) {
