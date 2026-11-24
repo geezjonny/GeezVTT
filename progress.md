@@ -2,6 +2,22 @@
 
 Updated: 2026-11-23
 
+## Exterior fog, scene audio and right-click display controls - 2026-11-23
+
+Save, commit and push requested to origin/main. Includes the 51 supplied audio files and their three catalogs. Verification remains with the user; outstanding checks below are unrun. Excludes unrelated battlemap assets/catalog changes, token catalog formatting, scene/blackpearl-whole.geezvtt, and the pre-existing player Effects-menu filter in js/tokens.js.
+
+- Extends fog coverage and brushes to painted exterior floors, including negative coordinates and resized tiles. Preserves signed fog cells on import and the existing grid spacing. Visits imported-map cells and painted tiles without filling empty gaps between distant floor patches.
+- Saves per-scene ambience/music URLs, track volumes and stopped/playing state in portable scenes and shared snapshots/live state. Restores loops on scene entry, retains playback across floor changes, and stops rather than replays one-shot SFX. Adds track-volume controls while preserving each browser's local listening volume. Serialized audio writes skip actions queued for a scene that is no longer active, and playback/save failures remain visible in Soundboard status.
+- Reuses one GM right-click Hide/Reveal, Bring forward and Send backward menu across tokens, props, portals, lights, doors/windows, walls and floor tiles. Orders objects within their existing layer using saved array order, with Undo/Redo and shared/exported persistence. 3D retains physical depth and resolves coplanar order consistently for rendering/picking.
+- Tightens player visibility checks for right-click picking, excludes hidden lights from illumination and fog reveal, synchronizes prop-attached light visibility before calculating player sight, and dims hidden GM objects in 3D without mutating shared materials.
+- Adds unrun regression cases for exterior/signed fog, distant patches, hidden lights, scene-audio persistence, silent defaults and invalid audio values. Updates existing environment expectations to include weather colors.
+- Records the user's decision to omit NPC consumable automation and position locks; other proposed backlog work is deferred.
+- Rebuilds repository indexes at the user's request: 25 ambience tracks, 25 SFX tracks, 1 music track and 428 token images; no new battlemap or scene entries.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or application validation commands were run.
+
+Outstanding: user verification of exterior fog brushes and player sight, signed-cell exports/reloads, all right-click controls and Undo/Redo in 2D/3D/First Person, coplanar ordering, hidden-light behavior, scene audio save/load, floor changes, local versus track volume, one-shot stopping, playback unlock/errors and shared updates. Fog remains cell based. Draw order stays within existing layers; floors remain underneath objects. Scene loops restart on entering a different scene rather than storing a paused playback position. Existing Firebase trusted-group access remains in effect.
+
 ## Prop categories, wall variants, and weather colors saved - 2026-11-23
 
 - Organizes Props into Nature, Rocks & Rubble, Furniture, Storage & Supplies, Travel & Camp, Lights & Fire, Decor & Landmarks, and Dungeon & Ruins. Both the build menu and prop window use the categories.

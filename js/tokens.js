@@ -4,7 +4,7 @@ import { openPanel } from './menu-bar.js';
 import { isGM, canControlPC } from './session-role.js';
 import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
-import { showMapMenu } from './map-object-menu.js';
+import { showMapMenu, objectDisplayItems } from './map-object-menu.js';
 import { triggerMenuItem, interactionMenuItems } from './trigger-controls.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
 import { mountInventoryTools } from './inventory-tools.js';
@@ -256,7 +256,7 @@ function tokenMenu(token, x, y, origin) {
       triggerMenuItem({layer:'tokens',id:token.id}),
       { label: 'Image name...', action: () => pickImage(token) },
       { label: 'Resize...', action: () => floor.dispatchEvent(new CustomEvent('object-resize', { detail: { layer: 'tokens', id: token.id } })) },
-      { label: token.hidden ? 'Show' : 'Hide', action: () => floor.dispatchEvent(new CustomEvent('object-hide', { detail: { layer: 'tokens', id: token.id } })) },
+      ...objectDisplayItems('tokens', token),
       { label: 'Edit token...', action: () => editToken(token) },
       { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
       { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },

@@ -1,5 +1,16 @@
 # GeezVTT to-do
 
+## Exterior fog, scene audio and object display - 2026-11-23
+
+- [x] Extend manual/player fog coverage to painted exterior floors, including negative coordinates and resized tiles. Keep existing fog grid coordinates stable and avoid allocating cells across empty gaps between distant tiles.
+- [x] Remember per-scene ambience/music tracks, track volumes and stopped/playing state in portable scenes and shared state. Entering a scene restores its loops; changing floors does not restart them, and one-shot SFX are stopped rather than replayed. Local listening volume remains per browser.
+- [x] Standardize GM right-click Hide/Reveal, Bring forward and Send backward across tokens, props, portals, lights, doors/windows, walls and floor tiles. Draw order moves one step within the existing layer, survives export/import and sharing, and supports Undo/Redo. In 3D it resolves coplanar ordering while retaining physical depth.
+- [x] Close visibility/picking gaps, exclude hidden lights from player illumination and fog reveal, and show GM-hidden objects dimly in 3D.
+- [x] Rebuild the repository indexes, including the added ambience (25), SFX (25) and music (1) files.
+- [ ] User verification of exterior fog brushes, imported signed cells, lights/vision, new audio settings and scene/floor transitions, playback errors, right-click actions, ordering, Undo/Redo, exports/reloads and GM/player synchronization. New regression cases are unrun.
+
+User scope decision: NPC consumable automation and position locks are not wanted. NPC healing and item removal remain manual GM actions. Other previously discussed backlog items are deferred; they are not part of the current request.
+
 ## Prop categories, walls and weather - 2026-11-23
 
 - [x] Categorized Props with outdoor vegetation, rocks/rubble, storage/camp additions and Lights & Fire. Added SVG icons and procedural 3D meshes; barrels, sacks and carts support compartments.
@@ -33,7 +44,7 @@ Known limits: special potion rules such as charm targets, aerial movement, mind 
 - [x] Variant encumbrance penalties, recognized Powerful Build traits and known-weight capacity enforcement (see latest entry).
 - [x] Configured consumables: Item > Use > target PC > Confirm use. Source consumption and target modifiers save together; target copies expire/end through the existing Effects controls and cannot reactivate for free. Available in the VTT and standalone sheet. Implementation awaits user verification.
 - [x] Instant healing/damage consumables and automatic recognized potion definitions (see latest entry).
-- [ ] Non-PC consumable targets and effect configuration following transferred items.
+- NPC consumable targets declined by the user; resolve NPC healing and item removal manually. Effect configuration following transferred items is deferred.
 
 Current implementation notes: tier loot uses bounded SRD pools and app-defined coin ranges rather than reproducing DMG hoard tables; items without a known reference or custom weight remain explicitly unknown. Compartment taking requires an online GM session and a nearby selected PC. Conditional compartment saves require Firebase write access at `v2/worlds/gaia`; targeted consumables require write access at the entities collection. Existing trusted-group permissions remain in effect.
 
@@ -80,7 +91,7 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 - [ ] Finish repository-relative prop asset support where missing.
 - [x] Add distance measurement, including shared measurement events and distance labels at 5 feet per square. Implementation awaits user verification.
 - [ ] Add adjustable grid scale and offset.
-- [ ] Add object resize controls, locking, hiding/revealing, and layer ordering where missing.
+- [x] Add object resize, consistent hiding/revealing and draw order within each layer. Gameplay door/compartment locks remain; position locks were declined. Implementation awaits user verification.
 - [x] Add shared pings through tabletop session events. Implementation awaits user verification.
 - [x] Add a repository saved-scene library and GM-controlled active scene loading, published to player sessions. Scene files are saved locally and cataloged in the repository; this is not an in-app Firebase scene-library manager. Implementation awaits user verification.
 - [ ] Preserve map/grid configuration, objects, visibility, walls, doors, lights, fog, and audio across scene switches and reconnects.
@@ -94,7 +105,7 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 - [ ] Separate current visibility, remembered exploration, manual reveals, and hidden-object state; preserve exploration per player.
 - [ ] Add GM preview of an individual player's view.
 - [x] Keep hidden tokens and props out of the player's revealed view.
-- [ ] Extend fog coverage to painted floors outside the imported image, including negative coordinates.
+- [x] Extend fog coverage to painted floors outside the imported image, including negative coordinates. Implementation awaits user verification.
 - [ ] Decide whether finer fog boundaries are needed; current reveal and light obstruction use fog-cell centers and larger cells on large maps.
 - [ ] Address consistency between fog obstruction and 3D lighting: fog tests all blocking walls/closed doors, while only eight eligible point lights currently cast visual shadows.
 - [ ] Define the privacy boundary for player data; the current visual fog overlay is not access control.
@@ -113,7 +124,7 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 - [x] Add per-character journals and selectively pushed handouts; existing trusted-group Firebase access applies.
 - [x] Add repository ambience/music/SFX catalogs and a GM soundboard with one-shots and looping audio.
 - [x] Synchronize playback controls and retain local player volume.
-- [ ] Save audio settings per scene; current shared playback persists across scene changes.
+- [x] Save ambience/music choices, track volumes and stopped/playing state per scene; restore loops on entry and stop one-shot SFX. Implementation awaits user verification.
 - [ ] Add campaign export/import backups in addition to existing portable scene files.
 - [ ] Finish collapsible character, journal, asset, and soundboard panels and combat initiative presentation.
 - [ ] Confirm GitHub Pages hosting/deployment setup and asset paths for the integrated application.

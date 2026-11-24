@@ -11,11 +11,12 @@ import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, 
 import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
+import { sceneAudio } from './scene-audio-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
 import { playerDestination } from './player-actions.js';
 import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
-import { showMapMenu, closeMapMenu } from './map-object-menu.js';
+import { showMapMenu, closeMapMenu, objectDisplayItems } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
 import { PROPS, PROP_CATEGORIES, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
@@ -122,12 +123,12 @@ function settings() {
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
-  const canSee=visibilityFor({...floor.tabletopMap,tokens:model.tokens,walls:model.walls,doors:model.doors,lights:model.lights});
   model.lights=model.lights.filter(light=>!light.propId || model.props.some(prop=>prop.id===light.propId));
   for(const light of model.lights) if(light.propId) {
     const prop=model.props.find(prop=>prop.id===light.propId);
     Object.assign(light,{x:prop.x,y:prop.y,hidden:prop.hidden});
   }
+  const canSee=visibilityFor({...floor.tabletopMap,tokens:model.tokens,walls:model.walls,doors:model.doors,lights:model.lights});
   for(const name of ['floors','walls','doors','lights','props','portals','tokens']) {
     const group=$(name); group.replaceChildren();
     const ids=new Set();
@@ -688,7 +689,7 @@ function portalMenu(id,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const portal=model.portals.find(item=>item.id===id);
-  if(!portal) return;
+  if(!portal || !visibleObject(floor.tabletopMap,portal)) return;
   if(!isGM) { const actions=!portal.hidden && interactionMenuItems(objectRef('portals',portal)); if(actions?.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{
     if(!model.portals.includes(portal)) return;
@@ -699,7 +700,7 @@ function portalMenu(id,x,y,origin) {
     ...interactionMenuItems(objectRef('portals',portal)),
     {label:'Use',disabled:!portalDestination(portalEntries(),portal),action:()=>usePortal(portal)},
     {label:'Add light',action:()=>change(()=>addObjectLight(portal))},
-    {label:portal.hidden?'Show':'Hide',action:()=>change(()=>{portal.hidden=!portal.hidden;})},
+    ...objectDisplayItems('portals',portal),
     {label:'Delete',action:()=>change(()=>{model.portals=model.portals.filter(item=>item!==portal);})},
     {label:'Change icon…',action:()=>iconMenu(x,y,icon=>change(()=>{portal.icon=icon;}),origin,true)}
   ],origin);
@@ -708,14 +709,14 @@ function lightMenu(index,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const light=model.lights[index];
-  if(!light) return;
+  if(!light || !visibleObject(floor.tabletopMap,light)) return;
   if(!isGM) { const actions=!light.hidden && interactionMenuItems(objectRef('lights',light)); if(actions?.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{ if(!model.lights.includes(light)) return; remember(); update(); render(); };
   showMapMenu(x,y,[
     triggerMenuItem(objectRef('lights',light)), resizeMenuItem('lights',light),
     ...interactionMenuItems(objectRef('lights',light)),
     {label:light.off?'Turn on':'Turn off',action:()=>change(()=>{light.off=!light.off; fireInteraction('lights',light);})},
-    {label:light.hidden?'Show':'Hide',action:()=>change(()=>{light.hidden=!light.hidden;})},
+    ...objectDisplayItems('lights',light),
     {label:'Light settings...',action:()=>editLight(light)},
     {label:'Change icon…',action:()=>iconMenu(x,y,icon=>{
       if(!model.lights.includes(light)) return;
@@ -730,7 +731,7 @@ function lightMenu(index,x,y,origin) {
 function doorMenu(index,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const door=model.doors[index];
-  if(!door || door.hidden && !isGM) return;
+  if(!door || !visibleObject(floor.tabletopMap,door)) return;
   if(!isGM) {
     showMapMenu(x,y,[{label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))}],origin); return;
   }
@@ -743,7 +744,7 @@ function doorMenu(index,x,y,origin) {
     triggerMenuItem(objectRef('doors',door)), resizeMenuItem('doors',door),
     {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))},
     {label:door.locked?'Unlock':'Lock',disabled:door.type==='window',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
-    {label:door.hidden?'Show':'Hide',action:()=>change(()=>{door.hidden=!door.hidden;})},
+    ...objectDisplayItems('doors',door),
     {label:'Add light',action:()=>change(()=>addObjectLight({x:(door.points[0].x+door.points[1].x)/2,y:(door.points[0].y+door.points[1].y)/2}))},
     {label:'Delete',action:()=>change(()=>{model.doors=model.doors.filter(item=>item!==door);})}
   ],origin);
@@ -752,14 +753,14 @@ function floorMenu(index,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const tile=model.floors[index];
-  if(!tile) return;
+  if(!tile || !visibleObject(floor.tabletopMap,tile)) return;
   if(!isGM) { const actions=interactionMenuItems(objectRef('floors',tile)); if(actions.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{
     if(!model.floors.includes(tile)) return;
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('floors',tile)), resizeMenuItem('floors',tile), {label:tile.hidden?'Show':'Hide',action:()=>change(()=>{tile.hidden=!tile.hidden;})},
+    triggerMenuItem(objectRef('floors',tile)), resizeMenuItem('floors',tile), ...objectDisplayItems('floors',tile),
     {label:'Change material...',action:()=>showMapMenu(x,y,MATERIAL_LAYERS.floors.map(material=>({
       label:material,action:()=>change(()=>{tile.material=material;})
     })),origin)},
@@ -769,8 +770,9 @@ function floorMenu(index,x,y,origin) {
 function wallMenu(index,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const wall=model.walls[index];
-  if(!wall) return;
-  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall)),resizeMenuItem('walls',wall),{label:wall.hidden?'Show':'Hide',action:()=>{remember(); wall.hidden=!wall.hidden; render();}}]:[]),...interactionMenuItems(objectRef('walls',wall))];
+  if(!wall || !visibleObject(floor.tabletopMap,wall)) return;
+  cancelGesture();
+  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall)),resizeMenuItem('walls',wall),...objectDisplayItems('walls',wall)]:[]),...interactionMenuItems(objectRef('walls',wall))];
   if(actions.length) showMapMenu(x,y,actions,origin);
 }
 async function fillCompartment(prop,tier) {
@@ -802,11 +804,11 @@ function propMenu(id,x,y,origin) {
   if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const prop=model.props.find(item=>item.id===id);
-  if(!prop || (!isGM && prop.hidden)) return;
+  if(!prop || !visibleObject(floor.tabletopMap,prop)) return;
   if(['lever','button'].includes(prop.kind) && !hasCompartment(prop)) {
     showMapMenu(x,y,[{label:prop.open?'Toggle off':'Toggle on',action:()=>requestObjectInteraction(objectRef('props',prop))},
       ...(isGM?[triggerMenuItem(objectRef('props',prop)), resizeMenuItem('props',prop),
-        {label:prop.hidden?'Show':'Hide',action:()=>{remember(); prop.hidden=!prop.hidden; render();}},
+        ...objectDisplayItems('props',prop),
         {label:'Rotate 90°',action:()=>{remember(); prop.rotation=(prop.rotation+90)%360; render();}},
         {label:'Delete',action:()=>{remember(); model.props=model.props.filter(item=>item!==prop); render();}}]:[])],origin); return;
   }
@@ -831,7 +833,7 @@ function propMenu(id,x,y,origin) {
     triggerMenuItem(objectRef('props',prop)), resizeMenuItem('props',prop),
     ...(!hasCompartment(prop)?interactionMenuItems(objectRef('props',prop)):[]),
     {label:'Delete',action:()=>change(()=>{model.props=model.props.filter(item=>item!==prop);})},
-    {label:prop.hidden?'Show':'Hide',action:()=>change(()=>{prop.hidden=!prop.hidden;})},
+    ...objectDisplayItems('props',prop),
     {label:'Change icon...',action:()=>showMapMenu(x,y,Object.entries(PROPS).map(([kind,entry])=>({
       label:entry.name,icon:propIcon(kind),action:()=>change(()=>{prop.icon=`prop:${kind}`;})
     })),origin)},
@@ -862,10 +864,10 @@ onMapRightClick(svg,event=>{
   if(model.tokens.some(token=>visibleObject(floor.tabletopMap,token) && Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
   const portal=model.portals.findLast(item=>{
     const appearance=propAppearance(item);
-    return (!item.hidden || showHiddenPortals()) && (appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=.42*(item.size || 1));
+    return visibleObject(floor.tabletopMap,item) && (appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=.42*(item.size || 1));
   });
   if(portal) { portalMenu(portal.id,event.clientX,event.clientY,svg); return; }
-  const prop=model.props.findLast(item=>(!item.hidden || showHiddenProps()) && propDistance(item,p)===0);
+  const prop=model.props.findLast(item=>visibleObject(floor.tabletopMap,item) && propDistance(item,p)===0);
   if(prop) { propMenu(prop.id,event.clientX,event.clientY,svg); return; }
   const matrix=svg.getScreenCTM();
   let best=9/Math.max(.001,Math.hypot(matrix.a,matrix.b)), index=-1;
@@ -876,14 +878,14 @@ onMapRightClick(svg,event=>{
   });
   if(index>=0) { doorMenu(index,event.clientX,event.clientY,svg); return; }
   const lightIndex=model.lights.findLastIndex(item=>{
-    if(item.hidden && !isGM) return false;
+    if(item.propId || !visibleObject(floor.tabletopMap,item)) return false;
     const appearance=propAppearance(item);
     return appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=Math.max(.12,best);
   });
   if(lightIndex>=0) { lightMenu(lightIndex,event.clientX,event.clientY,svg); return; }
-  const wallIndex=model.walls.findLastIndex(wall=>segments(wall.points).some(([a,b])=>distance(p,a,b)<=best));
+  const wallIndex=model.walls.findLastIndex(wall=>visibleObject(floor.tabletopMap,wall) && segments(wall.points).some(([a,b])=>distance(p,a,b)<=best));
   if(wallIndex>=0) { wallMenu(wallIndex,event.clientX,event.clientY,svg); return; }
-  const floorIndex=model.floors.findLastIndex(tile=>Math.abs(p.x-tile.x)<=(tile.size || 1)/2 && Math.abs(p.y-tile.y)<=(tile.size || 1)/2);
+  const floorIndex=model.floors.findLastIndex(tile=>visibleObject(floor.tabletopMap,tile) && Math.abs(p.x-tile.x)<=(tile.size || 1)/2 && Math.abs(p.y-tile.y)<=(tile.size || 1)/2);
   if(floorIndex>=0) floorMenu(floorIndex,event.clientX,event.clientY,svg);
 });
 $('floors').addEventListener('keydown',event=>{
@@ -982,9 +984,21 @@ floor.addEventListener('object-resize',event=>{
   catch(error) { window.alert(error.message); }
 });
 floor.addEventListener('object-hide',event=>{
-  if(!isGM || !model || floor.equipmentBusy) return;
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  cancelGesture();
   const object=model[event.detail.layer]?.find(item=>item.id===event.detail.id);
-  if(object) { remember(); object.hidden=!object.hidden; render(); }
+  if(object) { remember(); object.hidden=!object.hidden; selected.clear(); render(); }
+});
+floor.addEventListener('object-order',event=>{
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  const {layer,id,step}=event.detail;
+  if(!['floors','walls','doors','lights','props','portals','tokens'].includes(layer) || ![-1,1].includes(step)) return;
+  cancelGesture();
+  const objects=model[layer], index=objects.findIndex(object=>object.id===id), next=index+step;
+  if(index<0 || next<0 || next>=objects.length) return;
+  remember();
+  [objects[index],objects[next]]=[objects[next],objects[index]];
+  selected.clear(); render();
 });
 function resizeMenuItem(layer,object) {
   return {label:'Resize...',action:()=>floor.dispatchEvent(new CustomEvent('object-resize',{detail:{layer,id:object.id}}))};
@@ -1234,7 +1248,7 @@ floor.addEventListener('map-ready',()=>{
   gesture=null; chain=[]; hover=null; clearPreview();
   const imported=floor.tabletopMap, raw=floor.sourceMap;
   const saved=raw.geezvtt_editor;
-  imported.environment=environmentSettings(saved?.environment,imported);
+  imported.environment=environmentSettings(saved?.environment,{...imported,floors:saved?.floors || []});
   const sceneEnvironment=environmentSettings(floor.sceneDocument.environment || imported.environment,imported);
   floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather,weatherColor:sceneEnvironment.weatherColor};
   Object.assign(imported.environment,floor.sceneDocument.environment);
@@ -1282,7 +1296,7 @@ export function serializeMap() {
   return raw;
 }
 export function sharedMapState() {
-  return { ...geometry(), environment: clone(floor.tabletopMap.environment), initiative: initiativeState(floor.tabletopMap.initiative,model.tokens) };
+  return { ...geometry(), audio: sceneAudio(floor.sceneDocument.audio), environment: clone(floor.tabletopMap.environment), initiative: initiativeState(floor.tabletopMap.initiative,model.tokens) };
 }
 export function applySharedMap(state) {
   if(isGM || !model || !state) return;
@@ -1292,6 +1306,7 @@ export function applySharedMap(state) {
   }
   for(const key of ['floors','walls','doors','lights','tokens','portals','props']) model[key]=clone(state[key] || []);
   model.triggers=importedTriggers(state.triggers);
+  floor.sceneDocument.audio=sceneAudio(state.audio);
   floor.tabletopMap.environment=environmentSettings(state.environment,model);
   floor.tabletopMap.initiative=initiativeState(state.initiative,model.tokens);
   render();

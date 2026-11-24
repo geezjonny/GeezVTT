@@ -5,6 +5,14 @@ objectMenu.setAttribute('role', 'menu');
 objectMenu.setAttribute('aria-label', 'Object actions');
 document.body.append(objectMenu);
 let menuOrigin;
+export function objectDisplayItems(layer,object) {
+  const dispatch=(type,extra={})=>document.getElementById('floor').dispatchEvent(new CustomEvent(type,{detail:{layer,id:object.id,...extra}}));
+  return [
+    {label:object.hidden?'Reveal':'Hide',action:()=>dispatch('object-hide')},
+    {label:'Bring forward',action:()=>dispatch('object-order',{step:1})},
+    {label:'Send backward',action:()=>dispatch('object-order',{step:-1})}
+  ];
+}
 export function closeMapMenu() {
   objectMenu.hidePopover();
 }

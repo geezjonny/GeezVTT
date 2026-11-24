@@ -1,6 +1,7 @@
 import { openPanel } from './menu-bar.js';
 import { isGM, playerIdentity } from './session-role.js';
 import { watchTabletop } from './tabletop-stream.js';
+import { SCENE_AUDIO_CHANNELS, sceneAudio } from './scene-audio-model.js';
 
 const $ = id => document.getElementById(id), floor = $('floor');
 const base = `${window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '')}/v2/worlds/gaia/vtt`;
@@ -116,8 +117,12 @@ window.addEventListener('pagehide', stopHandouts, { once: true });
 
 const channels = new Map();
 let audioState = {}, audioEnabled = false;
+const audioForms=new Map();
+let audioDocument, audioFormState, audioWrites=Promise.resolve();
+const channelVolume=state=>Number($('sound-volume').value)*(Number.isFinite(state?.volume)?Math.max(0,Math.min(1,state.volume)):1);
 try { $('sound-volume').value = localStorage.getItem('geezvtt-volume') ?? '.7'; } catch { /* Local storage may be disabled. */ }
 function validAudio(url) {
+  if(typeof url!=='string' || !url.trim() || url.length>2048) return false;
   try { const value = new URL(url, location.href); return ['https:', 'http:'].includes(value.protocol); } catch { return false; }
 }
 async function syncChannel(name, state) {
@@ -126,11 +131,12 @@ async function syncChannel(name, state) {
   let channel = channels.get(name);
   if (channel?.id !== state.id) {
     channel?.element.pause();
-    const element = new Audio(state.url); element.loop = name !== 'sfx'; element.volume = Number($('sound-volume').value);
+    const element = new Audio(state.url); element.loop = name !== 'sfx';
     channel = { id: state.id, element }; channels.set(name, channel);
     element.addEventListener('error', () => { $('soundboard-status').textContent = `Cannot load ${name}.`; });
     element.addEventListener('loadedmetadata', () => seek(element, state));
   }
+  channel.element.volume=channelVolume(state);
   seek(channel.element, state);
   if (!channel.element.loop && Number.isFinite(channel.element.duration) && (Date.now()-state.started)/1000 >= channel.element.duration) return;
   try { await channel.element.play(); $('soundboard-status').textContent = 'Playing'; }
@@ -150,24 +156,95 @@ $('sound-enable').addEventListener('click', () => {
   syncAudio();
 });
 $('sound-volume').addEventListener('input', () => {
-  for (const channel of channels.values()) channel.element.volume = Number($('sound-volume').value);
+  for (const [name,channel] of channels) channel.element.volume = channelVolume(audioState[name]);
   try { localStorage.setItem('geezvtt-volume', $('sound-volume').value); } catch { /* Local storage may be disabled. */ }
 });
 const stopAudio = watchTabletop('audio', value => { audioState = value || {}; syncAudio(); }, message => { $('soundboard-status').textContent = message; });
 const syncTimer = setInterval(() => { if (audioEnabled) for (const [name, channel] of channels) if (audioState[name]) seek(channel.element, audioState[name]); }, 5000);
 window.addEventListener('pagehide', () => { stopAudio(); clearInterval(syncTimer); for (const channel of channels.values()) channel.element.pause(); }, { once: true });
+function publishAudio(path,value,document=floor.sceneDocument,method='PUT') {
+  const task=audioWrites.then(async()=>{
+    if(document!==floor.sceneDocument) return;
+    await write(path,value,method);
+    if(document!==floor.sceneDocument) return;
+    if(path==='audio') audioState=value;
+    else audioState={...audioState,[path.slice(6)]:method==='PATCH'?{...audioState[path.slice(6)],...value}:value};
+    syncAudio();
+  });
+  audioWrites=task.catch(error=>{$('soundboard-status').textContent=error.message;});
+  return task;
+}
+function rememberAudio(name,settings) {
+  if(!SCENE_AUDIO_CHANNELS.includes(name) || !floor.sceneDocument) return;
+  floor.sceneDocument.audio=sceneAudio({...floor.sceneDocument.audio,[name]:settings});
+  floor.dispatchEvent(new Event('scene-audio-changed'));
+}
+function audioFormValues() {
+  const settings=sceneAudio(floor.sceneDocument?.audio);
+  const signature=JSON.stringify(settings);
+  if(audioFormState===signature) return;
+  audioFormState=signature;
+  for(const [name,form] of audioForms) if(settings[name]) {
+    form.elements.url.value=settings[name].url;
+    form.elements.volume.value=settings[name].volume;
+  }
+}
+function loadSceneAudio() {
+  const document=floor.sceneDocument;
+  if(!document || audioDocument===document) return;
+  audioDocument=document;
+  audioFormState=null;
+  document.audio=sceneAudio(document.audio);
+  audioFormValues();
+  if(!isGM) return;
+  const restored={sfx:{stopped:true}};
+  for(const name of SCENE_AUDIO_CHANNELS) {
+    const settings=document.audio[name];
+    restored[name]={...settings,id:crypto.randomUUID(),started:Date.now()};
+  }
+  audioState=restored; syncAudio();
+  publishAudio('audio',restored,document).catch(()=>{});
+}
 if (isGM) for (const name of ['ambience', 'sfx', 'music']) {
   const form = document.createElement('form');
   form.innerHTML = `<label>${name[0].toUpperCase() + name.slice(1)}<input name="url" list="${name}-tracks" placeholder="Audio URL" required></label><datalist id="${name}-tracks"></datalist><button type="submit">Play</button><button type="button">Stop</button>`;
+  if(SCENE_AUDIO_CHANNELS.includes(name)) {
+    const label=document.createElement('label'), input=document.createElement('input');
+    label.textContent='Track volume'; input.type='range'; input.name='volume'; input.min='0'; input.max='1'; input.step='.05'; input.value='1';
+    label.append(input); form.insertBefore(label,form.querySelector('button')); audioForms.set(name,form);
+    form.elements.url.addEventListener('change',()=>{
+      if(!floor.sceneDocument) return;
+      const old=sceneAudio(floor.sceneDocument.audio)[name];
+      if(!form.elements.url.value.trim()) {
+        const settings={...old,url:'',stopped:true};
+        rememberAudio(name,settings); publishAudio(`audio/${name}`,settings).catch(()=>{}); return;
+      }
+      if(!validAudio(form.elements.url.value)) { $('soundboard-status').textContent='Choose an audio URL.'; return; }
+      const url=new URL(form.elements.url.value,location.href).href;
+      rememberAudio(name,{...old,url,stopped:old.url!==url || old.stopped});
+    });
+    input.addEventListener('change',()=>{
+      if(!floor.sceneDocument) return;
+      const volume=Number(input.value), settings={...sceneAudio(floor.sceneDocument.audio)[name],volume};
+      rememberAudio(name,settings);
+      publishAudio(`audio/${name}`,{volume},floor.sceneDocument,'PATCH').catch(()=>{});
+    });
+  }
   form.addEventListener('submit', async event => {
     event.preventDefault();
+    if(SCENE_AUDIO_CHANNELS.includes(name) && !floor.sceneDocument) { $('soundboard-status').textContent='Load a scene first.'; return; }
     if (!validAudio(form.elements.url.value)) { $('soundboard-status').textContent = 'Choose an audio URL.'; return; }
     audioEnabled = true;
-    try { await write(`audio/${name}`, { id: crypto.randomUUID(), url: new URL(form.elements.url.value, location.href).href, started: Date.now() }); }
+    const url=new URL(form.elements.url.value,location.href).href, volume=form.elements.volume?Number(form.elements.volume.value):1;
+    rememberAudio(name,{url,volume,stopped:false});
+    try { await publishAudio(`audio/${name}`, { id: crypto.randomUUID(), url, volume, stopped:false, started: Date.now() }); }
     catch (error) { $('soundboard-status').textContent = error.message; }
   });
   form.querySelector('[type="button"]').addEventListener('click', async () => {
-    try { await write(`audio/${name}`, { stopped: true }); } catch (error) { $('soundboard-status').textContent = error.message; }
+    if(SCENE_AUDIO_CHANNELS.includes(name) && !floor.sceneDocument) return;
+    const settings={...sceneAudio(floor.sceneDocument?.audio)[name],stopped:true};
+    rememberAudio(name,settings);
+    try { await publishAudio(`audio/${name}`, settings); } catch (error) { $('soundboard-status').textContent = error.message; }
   });
   $('soundboard-tracks').append(form);
   fetch(`${name}/index.json`, { cache: 'no-cache' }).then(async response => {
@@ -178,3 +255,6 @@ if (isGM) for (const name of ['ambience', 'sfx', 'music']) {
     $(`${name}-tracks`).replaceChildren(...options);
   }).catch(error => { $('soundboard-status').textContent = error.message; });
 }
+floor.addEventListener('map-ready',loadSceneAudio);
+floor.addEventListener('map-changed',audioFormValues);
+if(floor.tabletopMap) loadSceneAudio();

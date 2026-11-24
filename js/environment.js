@@ -1,7 +1,7 @@
 import { viewersFor, visibleObject } from './player-vision.js';
 import { openPanel } from './menu-bar.js';
 import './map-editor.js';
-import { TIMES, WEATHER_COLORS, fogSize, fogRectangles } from './environment-model.js';
+import { TIMES, WEATHER_COLORS, fogSize, fogBounds, fogRectangles } from './environment-model.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), map = $('map-view'), panel = $('environment-panel');
@@ -46,9 +46,10 @@ function paint(event) {
   const matrix = map.getScreenCTM();
   if (!matrix) return;
   const model = floor.tabletopMap, size = fogSize(model);
+  const bounds=fogBounds(model), left=Math.floor(bounds.left/size), top=Math.floor(bounds.top/size), right=Math.ceil(bounds.right/size), bottom=Math.ceil(bounds.bottom/size);
   const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-  const x = Math.max(-1, Math.min(Math.ceil(model.width / size), Math.floor(p.x / size)));
-  const y = Math.max(-1, Math.min(Math.ceil(model.height / size), Math.floor(p.y / size)));
+  const x = Math.max(left-1, Math.min(right, Math.floor(p.x / size)));
+  const y = Math.max(top-1, Math.min(bottom, Math.floor(p.y / size)));
   const previous = stroke.point || { x, y };
   stroke.point = { x, y };
   const cells = new Set(model.environment.fog.cells);
@@ -56,7 +57,7 @@ function paint(event) {
   for (let i = 0; i <= steps; i++) {
     const cx = Math.round(previous.x + (x - previous.x) * i / steps);
     const cy = Math.round(previous.y + (y - previous.y) * i / steps);
-    if (cx < 0 || cy < 0 || cx * size >= model.width || cy * size >= model.height) continue;
+    if (cx < left || cy < top || cx >= right || cy >= bottom) continue;
     const key = `${cx},${cy}`;
     if ((stroke.tool === 'reveal') === model.environment.fog.covered) cells.add(key);
     else cells.delete(key);

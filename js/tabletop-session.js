@@ -94,7 +94,7 @@ async function flushChanges() {
       sceneId = crypto.randomUUID();
       signature = sceneSignature();
       const scene = { format: 'geezvtt', version: 2, name: $('scene-name').value.trim() || 'Untitled scene',
-        floors: floor.sceneDocument.floors, activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment };
+        floors: floor.sceneDocument.floors, activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment, audio: floor.sceneDocument.audio };
       const publishingId = sceneId;
       await write('scene', { id: publishingId, scene });
       if (sceneId !== publishingId) { dirty = true; return; }

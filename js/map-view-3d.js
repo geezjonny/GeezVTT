@@ -129,7 +129,7 @@ export function createMapView3D(host) {
     const rect = renderer.domElement.getBoundingClientRect();
     raycaster.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1,
       -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)],true)[0];
+    const hit = raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.props.children, ...groups.doors.children, ...groups.walls.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)],true).sort((a,b)=>Math.abs(a.distance-b.distance)<1e-6?b.object.renderOrder-a.object.renderOrder:a.distance-b.distance)[0];
     if (hit?.object.userData.tokenId) host.closest('#floor').dispatchEvent(new CustomEvent('token-menu', {
       detail: { id: hit.object.userData.tokenId, x: event.clientX, y: event.clientY }
     }));
@@ -182,7 +182,7 @@ export function createMapView3D(host) {
   }
   function tabletopHit(event) {
     aim(event);
-    return raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
+    return raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)], true).sort((a,b)=>Math.abs(a.distance-b.distance)<1e-6?b.object.renderOrder-a.object.renderOrder:a.distance-b.distance)[0]?.object.userData;
   }
   function previewToken(id, point) {
     const mesh = groups.tokens.children.find(item => item.userData.tokenId === id);
@@ -414,7 +414,7 @@ export function createMapView3D(host) {
       ...prop,...(prop.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(prop,token)===0)}:{}),kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
     }));
     model.lights.forEach((light,index)=>{
-      if(light.propId || (light.hidden && !isGM)) return;
+      if(light.propId || !canSee(light)) return;
       const appearance=propAppearance(light);
       if(appearance) groups.lightMarkers.add(appearanceMesh({...appearance,lightColor:light.color},'lightIndex',index));
       else {
@@ -488,13 +488,28 @@ export function createMapView3D(host) {
       group.traverse(object => { object.userData.tokenId = token.id; });
       groups.tokens.add(group);
     }
+    for(const name of ['floors','walls','doors','props','portals','tokens','lightMarkers']) {
+      groups[name].children.forEach((object,index)=>object.traverse(child=>{
+        child.renderOrder=index+1;
+        const data=child.userData;
+        const hidden=data.wallIndex!==undefined?model.wallHidden?.[data.wallIndex]:
+          data.doorIndex!==undefined?model.doors[data.doorIndex]?.hidden:
+          data.floorIndex!==undefined?model.floors[data.floorIndex]?.hidden:
+          data.lightIndex!==undefined?model.lights[data.lightIndex]?.hidden:
+          model[name]?.find(item=>item.id===(data.tokenId || data.portalId || data.propId))?.hidden;
+        if(isGM && hidden && child.material) {
+          child.material=child.material.clone(); child.material.transparent=true;
+          child.material.opacity*=.3; child.material.depthWrite=false; child.castShadow=false;
+        }
+      }));
+    }
     // Dispose materials for degenerate segments which produced no mesh.
-    const used = new Set();
-    root.traverse(object => { if (object.material) used.add(object.material); });
-    materials.forEach(value => { if (!used.has(value)) { value.map?.dispose(); value.dispose(); } });
+    const used = new Set(), usedTextures = new Set();
+    root.traverse(object => { if (object.material) { used.add(object.material); if(object.material.map) usedTextures.add(object.material.map); } });
+    materials.forEach(value => { if (!used.has(value)) { if(!usedTextures.has(value.map)) value.map?.dispose(); value.dispose(); } });
     const strength = light => light.off ? 0 : Math.max(0, Number.isFinite(light.intensity) ? light.intensity : 1) *
       THREE.MathUtils.clamp(Number.isFinite(light.opacity) ? light.opacity : 1, 0, 1);
-    const lights = model.lights.filter(light => strength(light) > 0 && Number.isFinite(light.range) && light.range > 0);
+    const lights = model.lights.filter(light => (isGM || !light.hidden) && strength(light) > 0 && Number.isFinite(light.range) && light.range > 0);
     // shortcut: only the eight strongest eligible lights cast shadows; use tiled lighting for larger scenes.
     const shadowLights = new Set(lights.filter(light => light.source?.shadows !== false)
       .sort((a, b) => strength(b) - strength(a)).slice(0, 8));

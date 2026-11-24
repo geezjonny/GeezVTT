@@ -37,6 +37,7 @@ document.getElementById('open-scene').addEventListener('click', async () => {
 name.addEventListener('input', () => { name.setCustomValidity(''); changed(); });
 floor.addEventListener('map-changed', () => { if (!floor.changingMap) changed(); });
 floor.addEventListener('environment-changed', () => { if (!floor.changingMap) changed(); });
+floor.addEventListener('scene-audio-changed', () => { if (!floor.changingMap) changed(); });
 floor.captureFloor = () => {
   floor.sceneDocument.floors[floor.activeFloorIndex].map = serializeMap();
 };
@@ -166,7 +167,7 @@ async function saveScene(asNewFile = false) {
   saving = save.disabled = saveAs.disabled = true;
   try {
     floor.captureFloor();
-    const scene = { format: 'geezvtt', version: 2, name: name.value.trim(), activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment, floors: floor.sceneDocument.floors };
+    const scene = { format: 'geezvtt', version: 2, name: name.value.trim(), activeFloorIndex: floor.activeFloorIndex, environment: floor.sceneDocument.environment, audio: floor.sceneDocument.audio, floors: floor.sceneDocument.floors };
     const blob = new Blob([JSON.stringify(scene)], { type: 'application/json' });
     const filename = scene.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') + '.geezvtt';
     let handle = asNewFile ? null : floor.sceneFileHandle;

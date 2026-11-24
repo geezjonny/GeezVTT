@@ -1,1 +1,102 @@
-[]
+[
+    {
+        "file": "arrows.mp3",
+        "name": "arrows"
+    },
+    {
+        "file": "creepy_scream.mp3",
+        "name": "creepy scream"
+    },
+    {
+        "file": "crying_baby.mp3",
+        "name": "crying baby"
+    },
+    {
+        "file": "dice_roll.mp3",
+        "name": "dice roll"
+    },
+    {
+        "file": "dinosaur_roar.mp3",
+        "name": "dinosaur roar"
+    },
+    {
+        "file": "door_close.mp3",
+        "name": "door close"
+    },
+    {
+        "file": "door_open.mp3",
+        "name": "door open"
+    },
+    {
+        "file": "dragon_roar.mp3",
+        "name": "dragon roar"
+    },
+    {
+        "file": "explosion.mp3",
+        "name": "explosion"
+    },
+    {
+        "file": "footsteps.mp3",
+        "name": "footsteps"
+    },
+    {
+        "file": "giant_steps.mp3",
+        "name": "giant steps"
+    },
+    {
+        "file": "iron_gate.mp3",
+        "name": "iron gate"
+    },
+    {
+        "file": "monster_growl.mp3",
+        "name": "monster growl"
+    },
+    {
+        "file": "portcullis.mp3",
+        "name": "portcullis"
+    },
+    {
+        "file": "robot_walk.mp3",
+        "name": "robot walk"
+    },
+    {
+        "file": "thunder_1.mp3",
+        "name": "thunder 1"
+    },
+    {
+        "file": "thunder_2.mp3",
+        "name": "thunder 2"
+    },
+    {
+        "file": "thunder_3.mp3",
+        "name": "thunder 3"
+    },
+    {
+        "file": "thunder_4.mp3",
+        "name": "thunder 4"
+    },
+    {
+        "file": "trap_clank.mp3",
+        "name": "trap clank"
+    },
+    {
+        "file": "war_horn.mp3",
+        "name": "war horn"
+    },
+    {
+        "file": "wind_gust.mp3",
+        "name": "wind gust"
+    },
+    {
+        "file": "wood_creak.mp3",
+        "name": "wood creak"
+    },
+    {
+        "file": "zombie.mp3",
+        "name": "zombie"
+    },
+    {
+        "file": "zombie_screams.mp3",
+        "name": "zombie screams"
+    }
+]

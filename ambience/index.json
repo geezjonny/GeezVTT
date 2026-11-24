@@ -1,1 +1,102 @@
-[]
+[
+    {
+        "file": "blizzard.mp3",
+        "name": "blizzard"
+    },
+    {
+        "file": "cave_tone.mp3",
+        "name": "cave tone"
+    },
+    {
+        "file": "cavewind.mp3",
+        "name": "cavewind"
+    },
+    {
+        "file": "cemetery_wind.mp3",
+        "name": "cemetery wind"
+    },
+    {
+        "file": "drip_1.mp3",
+        "name": "drip 1"
+    },
+    {
+        "file": "drip_2.mp3",
+        "name": "drip 2"
+    },
+    {
+        "file": "drip_3.mp3",
+        "name": "drip 3"
+    },
+    {
+        "file": "drip_4.mp3",
+        "name": "drip 4"
+    },
+    {
+        "file": "drip_5.mp3",
+        "name": "drip 5"
+    },
+    {
+        "file": "drip_6.mp3",
+        "name": "drip 6"
+    },
+    {
+        "file": "dry_thunder.mp3",
+        "name": "dry thunder"
+    },
+    {
+        "file": "eerie.mp3",
+        "name": "eerie"
+    },
+    {
+        "file": "fire_crackling.mp3",
+        "name": "fire crackling"
+    },
+    {
+        "file": "fire_small.mp3",
+        "name": "fire small"
+    },
+    {
+        "file": "firecrackle.mp3",
+        "name": "firecrackle"
+    },
+    {
+        "file": "forest_day.mp3",
+        "name": "forest day"
+    },
+    {
+        "file": "night_insects.mp3",
+        "name": "night insects"
+    },
+    {
+        "file": "rain_heavy.mp3",
+        "name": "rain heavy"
+    },
+    {
+        "file": "rain_light.mp3",
+        "name": "rain light"
+    },
+    {
+        "file": "rain_roof.mp3",
+        "name": "rain roof"
+    },
+    {
+        "file": "tavern_murmur.mp3",
+        "name": "tavern murmur"
+    },
+    {
+        "file": "water_lap.mp3",
+        "name": "water lap"
+    },
+    {
+        "file": "wind_howl.mp3",
+        "name": "wind howl"
+    },
+    {
+        "file": "wind_light.mp3",
+        "name": "wind light"
+    },
+    {
+        "file": "wind_strong.mp3",
+        "name": "wind strong"
+    }
+]
