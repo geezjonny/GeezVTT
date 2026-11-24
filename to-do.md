@@ -1,5 +1,11 @@
 # GeezVTT to-do
 
+## Floor painting - 2026-11-23
+
+- [x] Single-click floor painting, hold/drag painting with interpolated cells, repainting existing floor materials, one Undo/Redo entry per stroke and cancelled-stroke rollback.
+- [x] Enable floor/wall/door material palettes in 3D and activate Build mode from the selected palette. Keep Left Shift-click room filling.
+- [ ] User verification of material switching, 2D/3D strokes, fast and diagonal drags, negative coordinates, cancellation, Undo/Redo, room filling and live updates. Regression cases are unrun.
+
 ## Exterior fog, scene audio and object display - 2026-11-23
 
 - [x] Extend manual/player fog coverage to painted exterior floors, including negative coordinates and resized tiles. Keep existing fog grid coordinates stable and avoid allocating cells across empty gaps between distant tiles.

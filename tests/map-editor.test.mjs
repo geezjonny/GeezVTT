@@ -1,6 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { segments, cutDoorOpening, distance, crosses, inBox, bucketCells } from '../js/map-editor-model.js';
+import { segments, cutDoorOpening, distance, crosses, inBox, bucketCells, floorBrushCells, paintFloorTiles } from '../js/map-editor-model.js';
+
+test('floor brush clicks paint one cell and fast drags fill intermediate cells',()=>{
+  assert.deepEqual(floorBrushCells({x:.5,y:.5},{x:.5,y:.5}),[{x:.5,y:.5}]);
+  assert.deepEqual(floorBrushCells({x:-1.5,y:.5},{x:2.5,y:.5}),[
+    {x:-1.5,y:.5},{x:-.5,y:.5},{x:.5,y:.5},{x:1.5,y:.5},{x:2.5,y:.5}
+  ]);
+  assert.deepEqual(floorBrushCells({x:2.5,y:2.5},{x:.5,y:.5}),[{x:2.5,y:2.5},{x:1.5,y:1.5},{x:.5,y:.5}]);
+  assert.throws(()=>floorBrushCells({x:0,y:0},{x:2001,y:0}),/shorter/);
+});
+
+test('floor painting changes existing materials without duplicating tiles or losing metadata',()=>{
+  const tile={id:'floor-1',x:.5,y:.5,material:'stone',size:1,hidden:true};
+  const tiles=[tile], cells=floorBrushCells({x:.5,y:.5},{x:1.5,y:.5});
+  assert.equal(paintFloorTiles(tiles,cells,'grass'),true);
+  assert.equal(tiles.length,2);
+  assert.equal(tiles[0],tile);
+  assert.deepEqual(tile,{id:'floor-1',x:.5,y:.5,material:'grass',size:1,hidden:true});
+  assert.equal(paintFloorTiles(tiles,cells,'grass'),false);
+  assert.equal(tiles.length,2);
+});
 
 test('door openings split overlapping walls while preserving material and unrelated walls',()=>{
   const wall={points:[{x:0,y:0},{x:4,y:0}],material:'brick'};

@@ -2,6 +2,18 @@
 
 Updated: 2026-11-23
 
+## Floor brush and 3D material selection saved - 2026-11-23
+
+- Makes a floor-paint click apply the selected material to one grid cell, and holding/dragging paint continuously in 2D and 3D. Interpolates cells between pointer events, including negative coordinates, so fast drags do not leave gaps. Floor painting aligns to grid cells; other placement tools retain their existing snap behavior.
+- Repaints existing matching-center floor tiles instead of ignoring them, preserving IDs and other tile metadata. Repeated painting with the same material is a no-op.
+- Captures the pointer for the stroke, groups each completed stroke into one Undo/Redo edit, and rolls back cancelled strokes. Left Shift-click room filling remains available.
+- Enables material palettes when a map is loaded in 3D; activating a palette in 3D enters Build mode. Previously, disabled fieldsets prevented changing floor material.
+- Adds unrun regression cases for single-cell clicks, interpolated/negative-coordinate drags, repainting existing tiles, repeated no-op painting, preserved metadata and bounded stroke spans.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or application validation commands were run.
+
+Outstanding: user verification of selecting materials in 2D/3D, single-cell painting, continuous strokes, fast/diagonal drags, release outside the map, cancellation, Undo/Redo, Shift-click room fill, exterior floors and live synchronization. The earlier exterior-fog/audio/display-controls commit was pushed as 6a4064b. These floor fixes follow the same save/commit/push request; unrelated workspace edits remain excluded.
+
 ## Exterior fog, scene audio and right-click display controls - 2026-11-23
 
 Save, commit and push requested to origin/main. Includes the 51 supplied audio files and their three catalogs. Verification remains with the user; outstanding checks below are unrun. Excludes unrelated battlemap assets/catalog changes, token catalog formatting, scene/blackpearl-whole.geezvtt, and the pre-existing player Effects-menu filter in js/tokens.js.

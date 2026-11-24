@@ -15,7 +15,7 @@ function start(layer) {
 }
 for(const button of buttons) {
   const layer=button.dataset.buildLayer;
-  if(layer==='floors') button.title='Floors: click to place; Left Shift-click to fill a room';
+  if(layer==='floors') button.title='Floors: click to paint one cell; hold and drag to paint; Left Shift-click to fill a room';
   const swatches=['walls','floors','doors'].includes(layer)?$(`${layer}-panel`):null;
   if(swatches) {
     button.setAttribute('aria-controls',swatches.id);

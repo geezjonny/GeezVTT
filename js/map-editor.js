@@ -7,7 +7,7 @@ import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
 import { COIN_TYPES } from './inventory-model.js';
 import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
-import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
+import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType, floorBrushCells, paintFloorTiles } from './map-editor-model.js';
 import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
@@ -32,7 +32,7 @@ const host=$('view-3d');
 const showHiddenPortals=()=>isGM || !panel.hidden && !$('portals-panel').hidden && layer()==='portals';
 const showHiddenProps=()=>isGM || !panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
-let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture;
+let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture, floorStroke;
 let pendingPortal, travelling=false, leftShift=false;
 window.addEventListener('keydown',event=>{if(event.code==='ShiftLeft') leftShift=true;});
 window.addEventListener('keyup',event=>{if(event.code==='ShiftLeft') leftShift=false;});
@@ -259,7 +259,8 @@ function point(event,snap=false) {
   const p=svg.hidden?tabletopPoint(event):new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!p) return null;
   if(!snap) return {x:p.x,y:p.y};
-  if(['floors','portals','props'].includes(layer()) && !drawingWire()) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
+  if(layer()==='floors') return {x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};
+  if(['portals','props'].includes(layer()) && !drawingWire()) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
   if(snap && (layer()==='walls' || drawingWire())) {
     const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
@@ -356,7 +357,10 @@ function paint(p) {
     render(); return;
   }
   const props=settings();
-  if(layer()==='floors' && model.floors.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<.01)) return;
+  if(layer()==='floors') {
+    if(model.floors.some(tile=>Math.hypot(tile.x-p.x,tile.y-p.y)<.01 && tile.material===props.material)) return;
+    remember(); paintFloorTiles(model.floors,[p],props.material); render(); return;
+  }
   if(pointLayer() && !drawingWire()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
   else if(!chain.length || Math.hypot(chain.at(-1).x-p.x,chain.at(-1).y-p.y)>.00001) { chain.push(p); if(floor.buildLayer==='doors' && chain.length===2) placeChain(); else drawPreview(); }
 }
@@ -391,6 +395,38 @@ function bucket(p,room=false) {
   }
   render(); message(`Filled area with ${fresh.length} ${layer()}.`);
 }
+function startFloorStroke(event) {
+  if(floorStroke) return;
+  const p=point(event,true);
+  if(!p) return;
+  floorStroke={pointerId:event.pointerId,target:event.currentTarget,point:p,material:settings().material,before:geometry(),changed:false};
+  floorStroke.target.setPointerCapture(event.pointerId);
+  continueFloorStroke(event);
+}
+function continueFloorStroke(event) {
+  if(!floorStroke || event.pointerId!==floorStroke.pointerId) return;
+  const p=point(event,true);
+  if(!p) return;
+  const cells=floorBrushCells(floorStroke.point,p);
+  floorStroke.point=p;
+  if(paintFloorTiles(model.floors,cells,floorStroke.material)) {
+    floorStroke.changed=true; render();
+  }
+}
+function finishFloorStroke(event) {
+  if(!floorStroke || event.pointerId!==floorStroke.pointerId) return;
+  const stroke=floorStroke; floorStroke=null;
+  if(stroke.target.hasPointerCapture(stroke.pointerId)) stroke.target.releasePointerCapture(stroke.pointerId);
+  if(stroke.changed) { undo.push(stroke.before); if(undo.length>50) undo.shift(); redo=[]; buttons(); }
+}
+window.addEventListener('pointermove',event=>{
+  if(!floorStroke) return;
+  if(!(event.buttons&1)) { finishFloorStroke(event); return; }
+  attempt(()=>continueFloorStroke(event));
+});
+window.addEventListener('pointerup',finishFloorStroke);
+window.addEventListener('lostpointercapture',event=>{if(event.target===floorStroke?.target) finishFloorStroke(event);});
+window.addEventListener('blur',cancelGesture);
 host.addEventListener('pointermove',event=>{
   if(!isGM || !model || !floor.buildLayer || host.hidden) return;
   const raw=point(event);
@@ -406,6 +442,7 @@ host.addEventListener('pointerdown',event=>{
   event.preventDefault(); host.querySelector('canvas').focus({preventScroll:true});
   attempt(()=>{
     if(floor.buildLayer==='floors' && leftShift && event.shiftKey) bucket(raw,true);
+    else if(layer()==='floors') startFloorStroke(event);
     else paint(point(event,true));
   });
   hover=point(event,true); drawPreview();
@@ -422,7 +459,7 @@ svg.addEventListener('pointerdown',event=>{
     attempt(()=>bucket(p,true)); return;
   }
   if(tool()==='paint' || tool()==='bucket') {
-    attempt(()=>tool()==='paint'?paint(point(event,true)):bucket(p)); return;
+    attempt(()=>tool()==='paint'?(layer()==='floors'?startFloorStroke(event):paint(point(event,true))):bucket(p)); return;
   }
   gesture={start:p,screen:{x:event.clientX,y:event.clientY},index,shift:event.shiftKey,box:!(tool()==='select' && selected.has(index) && !event.shiftKey),before:null};
   svg.setPointerCapture(event.pointerId);
@@ -483,6 +520,11 @@ svg.addEventListener('pointerup',event=>{
   } else attempt(()=>apply(indices,tool()));
 });
 function cancelGesture() {
+  if(floorStroke) {
+    const stroke=floorStroke; floorStroke=null;
+    if(stroke.target.hasPointerCapture(stroke.pointerId)) stroke.target.releasePointerCapture(stroke.pointerId);
+    if(stroke.changed && model) { Object.assign(model,stroke.before); render(); }
+  }
   if(gesture?.before) { Object.assign(model,gesture.before); render(false); }
   gesture=null; chain=[]; hover=null; clearPreview();
 }
@@ -1170,7 +1212,7 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
 for(const swatches of document.querySelectorAll('[data-swatch-layer]')) {
   const activate=event=>{
     if(event.target.closest('.editor-close') || swatches.querySelector('fieldset').disabled || layer()===swatches.dataset.swatchLayer) return;
-    if(floor.buildLayer) {
+    if(floor.buildLayer || svg.hidden) {
       floor.dispatchEvent(new CustomEvent('build-start',{detail:swatches.dataset.swatchLayer}));
       return;
     }
@@ -1267,7 +1309,7 @@ floor.addEventListener('map-ready',()=>{
     if(typeof id==='string' && id && id.length<=100) object.id=id;
   });
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
-  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled && !fieldset.closest('#tokens-panel'); });
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=false; });
   imported.initiative=initiativeState(saved?.initiative,model.tokens);
   updateTools(); render();
   $('edit-export').disabled=false;
@@ -1277,7 +1319,7 @@ function viewState() {
   stopBuild(); closeMapMenu();
   const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
   cancelGesture(); controls.disabled=!model || on;
-  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=!model || on && !fieldset.closest('#tokens-panel'); });
+  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=!model; });
   if(on) message('Use Build controls to place objects in 3D.'); else if(model) updateTools();
 }
 new MutationObserver(viewState).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});

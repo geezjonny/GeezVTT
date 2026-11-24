@@ -16,6 +16,25 @@ export const MATERIAL_LAYERS = {
   walls: ['wooden fence','iron fence','barricade','broken wall','wood','stone','cobble','brick','metal','sandstone','limestone','marble','plaster','timber','mossy stone','cave','hedge','ice','obsidian','burnt wood']
 };
 export const clone = value => JSON.parse(JSON.stringify(value));
+export function floorBrushCells(from,to) {
+  const steps=Math.ceil(Math.max(Math.abs(to.x-from.x),Math.abs(to.y-from.y)));
+  if(steps>2000) throw new Error('Paint a shorter floor stroke.');
+  return Array.from({length:steps+1},(_,index)=>{
+    const t=steps?index/steps:0;
+    return {x:Math.floor(from.x+(to.x-from.x)*t)+.5,y:Math.floor(from.y+(to.y-from.y)*t)+.5};
+  });
+}
+export function paintFloorTiles(tiles,cells,material) {
+  let changed=false;
+  for(const cell of cells) {
+    const tile=tiles.find(tile=>Math.hypot(tile.x-cell.x,tile.y-cell.y)<.01);
+    if(tile?.material===material) continue;
+    if(tile) tile.material=material;
+    else tiles.push({...cell,material});
+    changed=true;
+  }
+  return changed;
+}
 export function portalType(portal) {
   return ['door','window'].includes(portal?.geezvtt_type) ? portal.geezvtt_type : portal?.closed === false ? 'window' : 'door';
 }
