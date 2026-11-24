@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 import subprocess
 
-from update_indexes import update_index
+from update_indexes import update_indexes
 
 
 def git(root, *args, capture=False):
@@ -21,9 +21,7 @@ def publish(root, message):
     git(root, "remote", "get-url", "origin", capture=True)
     if git(root, "ls-files", "--unmerged", capture=True):
         raise ValueError("Resolve merge conflicts before pushing.")
-    for directory, extension in (("battlemap", ".dd2vtt"), ("scene", ".geezvtt")):
-        count = update_index(root / directory, extension)
-        print(f"{directory}/index.json: added {count}", flush=True)
+    update_indexes(root)
     changes = git(root, "status", "--short", capture=True)
     if changes:
         with (root / "progress.md").open("a", encoding="utf-8") as progress:

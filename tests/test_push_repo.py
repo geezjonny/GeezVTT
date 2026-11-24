@@ -26,8 +26,9 @@ class PushRepoTest(unittest.TestCase):
                     raise subprocess.CalledProcessError(1, ["git", *args])
                 return ""
 
-            with patch("push_repo.git", side_effect=fake_git), patch("push_repo.update_index", return_value=0):
+            with patch("push_repo.git", side_effect=fake_git), patch("push_repo.update_indexes") as update:
                 with self.assertRaises(subprocess.CalledProcessError):
                     publish(root, "Save changes")
+                update.assert_called_once_with(root)
         self.assertIn(("add", "--all"), calls)
         self.assertFalse(any(args[0] == "push" for args in calls))

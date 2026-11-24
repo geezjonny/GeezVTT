@@ -50,7 +50,7 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 ## 3. Finish the playable tabletop milestone
 
 - [x] Load repository battlemap and saved-scene catalogs through the Load library, with local file opening also available. Implementation awaits user verification.
-- [x] Add repository token PNG assets and `token/index.json`, with `update_token_index.py` to rebuild the filename catalog. Initiative portraits match lowercase names with underscores; missing images retain letters. Implementation awaits user verification.
+- [x] Add repository token PNG assets and `token/index.json`, with `update_indexes.py` to rebuild the filename catalog alongside battlemap and scene indexes. Initiative portraits match lowercase names with underscores; missing images retain letters. Implementation awaits user verification.
 - [ ] Add a token image picker and render token portraits on the map; finish repository-relative prop asset support where missing.
 - [x] Add distance measurement, including shared measurement events and distance labels at 5 feet per square. Implementation awaits user verification.
 - [ ] Add adjustable grid scale and offset.

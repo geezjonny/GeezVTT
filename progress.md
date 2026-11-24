@@ -599,3 +599,13 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 Known limits: existing role conventions and Firebase rules govern access. Feat descriptions do not automatically resolve healing, attacks, or other unconfigured mechanics. Stealth disadvantage is labeled but must still be selected in Dice Controls. Skill grids retain full names and may wrap in the standard-width panel; visual verification is pending.
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+## Index updater consolidation saved - 2026-11-23
+
+- Consolidates token, battlemap, and scene scanning in `update_indexes.py`; run `python update_indexes.py` from any working directory.
+- Retains sorted image filenames for tokens and append-only map/scene entries, preserving existing labels and metadata. Retains atomic replacement of each index file.
+- Routes `push_repo.py` through the shared three-directory updater, removes the separate token updater, updates the to-do reference, and consolidates regression cases.
+
+Verification is left to the user. No tests, updater execution, browser checks, or other application validation commands were run. Outstanding work: run the regression cases and verify index generation and the publish workflow. Commands using `update_token_index.py` must switch to `update_indexes.py`.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+

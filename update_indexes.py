@@ -1,12 +1,19 @@
-"""Run python update_indexes.py to append new battlemap and scene files."""
+"""Run python update_indexes.py to update token, battlemap, and scene indexes."""
 
 import json
 from pathlib import Path
 import tempfile
 
 
-def update_index(folder, extension):
+def update_index(folder, extension=None):
     index = folder / "index.json"
+    if extension is None:
+        entries = sorted(
+            file.name for file in folder.iterdir()
+            if file.is_file() and file.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
+        )
+        write_index(index, entries)
+        return len(entries)
     entries = json.loads(index.read_text(encoding="utf-8-sig")) if index.exists() else []
     if not isinstance(entries, list) or any(
         not isinstance(entry, dict) or not isinstance(entry.get("file"), str)
@@ -20,23 +27,32 @@ def update_index(folder, extension):
             entries.append({"file": file.name, "name": file.stem.replace("_", " ").replace("-", " ")})
             added += 1
     if added or not index.exists():
-        temporary = None
-        try:
-            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=folder, delete=False) as output:
-                temporary = Path(output.name)
-                output.write(json.dumps(entries, indent=4, ensure_ascii=False) + "\n")
-            temporary.replace(index)
-        finally:
-            if temporary is not None:
-                temporary.unlink(missing_ok=True)
+        write_index(index, entries)
     return added
+
+
+def write_index(index, entries):
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=index.parent, delete=False) as output:
+            temporary = Path(output.name)
+            output.write(json.dumps(entries, indent=4, ensure_ascii=False) + "\n")
+        temporary.replace(index)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def update_indexes(root):
+    for directory, extension in (("token", None), ("battlemap", ".dd2vtt"), ("scene", ".geezvtt")):
+        count = update_index(root / directory, extension)
+        status = f"{count} images" if extension is None else f"added {count}"
+        print(f"{directory}/index.json: {status}", flush=True)
 
 
 if __name__ == "__main__":
     root = Path(__file__).resolve().parent
     try:
-        for directory, extension in (("battlemap", ".dd2vtt"), ("scene", ".geezvtt")):
-            count = update_index(root / directory, extension)
-            print(f"{directory}/index.json: added {count}")
+        update_indexes(root)
     except (OSError, ValueError) as error:
         raise SystemExit(str(error))
