@@ -1225,7 +1225,7 @@ floor.addEventListener('map-ready',()=>{
     props:importedProps(saved?.props),
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,size:Number.isFinite(o.size) && o.size>=.25 && o.size<=20?o.size:1,hidden:o.hidden===true,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,hidden:saved?.wallHidden?.[i]===true,material:saved?.wallMaterials?.[i]}))),
-    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),hidden:d.source?.geezvtt_hidden===true,locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.source?.geezvtt_locked!==true && d.open,material:saved?.doorMaterials?.[i]})),
+    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),hidden:d.source?.geezvtt_hidden===true,locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l,propId:typeof l.source?.geezvtt_prop_id==='string'?l.source.geezvtt_prop_id:null,hidden:l.source?.geezvtt_hidden===true,off:l.source?.geezvtt_off===true,icon:propAppearance({icon:l.source?.geezvtt_icon})?l.source.geezvtt_icon:''})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));

@@ -35,7 +35,7 @@ export function mountTriggers(getMap, change, stopEditing) {
     const effect = $('trigger-effect').value;
     $('trigger-state-label').hidden = effect !== 'state';
     $('trigger-damage-fields').hidden = effect !== 'damage';
-    $('trigger-move-fields').hidden = effect !== 'move';
+    $('trigger-move-fields').hidden = effect !== 'move' && effect !== 'spawn';
   }
   function pick(mode) {
     stopEditing(); closeMapMenu(); picking = mode;
@@ -106,7 +106,9 @@ export function mountTriggers(getMap, change, stopEditing) {
         x:$('trigger-x').value === '' ? NaN : Number($('trigger-x').value),y:$('trigger-y').value === '' ? NaN : Number($('trigger-y').value)});
       const target=triggerObject(getMap(),rule.target);
       if(rule.effect==='state' && rule.target.layer==='doors' && target.type==='window') throw new Error('Choose a door instead of a window.');
-      if(rule.effect==='move' && rule.target.layer==='tokens' && (rule.x<target.size/2 || rule.y<target.size/2 || rule.x>getMap().width-target.size/2 || rule.y>getMap().height-target.size/2)) throw new Error('Token destination must stay within the map.');
+      if(rule.effect==='spawn' && target.kind==='pc') throw new Error('Choose a prop or NPC token to spawn.');
+      if(rule.effect==='spawn' && (rule.x<0 || rule.y<0 || rule.x>getMap().width || rule.y>getMap().height)) throw new Error('Spawn destination must stay within the map.');
+      if(['move','spawn'].includes(rule.effect) && rule.target.layer==='tokens' && (rule.x<target.size/2 || rule.y<target.size/2 || rule.x>getMap().width-target.size/2 || rule.y>getMap().height-target.size/2)) throw new Error('Token destination must stay within the map.');
       if (!getMap().triggers.some(item => item.id === rule.id) && getMap().triggers.length >= 256) throw new Error('Maximum 256 connections per floor.');
       change(() => { getMap().triggers = getMap().triggers.filter(item => item.id !== rule.id); getMap().triggers.push(rule); });
       reset(); $('session-status').textContent = 'Trigger saved.';

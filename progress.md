@@ -677,3 +677,16 @@ Save, commit, and push requested to origin/main. Leave the unrelated scene/black
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: exercise opening/closing and switching material windows, scrolling/resizing, placement in 2D/3D, and New blank scene from Scene Controls. Earlier verification items remain outstanding.
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
+## Trigger visibility, lever-controlled doors, and spawning saved - 2026-11-23
+
+- Adds Reveal, Hide, and Toggle visibility effects for every connectable object layer, using existing hidden state and retaining fog/player vision rules.
+- Allows door state triggers to open or toggle locked doors while preserving their locked flag. Direct player opening remains blocked by the lock. Loading a scene preserves doors that are both locked and open.
+- Adds Spawn for connected props and NPC tokens, reusing the destination picker. Each activation creates one visible copy with a fresh ID and independent nested data; prop lights are copied and linked to the new prop. The original remains in place. PC spawning and out-of-map destinations are rejected.
+- Adds regression coverage for visibility effects and import round trips, locked-door trigger behavior, spawn copies and attached lights, repeated activations, and invalid spawn targets/destinations.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: exercise the effects in GM/player sessions and 2D/3D views; verify fog/vision, lever-only door opening and save/reload, spawn destinations, copied prop contents/lights, repeated spawns, and live synchronization. Earlier verification items remain outstanding.
+
+Known limits: existing door triggers can now bypass door locks. Spawn creates one copy per activation and can stack copies at the same destination; it does not copy trigger connections or linked stair/ladder portals. PC spawning is excluded.
+
+Save, commit, and push requested to origin/main. Leave the unrelated js/tokens.js and scene/blackpearl-whole.geezvtt modifications out of this commit.

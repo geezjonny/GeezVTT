@@ -13,7 +13,7 @@ export function triggerName(map, ref) {
 }
 export function triggerRule(rule) {
   if (!rule || !validRef(rule.source) || !validRef(rule.target) || !['collision', 'interact'].includes(rule.event)) throw new Error('Choose two objects and a trigger.');
-  if (!['state', 'damage', 'move'].includes(rule.effect)) throw new Error('Choose an effect.');
+  if (!['state', 'damage', 'move', 'spawn', 'reveal', 'hide', 'toggle-visibility'].includes(rule.effect)) throw new Error('Choose an effect.');
   const result = { id: rule.id, source: { layer:rule.source.layer,id:rule.source.id }, target: { layer:rule.target.layer,id:rule.target.id }, event: rule.event, effect: rule.effect };
   if (typeof result.id !== 'string' || !/^[\w-]{1,100}$/.test(result.id)) throw new Error('Invalid connection ID.');
   if (rule.effect === 'state') {
@@ -24,7 +24,7 @@ export function triggerRule(rule) {
     if (typeof rule.damage !== 'string') throw new Error('Enter fixed damage or a dice formula.');
     buildExpressionRoll(rule.damage, 'normal', () => 1);
     result.damage = rule.damage.trim(); result.damageTarget = rule.damageTarget;
-  } else {
+  } else if (rule.effect === 'move' || rule.effect === 'spawn') {
     if (!['props', 'tokens'].includes(rule.target.layer) || !Number.isFinite(rule.x) || !Number.isFinite(rule.y) || Math.abs(rule.x) > 10000 || Math.abs(rule.y) > 10000) throw new Error('Choose a prop/token and a destination.');
     result.x = rule.x; result.y = rule.y;
   }
@@ -78,13 +78,24 @@ export function activateTriggers(map, event, sources, actor) {
       if (rule.effect === 'damage') {
         const token = rule.damageTarget === 'self' ? activation.actor : rule.target.layer === 'tokens' ? target : null;
         damage.push({ token, formula: rule.damage });
-      } else if (rule.effect === 'move') {
+      } else if (rule.effect === 'move' || rule.effect === 'spawn') {
         if (rule.target.layer === 'tokens' && (rule.x < target.size/2 || rule.y < target.size/2 || rule.x > map.width-target.size/2 || rule.y > map.height-target.size/2)) continue;
+        if (rule.effect === 'spawn') {
+          if (target.kind === 'pc' || rule.x < 0 || rule.y < 0 || rule.x > map.width || rule.y > map.height) continue;
+          const copy = { ...structuredClone(target), id: crypto.randomUUID(), x: rule.x, y: rule.y, hidden: false };
+          map[rule.target.layer].push(copy);
+          if (rule.target.layer === 'props') for (const light of map.lights.filter(light => light.propId === target.id)) {
+            map.lights.push({ ...structuredClone(light), id: crypto.randomUUID(), propId: copy.id, x: copy.x, y: copy.y, hidden: false });
+          }
+          continue;
+        }
         const before = {x:target.x,y:target.y};
         const portal = rule.target.layer === 'props' && ['ladder','stairs'].includes(target.kind) && map.portals?.find(portal => Math.hypot(portal.x-target.x,portal.y-target.y)<.5);
         target.x = rule.x; target.y = rule.y;
         if (portal) { portal.x = target.x; portal.y = target.y; }
         if (rule.target.layer === 'tokens') for (const ref of collisionSources(map,target,before,[target])) queue.push({event:'collision',source:ref,actor:target});
+      } else if (['reveal', 'hide', 'toggle-visibility'].includes(rule.effect)) {
+        target.hidden = rule.effect === 'toggle-visibility' ? !target.hidden : rule.effect === 'hide';
       } else if (rule.target.layer === 'lights') {
         target.off = rule.state === 'toggle' ? !target.off : rule.state === 'close';
       } else {
@@ -94,7 +105,8 @@ export function activateTriggers(map, event, sources, actor) {
           if (target.locked) target.open = false;
         } else {
           const open = rule.state === 'toggle' ? !target.open : rule.state === 'open';
-          if (!open || !target.locked) target.open = open;
+          // Door mechanisms bypass the lock without unlocking direct interaction.
+          if (!open || !target.locked || rule.target.layer === 'doors') target.open = open;
         }
       }
     }
