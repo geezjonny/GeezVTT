@@ -2,6 +2,18 @@
 
 Updated: 2026-11-24
 
+## Direct chains-to-NPC connection flow saved - 2026-11-24
+
+- Simplifies minigame2.html setup to place NPC, place chains, then Connect chains > NPC and lever > chains. Chains can be selected as a connection source and highlight while selected. Existing links remain visible while connecting, including unlocked chains.
+- Connecting an NPC enables AI automatically, defaults to Enemy, preserves an existing Friendly disposition, bypasses separate wake-door setup and supplies 1 HP if the NPC has zero HP. Locked chains still prevent movement and capture. Repeating the chain-to-NPC connection disconnects it.
+- Keeps NPCs at their displayed position during attachment, retains shared updates and undo/redo, rejects PC attachment, and makes Connect clicks select connection sources rather than dragging triggers. Updates the Connect tooltip and adds an unrun regression case for the direct workflow.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run.
+
+Outstanding: user verification of chains > NPC and lever > chains, locked movement/freeze prevention, unlock activation, friendly disposition preservation, overlapping objects, reconnect/disconnect, undo/redo and multiplayer synchronization. Earlier NPC movement verification remains outstanding.
+
+Save, commit and push requested to origin/main. Include only this connection-flow change, its regression case and this progress update; leave unrelated workspace changes uncommitted.
+
 ## Zombie Horde role rework saved - 2026-11-24
 
 - GM setup form on minigame.html (campaign, party, roles, speed). Ashara: touch heal (hold Space near allies) plus arrow-key glyph stance with notes. Liora: teleport-slash stance. Lark and Rurik: shared always-on metronome; cutting words (typing, on-beat bonus) and hold person (arrows on beat, WASD to walk). Rurik's pitch game and inspiration buff were removed.

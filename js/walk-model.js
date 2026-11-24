@@ -121,6 +121,14 @@ export function activateNPCAI(token, disposition) {
   token.walkAI = walkAIProperties({ door: -1, chain: token.walkAI?.chain ?? null, disposition });
   token.hp = Math.max(1, token.hp);
 }
+export function connectNPCChain(chainId, tokenId) {
+  const chain = world.chains.find(c => c.id === chainId), token = world.tokens.find(t => t.id === tokenId);
+  if (!chain || !token || token.kind === 'pc' || token.walkDeleted) throw new Error('Connect chains to an NPC token.');
+  if (token.walkAI?.chain === chainId) { token.walkAI.chain = null; return false; }
+  activateNPCAI(token, token.walkAI?.disposition || 'enemy');
+  token.walkAI.chain = chainId;
+  return true;
+}
 // Doors wired to a lever or plate can't be opened by hand and don't shut by themselves.
 export const lockedDoors = () => new Set(world.triggers.flatMap(t => t.doors));
 

@@ -11,7 +11,7 @@ import { watchTabletop } from './tabletop-stream.js';
 import { hordeBase, serverNow, syncClock } from './horde-sync.js';
 import { MATERIAL_LAYERS, bucketCells, cutDoorOpening, distance, eraseStrokeIndices, floorBrushCells, inBox, paintFloorTiles } from './map-editor-model.js';
 import { materialCanvas, materialURL } from './material-textures.js';
-import { RADIUS, activateNPCAI, cleanMapEdit, movePlacedObject, moveTrigger, removeWalkTokens, syncPropTrigger } from './walk-model.js';
+import { RADIUS, activateNPCAI, cleanMapEdit, connectNPCChain, movePlacedObject, moveTrigger, removeWalkTokens, syncPropTrigger } from './walk-model.js';
 import { closeMapMenu, showMapMenu } from './map-object-menu.js';
 import { readPuzzle, savePuzzle } from './walk-puzzle.js';
 import { importedProps, propCorners, propDistance } from './prop-model.js';
@@ -225,7 +225,7 @@ function checkPlates() {
   }
   standingOn.clear(); now.forEach(id => standingOn.add(id));
 }
-// GM clicks while a tool is chosen. Connect: click a lever or plate, then click doors to wire or unwire them.
+// Connect chains to NPCs, and levers/plates to doors or chains. Repeating a link disconnects it.
 function editClick(event) {
   if (!currentMap || stroke || pan || event.button !== 0) return;
   const p = canvasPoint(event), hit = nearestTrigger(p.x, p.y, 0.6);
@@ -257,14 +257,24 @@ function editClick(event) {
     commitEdit(before);
   } else if (tool === 'connect') {
     const door = nearestDoor(p.x, p.y, 0.6), picked = world.triggers.find(t => t.id === selected);
-    const chain = placedHit(p, ['chains']);
-    if (hit) selected = hit.id;
+    const chain = placedHit(p, ['chains']), pickedChain = world.chains.find(c => c.id === selected), npc = placedHit(p, ['tokens']);
+    if (pickedChain && npc) {
+      const token = npc.object;
+      if (token.kind === 'pc') { $('walk-editor-status').textContent = 'Connect chains to an NPC token.'; return; }
+      const position = tokenPosition(token);
+      Object.assign(before.tokens.find(t => t.id === token.id), { x: position.x, y: position.y });
+      token.x = position.x; token.y = position.y; token.walkMovedAt = serverNow();
+      connectNPCChain(pickedChain.id, token.id);
+      selectWalkObject('tokens', token); commitEdit(before);
+    }
     else if (chain && picked) {
       const links = picked.chains || [];
       picked.chains = links.includes(chain.object.id) ? links.filter(id => id !== chain.object.id) : [...links, chain.object.id];
       if (!picked.chains.length) delete picked.chains;
       commitEdit(before);
     }
+    else if (chain) selected = chain.object.id;
+    else if (hit) selected = hit.id;
     else if (door >= 0 && picked) { picked.doors = picked.doors.includes(door) ? picked.doors.filter(d => d !== door) : [...picked.doors, door]; commitEdit(before); }
     else selected = null;
   }
@@ -646,7 +656,7 @@ canvas.addEventListener('pointerdown', event => {
       }
     }
   }
-  if (isGM && currentMap && !pan && event.button === 0 && !$('walk-editor').hidden && (!tool || ['move', 'lever', 'plate', 'connect'].includes(tool) || MATERIAL_LAYERS[tool] && paintAction === 'select')) {
+  if (isGM && currentMap && !pan && event.button === 0 && !$('walk-editor').hidden && (!tool || ['move', 'lever', 'plate'].includes(tool) || MATERIAL_LAYERS[tool] && paintAction === 'select')) {
     const p = canvasPoint(event), hit = nearestTrigger(p.x, p.y, 0.6);
     if (hit) {
       cancelStroke(); selected = hit.id; selection.clear();
@@ -1053,11 +1063,12 @@ function drawTrigger(t, standing) {
 }
 function drawChains(chain) {
   const p = project(chain.x, chain.y), x = origin.x + p.x, y = origin.y + p.y;
+  if (chain.id === selected) { ctx.beginPath(); ctx.arc(x, y, 27, 0, Math.PI * 2); ctx.lineWidth = 3; ctx.strokeStyle = '#a2cbff'; ctx.stroke(); }
   ctx.save(); ctx.translate(x, y); ctx.lineWidth = 3; ctx.strokeStyle = chain.locked ? '#dfb872' : '#91bca8';
   for (const offset of [-11, 0, 11]) { ctx.beginPath(); ctx.ellipse(offset, 0, 9, 5, offset === 0 ? -0.6 : 0.6, 0, Math.PI * 2); ctx.stroke(); }
   if (chain.locked) { ctx.fillStyle = '#dfb872'; ctx.fillRect(-5, 7, 10, 9); ctx.beginPath(); ctx.arc(0, 7, 4, Math.PI, 0); ctx.stroke(); }
   ctx.restore(); ctx.textAlign = 'center'; ctx.font = '10px system-ui'; ctx.fillStyle = chain.locked ? '#dfb872' : '#91bca8'; ctx.fillText(chain.locked ? 'Locked' : 'Unlocked', x, y + 29);
-  if (chain.locked) for (const token of world.tokens) if (token.walkAI?.chain === chain.id && !token.walkDeleted) {
+  if (chain.locked || isGM && tool === 'connect') for (const token of world.tokens) if (token.walkAI?.chain === chain.id && !token.walkDeleted) {
     const q = tokenPosition(token), b = project(q.x, q.y);
     ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.strokeStyle = '#b6a186'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(origin.x + b.x, origin.y + b.y); ctx.stroke(); ctx.setLineDash([]);
   }
