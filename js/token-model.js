@@ -27,7 +27,7 @@ export function walkAIProperties(value) {
   if (!value || typeof value !== 'object' || !Number.isInteger(value.door) || value.door < -1 || value.door > 19999) throw new Error('Choose a wake door for NPC AI.');
   if (value.chain != null && (typeof value.chain !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(value.chain))) throw new Error('Choose a chain for NPC AI.');
   if (value.disposition != null && !['enemy', 'friendly'].includes(value.disposition)) throw new Error('Choose enemy or friendly NPC AI.');
-  return { door: value.door, chain: value.chain ?? null, disposition: value.disposition ?? 'enemy' };
+  return { door: value.door, chain: value.chain ?? null, disposition: value.disposition ?? 'enemy', ...(value.disabled === true ? { disabled: true } : {}) };
 }
 
 function pcStats(hpMax, ac) {

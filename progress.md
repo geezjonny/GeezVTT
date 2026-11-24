@@ -2,6 +2,17 @@
 
 Updated: 2026-11-24
 
+## Right-click NPC AI activation saved - 2026-11-24
+
+- Adds GM right-click token > Activate AI > Enemy/Friendly, plus Deactivate AI for configured NPCs. Activation starts immediately rather than waiting for a wake door, preserves chain attachments, and keeps the NPC at its displayed position. Locked chains still prevent movement and capture. Explicitly activating a zero-HP NPC gives it 1 HP; NPCs with positive HP keep their current HP.
+- Reuses shared map updates, undo/redo and the existing token settings controls. Adds an unrun activation regression case covering disposition, chain/identity preservation, zero HP and invalid/PC selection.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run.
+
+Outstanding: user verification of the right-click menu, activation/deactivation, disposition changes, movement, chains, HP behavior, undo/redo and shared updates. Earlier NPC movement and verification backlogs remain applicable.
+
+The preceding NPC AI commit e110942 is saved locally; GitHub rejected two push attempts with an internal server error. Include this follow-up with the pending requested push to origin/main. Leave unrelated workspace changes uncommitted.
+
 ## NPC AI, chains and GM token actions saved - 2026-11-24
 
 - Adds GM right-click Activate/Reset lever, Delete token, Release PC and Set HP actions to minigame2.html while preserving right-drag panning. PC deletion uses a map-only marker so automatic stand-ins do not immediately reappear; character sheets remain intact and deletion supports undo.

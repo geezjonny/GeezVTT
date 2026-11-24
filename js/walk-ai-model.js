@@ -3,7 +3,7 @@ import { doorIsOpen, hitsWall, lineOfSight, move, world } from './walk-model.js'
 export const npcSpec = token => JSON.stringify([token.x, token.y, token.walkMovedAt || 0, token.walkAI]);
 const point = p => p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.y >= 0 && p.x <= world.w && p.y <= world.h;
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-export const activeNPC = token => token.kind !== 'pc' && token.hp > 0 && !token.walkDeleted && !token.hidden && !!token.walkAI;
+export const activeNPC = token => token.kind !== 'pc' && token.hp > 0 && !token.walkDeleted && !token.hidden && !!token.walkAI && !token.walkAI.disabled;
 
 export function npcState(token, raw) {
   const spec = npcSpec(token);

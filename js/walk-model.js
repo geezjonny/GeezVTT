@@ -1,6 +1,6 @@
 // minigame2: free movement on a top-down map. Pure helpers (no DOM, no Firebase) so they can be tested.
 import { importedProps } from './prop-model.js';
-import { importedTokens } from './token-model.js';
+import { importedTokens, walkAIProperties } from './token-model.js';
 export const TILE_W = 48, TILE_H = 48;     // one tile drawn as a square, in pixels
 export const SPEED = 4;                    // tiles per second
 export const RADIUS = 0.35;                // body radius in tiles
@@ -115,6 +115,11 @@ export function removeWalkTokens(ids) {
     if (token.kind === 'pc') { token.walkDeleted = true; return true; }
     return false;
   });
+}
+export function activateNPCAI(token, disposition) {
+  if (!token || token.kind === 'pc' || token.walkDeleted) throw new Error('Choose an NPC token.');
+  token.walkAI = walkAIProperties({ door: -1, chain: token.walkAI?.chain ?? null, disposition });
+  token.hp = Math.max(1, token.hp);
 }
 // Doors wired to a lever or plate can't be opened by hand and don't shut by themselves.
 export const lockedDoors = () => new Set(world.triggers.flatMap(t => t.doors));

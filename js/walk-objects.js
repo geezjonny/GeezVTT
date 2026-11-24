@@ -59,8 +59,9 @@ export function walkObjectSettings(layer) {
   if (!Number.isFinite(rotation)) throw new Error('Enter a rotation in degrees.');
   const props = tokenProperties($('walk-token-name').value, Number($('walk-token-size').value), Number($('walk-token-hp').value));
   if ($('walk-token-ai').checked && source?.kind === 'pc') throw new Error('NPC AI cannot be enabled for a PC.');
+  const aiConfig = { door: Number($('walk-token-ai-door').value), chain: $('walk-token-ai-chain').value || null, disposition: $('walk-token-disposition').value };
   return { ...source, ...props, icon: tokenIcon($('walk-token-icon').value), rotation,
-    walkAI: $('walk-token-ai').checked ? walkAIProperties({ door: Number($('walk-token-ai-door').value), chain: $('walk-token-ai-chain').value || null, disposition: $('walk-token-disposition').value }) : null,
+    walkAI: $('walk-token-ai').checked || aiConfig.chain || aiConfig.door >= 0 ? walkAIProperties({ ...aiConfig, disabled: !$('walk-token-ai').checked }) : null,
     ...($('walk-token-art').value ? { imageName: $('walk-token-art').value } : {}) };
 }
 export function selectWalkObject(layer, object) {
@@ -76,7 +77,7 @@ export function selectWalkObject(layer, object) {
     $('walk-token-name').value = object.name; $('walk-token-size').value = object.size; $('walk-token-hp').value = object.hp;
     $('walk-token-icon').value = tokenIcon(object.icon); $('walk-token-art').value = object.imageName || ''; $('walk-token-rotation').value = object.rotation || 0;
     refreshWalkAIDoors();
-    $('walk-token-ai').checked = !!object.walkAI; $('walk-token-ai').disabled = object.kind === 'pc';
+    $('walk-token-ai').checked = !!object.walkAI && !object.walkAI.disabled; $('walk-token-ai').disabled = object.kind === 'pc';
     for (const id of ['walk-token-disposition', 'walk-token-ai-door', 'walk-token-ai-chain']) $(id).disabled = object.kind === 'pc';
     $('walk-token-ai-door').value = String(object.walkAI?.door ?? -1);
     $('walk-token-ai-chain').value = object.walkAI?.chain || '';

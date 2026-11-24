@@ -11,7 +11,7 @@ import { watchTabletop } from './tabletop-stream.js';
 import { hordeBase, serverNow, syncClock } from './horde-sync.js';
 import { MATERIAL_LAYERS, bucketCells, cutDoorOpening, distance, eraseStrokeIndices, floorBrushCells, inBox, paintFloorTiles } from './map-editor-model.js';
 import { materialCanvas, materialURL } from './material-textures.js';
-import { RADIUS, cleanMapEdit, movePlacedObject, moveTrigger, removeWalkTokens, syncPropTrigger } from './walk-model.js';
+import { RADIUS, activateNPCAI, cleanMapEdit, movePlacedObject, moveTrigger, removeWalkTokens, syncPropTrigger } from './walk-model.js';
 import { closeMapMenu, showMapMenu } from './map-object-menu.js';
 import { readPuzzle, savePuzzle } from './walk-puzzle.js';
 import { importedProps, propCorners, propDistance } from './prop-model.js';
@@ -768,6 +768,28 @@ function gmObjectMenu(event) {
   const pcId = actor?.pcId || (placed?.object.kind === 'pc' && placed.object.npcId?.startsWith('v2:') ? placed.object.npcId.slice(3) : null);
   const captive = pcId || ai.status(placed?.object || {})?.captured;
   if (captive && ai.held(captive)) actions.push({ label: 'Release PC', action: () => { if (currentMap === file) ai.release(captive); } });
+  if (placed && placed.object.kind !== 'pc') {
+    const changeAI = disposition => {
+      if (!isGM || currentMap !== file) return;
+      const token = world.tokens.find(t => t.id === placed.object.id);
+      if (!token || token.walkDeleted || token.kind === 'pc') return;
+      const before = editState(), p = tokenPosition(token), hp = token.hp;
+      Object.assign(before.tokens.find(t => t.id === token.id), { x: p.x, y: p.y });
+      token.x = p.x; token.y = p.y; token.walkMovedAt = serverNow();
+      if (disposition) activateNPCAI(token, disposition);
+      else token.walkAI = { ...token.walkAI, disabled: true };
+      selectWalkObject('tokens', token); commitEdit(before);
+      if (disposition && hp <= 0) message('NPC AI activated with 1 HP.');
+    };
+    actions.push({ label: 'Activate AI…', action: () => {
+      if (!isGM || currentMap !== file) return;
+      showMapMenu(event.clientX, event.clientY, [
+        { label: 'Enemy', action: () => changeAI('enemy') },
+        { label: 'Friendly', action: () => changeAI('friendly') }
+      ], canvas);
+    } });
+    if (placed.object.walkAI && !placed.object.walkAI.disabled) actions.push({ label: 'Deactivate AI', action: () => changeAI(null) });
+  }
   if (placed && placed.object.kind !== 'pc') actions.push({ label: 'Set HP…', action: () => {
     if (!isGM || currentMap !== file) return;
     const token = world.tokens.find(t => t.id === placed.object.id);
@@ -1176,7 +1198,7 @@ function draw() {
       const labels = { waiting: 'Waiting for door', chained: 'Chained', wandering: 'Searching', seeking: 'Seeking PC', battle: 'In battle', following: 'Following' };
       const friendly = token.walkAI.disposition === 'friendly';
       const s = project(p.x, p.y); ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = friendly ? '#a8d8b0' : '#ffb4aa';
-      ctx.fillText(`${friendly ? 'Friendly' : 'Enemy'} · ${token.hp <= 0 ? 'Defeated (0 HP)' : labels[status?.mode] || 'Waiting for GM'}`, origin.x + s.x, origin.y + s.y + token.size * TILE_W * 0.4 + 28);
+      ctx.fillText(`${friendly ? 'Friendly' : 'Enemy'} · ${token.walkAI.disabled ? 'AI off' : token.hp <= 0 ? 'Defeated (0 HP)' : labels[status?.mode] || 'Waiting for GM'}`, origin.x + s.x, origin.y + s.y + token.size * TILE_W * 0.4 + 28);
     }
   }
   list.sort((a, b) => a.pos.y - b.pos.y); // lower on screen draws on top

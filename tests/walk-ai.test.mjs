@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanMapEdit, cleanTrigger, setWorld, world } from '../js/walk-model.js';
+import { activateNPCAI, cleanMapEdit, cleanTrigger, setWorld, world } from '../js/walk-model.js';
 import { importedTokens } from '../js/token-model.js';
 import { activeNPC, advanceNPC, npcPath, npcState, walkable } from '../js/walk-ai-model.js';
 
@@ -14,6 +14,24 @@ function setup(disposition = 'enemy', door = 0) {
 }
 const pc = { pcId: 'pc1', name: 'Seris', x: 8.5, y: 5.5, hp: 10 };
 function open() { world.open.add(0); world.swing.set(0, 1); }
+
+test('right-click activation starts either disposition immediately while preserving chains and identity', () => {
+  const token = setup(); token.hp = 0; token.walkAI.chain = 'chain1';
+  activateNPCAI(token, 'friendly');
+  assert.equal(token.hp, 1);
+  assert.equal(token.id, 'guard');
+  assert.deepEqual(token.walkAI, { door: -1, chain: 'chain1', disposition: 'friendly' });
+  token.hp = 8; activateNPCAI(token, 'enemy');
+  assert.equal(token.hp, 8);
+  assert.equal(token.walkAI.disposition, 'enemy');
+  token.walkAI.disabled = true;
+  assert.equal(activeNPC(token), false);
+  activateNPCAI(token, 'friendly');
+  assert.equal(activeNPC(token), true);
+  assert.equal(token.walkAI.chain, 'chain1', 'reactivation preserves the attachment to locked chains');
+  assert.throws(() => activateNPCAI({ ...token, kind: 'pc' }, 'enemy'));
+  assert.throws(() => activateNPCAI(token, 'invalid'));
+});
 
 test('NPC waits for its door, leaves when it opens, and captures one visible PC', () => {
   const token = setup();
