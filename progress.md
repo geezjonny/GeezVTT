@@ -652,3 +652,15 @@ Save, commit, and push requested to origin/main. Leave the unrelated scene/black
 Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: verify all material menus, swatches, placement and repainting, 2D/3D appearance, and save/reload behavior. Door additions are visual finishes using existing door interactions; curtain uses ordinary door behavior. Earlier verification items remain outstanding.
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
+## Persistent build material windows and scene control placement saved - 2026-11-23
+
+- Walls, Floors, and Doors in Build Controls now toggle their existing standard-width floating material windows. Each window closes with its X or the same Build Controls button; material selection leaves it open. Build actions no longer automatically hide the swatch windows.
+- Shows every layer material directly as a swatch and removes the recent-material More dropdown. Reuses the existing scrollable window body, dragging, resizing, and close handling.
+- Keeps the active build layer aligned when selecting another open swatch window and exposes each Build button's controlled window and expanded state.
+- Moves New blank scene from VTT Controls to Scene Controls while retaining its existing handler and GM restriction.
+- Updates browser regression assertions for material windows, button toggling, close buttons, direct material selection, and the scene button location. These assertions have not been run.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. Outstanding work: exercise opening/closing and switching material windows, scrolling/resizing, placement in 2D/3D, and New blank scene from Scene Controls. Earlier verification items remain outstanding.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.

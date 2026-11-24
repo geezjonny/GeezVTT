@@ -1116,22 +1116,10 @@ for(const option of toolInput.options) {
   $('tool-buttons').append(button);
 }
 for(const palette of document.querySelectorAll('[data-material-layer]')) {
-  const input=materialInput(palette.dataset.materialLayer), materials=MATERIAL_LAYERS[palette.dataset.materialLayer], swatches=new Map();
-  let recent=[input.value,...materials.filter(material=>material!==input.value)].slice(0,4);
-  const more=document.createElement('select');
-  more.className='material-more';
-  more.setAttribute('aria-label',`More ${palette.dataset.materialLayer} materials`);
+  const input=materialInput(palette.dataset.materialLayer), materials=MATERIAL_LAYERS[palette.dataset.materialLayer];
   const initial=input.value;
   input.replaceChildren(...materials.map(material=>new Option(material,material)));
   input.value=initial;
-  function updatePalette() {
-    recent=[input.value,...recent.filter(material=>material!==input.value)].slice(0,4);
-    for(const [material,button] of swatches) button.hidden=!recent.includes(material);
-    for(const material of recent) palette.append(swatches.get(material));
-    more.replaceChildren(new Option('More…',''),...materials.filter(material=>!recent.includes(material)).map(material=>new Option(material,material)));
-    more.disabled=recent.length===materials.length;
-    palette.append(more);
-  }
   for(const material of materials) {
     const color=MATERIALS[material];
     const button=document.createElement('button'), swatch=document.createElement('span');
@@ -1142,19 +1130,17 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
     swatch.style.backgroundSize='64px 64px';
     button.append(swatch);
     button.addEventListener('click',()=>{ input.value=material; input.dispatchEvent(new Event('change')); button.focus(); });
-    swatches.set(material,button);
     palette.append(button);
   }
-  input.addEventListener('change',()=>{ updatePalette(); buttons(); });
-  more.addEventListener('change',()=>{
-    if(!more.value) return;
-    input.value=more.value; input.dispatchEvent(new Event('change')); swatches.get(input.value).focus();
-  });
-  updatePalette();
+  input.addEventListener('change',buttons);
 }
 for(const swatches of document.querySelectorAll('[data-swatch-layer]')) {
   const activate=event=>{
     if(event.target.closest('.editor-close') || swatches.querySelector('fieldset').disabled || layer()===swatches.dataset.swatchLayer) return;
+    if(floor.buildLayer) {
+      floor.dispatchEvent(new CustomEvent('build-start',{detail:swatches.dataset.swatchLayer}));
+      return;
+    }
     layerInput.value=swatches.dataset.swatchLayer;
     layerInput.dispatchEvent(new Event('change'));
   };

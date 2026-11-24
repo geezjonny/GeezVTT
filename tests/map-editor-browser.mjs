@@ -111,21 +111,29 @@ try {
     await importFile(name);
     assert.equal(await evaluate(`document.getElementById('editor-controls').disabled`),false);
   }
+  assert.equal(await evaluate(`document.getElementById('vtt-new-scene').closest('.editor-panel').id`),'scene-panel');
+  for(const layer of ['walls','floors','doors']) {
+    await evaluate(`document.querySelector('[data-build-layer="${layer}"]').click()`);
+    assert.equal(await evaluate(`document.getElementById('${layer}-panel').hidden`),false);
+    await evaluate(`document.querySelector('[data-material-layer="${layer}"] [data-material="wood"]').click()`);
+    assert.equal(await evaluate(`document.getElementById('${layer}-panel').hidden`),false);
+    await evaluate(`document.querySelector('[data-build-layer="${layer}"]').click()`);
+    assert.equal(await evaluate(`document.getElementById('${layer}-panel').hidden`),true);
+    await evaluate(`document.querySelector('[data-build-layer="${layer}"]').click()`);
+    await evaluate(`document.querySelector('#${layer}-panel .editor-close').click()`);
+    assert.equal(await evaluate(`document.getElementById('${layer}-panel').hidden`),true);
+  }
+  await evaluate(`document.getElementById('floor').dispatchEvent(new Event('build-stop'))`);
+  for(const id of ['edit-material','edit-floor-material','edit-door-material']) await change(id,'stone');
   // Swatches stay open together, retain separate settings, and share one tool selection.
   await evaluate(`window.originalFetch=window.fetch;window.fetch=(url,...args)=>String(url).includes('.firebaseio.com/')?Promise.resolve(new Response(JSON.stringify(String(url).includes('characters/npcs')?{guard:{name:'Guard',size:'Large',combat:{hp_max:9}}}:{}),{status:200})):window.originalFetch(url,...args)`);
   await evaluate(`document.querySelectorAll('[data-edit-layer]').forEach(button=>button.click())`);
   assert.equal(await evaluate(`document.querySelectorAll('.swatch-panel:not([hidden])').length`),4);
-  const recentMaterials=layer=>evaluate(`[...document.querySelectorAll('[data-material-layer="${layer}"] button:not([hidden])')].map(button=>button.dataset.material)`);
-  assert.deepEqual(await recentMaterials('walls'),['stone','wood','cobble','brick']);
-  await evaluate(`(()=>{const select=document.querySelector('[data-material-layer="walls"] .material-more');select.value='metal';select.dispatchEvent(new Event('change'));})()`);
-  assert.deepEqual(await recentMaterials('walls'),['metal','stone','wood','cobble'],'dropdown choice becomes the most recent swatch');
+  assert.equal(await evaluate(`document.querySelectorAll('.material-more').length`),0);
+  assert.equal(await evaluate(`document.querySelector('[data-material-layer="floors"] [data-material="water"]').hidden`),false);
+  await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="metal"]').click()`);
   assert.equal(await evaluate(`document.getElementById('edit-material').value`),'metal');
-  assert.deepEqual(await evaluate(`[...document.querySelector('[data-material-layer="walls"] .material-more').options].map(option=>option.value)`),['','brick'],'older choices move to the dropdown');
-  assert.deepEqual(await recentMaterials('doors'),['stone','wood','cobble','brick'],'wall recents do not change door recents');
-  await evaluate(`(()=>{const select=document.querySelector('[data-material-layer="walls"] .material-more');select.value='brick';select.dispatchEvent(new Event('change'));})()`);
-  assert.deepEqual(await recentMaterials('walls'),['brick','metal','stone','wood']);
-  await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="wood"]').click()`);
-  assert.deepEqual(await recentMaterials('walls'),['wood','brick','metal','stone'],'using a swatch promotes it without duplicates');
+  assert.equal(await evaluate(`document.getElementById('edit-door-material').value`),'stone');
   await change('edit-tool','replace');
   await evaluate(`document.querySelector('[data-material-layer="walls"] [data-material="brick"]').click()`);
   assert.equal(await evaluate(`document.getElementById('edit-layer').value`),'walls');
