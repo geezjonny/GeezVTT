@@ -17,7 +17,7 @@ import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
-import { PROPS, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
+import { PROPS, PROP_CATEGORIES, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
 import { tabletopPoint, previewPlacement } from './map-view-toggle.js';
 import { importedTriggers, activateTriggers, collisionSources, objectRef, triggerObject } from './trigger-model.js';
@@ -95,7 +95,12 @@ function buttons() {
   const pending=model && pendingNode();
   $('portal-status').textContent=pending?`Unpaired portal: ${pending.entry.name}`:portal?
     destination?`Linked to ${destination.entry.name}`:'Unpaired portal':'';
-  document.querySelectorAll('[data-prop-kind]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.propKind===$('prop-kind').value)));
+  const category=Object.keys(PROP_CATEGORIES).find(name=>PROP_CATEGORIES[name].includes($('prop-kind').value));
+  $('prop-category').value=category;
+  document.querySelectorAll('[data-prop-kind]').forEach(button=>{
+    button.setAttribute('aria-pressed',String(button.dataset.propKind===$('prop-kind').value));
+    button.hidden=!PROP_CATEGORIES[category].includes(button.dataset.propKind);
+  });
   document.querySelectorAll('[data-tool]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.tool===tool()));
     button.disabled=toolInput.querySelector(`[value="${button.dataset.tool}"]`).disabled;
@@ -196,6 +201,7 @@ function render(notify=true) {
           el.setAttribute('role','button');
           el.setAttribute('aria-label',`Door, ${obj.open?'open':'closed'}, ${obj.locked?'locked':'unlocked'}. Right-click for actions.`);
         }
+        if(name==='walls' && ['wooden fence','iron fence','barricade','broken wall'].includes(obj.material)) el.setAttribute('stroke-dasharray',obj.material==='broken wall'?'9 3 4 2':'3 2');
         if(obj.type!=='window') el.style.stroke=`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
       }
       if(obj.hidden) el.setAttribute('opacity','.3');
@@ -310,10 +316,18 @@ function apply(indices,action) {
   if(layer()==='doors' && props?.type==='window') props.locked=false;
   remember();
   if(action==='erase') model[layer()]=model[layer()].filter((_,i)=>!indices.includes(i));
-  else for(const i of indices) Object.assign(model[layer()][i],props);
+  else for(const i of indices) {
+    const object=model[layer()][i];
+    Object.assign(object,props);
+    if(layer()==='props' && PROPS[object.kind].light) addObjectLight(object);
+  }
   selected.clear(); render(); message(`${action==='erase'?'Erased':'Replaced'} ${indices.length} ${layer()}.`);
 }
-function addPoint(p,props) { return {x:p.x,y:p.y,...props,...(['tokens','props'].includes(layer())?{id:crypto.randomUUID()}:{})}; }
+function addPoint(p,props) {
+  const object={x:p.x,y:p.y,...props,...(['tokens','props'].includes(layer())?{id:crypto.randomUUID()}:{})};
+  if(layer()==='props' && PROPS[props.kind].light) addObjectLight(object,object.id);
+  return object;
+}
 function addSegment(points,props) {
   model[layer()].push({points:clone(points),...props});
   if(layer()==='doors') model.walls=cutDoorOpening(model.walls,points);
@@ -471,10 +485,9 @@ function cancelGesture() {
   if(gesture?.before) { Object.assign(model,gesture.before); render(false); }
   gesture=null; chain=[]; hover=null; clearPreview();
 }
-function addObjectLight(object) {
-  const propId=model.props.includes(object)?object.id:null;
+function addObjectLight(object, propId=model.props.includes(object)?object.id:null) {
   if(propId && model.lights.some(light=>light.propId===propId)) return;
-  model.lights.push({x:object.x,y:object.y,color:'#ffb34d',range:4,intensity:1,opacity:1,...(propId?{propId}:{})});
+  model.lights.push({x:object.x,y:object.y,color:'#ffb34d',range:4,intensity:1,opacity:1,...PROPS[object.kind]?.light,...(propId?{propId}:{})});
 }
 let editingLight, lightEditInput;
 function editLight(light) {
@@ -1083,6 +1096,11 @@ $('fog-tool').addEventListener('change',()=>{if($('fog-tool').value!=='off') sto
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
 function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
 $('edit-door-type').addEventListener('change',doorTypeChanged);
+$('prop-category').replaceChildren(...Object.keys(PROP_CATEGORIES).map(name=>new Option(name,name)));
+$('prop-category').addEventListener('change',()=>{
+  $('prop-kind').value=PROP_CATEGORIES[$('prop-category').value][0];
+  $('prop-kind').dispatchEvent(new Event('input'));
+});
 $('prop-kind').replaceChildren(...Object.entries(PROPS).map(([kind,entry])=>new Option(entry.name,kind)));
 for(const [kind,entry] of Object.entries(PROPS)) {
   const button=document.createElement('button');
@@ -1090,6 +1108,7 @@ for(const [kind,entry] of Object.entries(PROPS)) {
   button.append(propIcon(kind),document.createTextNode(entry.name));
   button.addEventListener('click',()=>{
     $('prop-kind').value=kind;
+    $('prop-kind').dispatchEvent(new Event('input'));
     toolInput.value='paint'; toolInput.dispatchEvent(new Event('change'));
     button.focus();
   });
@@ -1217,7 +1236,7 @@ floor.addEventListener('map-ready',()=>{
   const saved=raw.geezvtt_editor;
   imported.environment=environmentSettings(saved?.environment,imported);
   const sceneEnvironment=environmentSettings(floor.sceneDocument.environment || imported.environment,imported);
-  floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather};
+  floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather,weatherColor:sceneEnvironment.weatherColor};
   Object.assign(imported.environment,floor.sceneDocument.environment);
   model={width:imported.width,height:imported.height,
     triggers:importedTriggers(saved?.triggers),

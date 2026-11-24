@@ -1,7 +1,7 @@
 import { viewersFor, visibleObject } from './player-vision.js';
 import { openPanel } from './menu-bar.js';
 import './map-editor.js';
-import { TIMES, fogSize, fogRectangles } from './environment-model.js';
+import { TIMES, WEATHER_COLORS, fogSize, fogRectangles } from './environment-model.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), map = $('map-view'), panel = $('environment-panel');
@@ -28,9 +28,14 @@ $('open-environment').addEventListener('click', () => {
   openPanel(panel);
   $('environment-time').focus();
 });
-for (const field of ['time', 'weather']) $('environment-' + field).addEventListener('change', event => {
+for (const field of ['time', 'weather', 'weatherColor']) $('environment-' + field).addEventListener('change', event => {
   floor.tabletopMap.environment[field] = event.target.value;
   floor.sceneDocument.environment[field] = event.target.value;
+  if(field==='weather') {
+    const color=WEATHER_COLORS[event.target.value];
+    floor.tabletopMap.environment.weatherColor=floor.sceneDocument.environment.weatherColor=color;
+    $('environment-weatherColor').value=color;
+  }
   changed();
 });
 for (const covered of [true, false]) $(covered ? 'fog-cover' : 'fog-reveal').addEventListener('click', () => {
@@ -89,13 +94,19 @@ floor.addEventListener('map-ready', () => {
   $('open-environment').disabled = false;
   $('environment-time').value = floor.tabletopMap.environment.time;
   $('environment-weather').value = floor.tabletopMap.environment.weather;
+  $('environment-weatherColor').value = floor.tabletopMap.environment.weatherColor;
   $('fog-tool').value = 'off';
   $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
   drawFog(); updateWeather();
 });
 window.addEventListener('player-signed-in',()=>{if(floor.tabletopMap?.environment) drawFog();});
 floor.addEventListener('map-changed', () => {
-  if (floor.tabletopMap?.environment) drawFog();
+  if (floor.tabletopMap?.environment) {
+    drawFog();
+    const weatherChanged=['weather','weatherColor'].some(field=>$('environment-'+field).value!==floor.tabletopMap.environment[field]);
+    for(const field of ['time','weather','weatherColor']) $('environment-'+field).value=floor.tabletopMap.environment[field];
+    if(weatherChanged) updateWeather();
+  }
 });
 function resize() {
   const ratio = Math.min(devicePixelRatio || 1, 2);
@@ -107,18 +118,26 @@ function resize() {
 function drawWeather(now) {
   frame = 0;
   const width = floor.clientWidth, height = floor.clientHeight;
-  const rain = floor.tabletopMap.environment.weather === 'rain';
+  const {weather,weatherColor} = floor.tabletopMap.environment;
+  const rain = weather === 'rain', fog = weather === 'fog', ash = weather === 'ash';
   const delta = Math.min((now - last) / 1000, .05); last = now;
   context.clearRect(0, 0, width, height);
-  context.strokeStyle = '#b9d6ed88'; context.fillStyle = '#ffffffbb'; context.lineWidth = 1;
+  context.strokeStyle = weatherColor+'88'; context.fillStyle = weatherColor+(fog?'10':'bb'); context.lineWidth = 1;
   for (const p of particles) {
     if (!reducedMotion.matches) {
-      p.y = (p.y + delta * (rain ? 650 : 55) / Math.max(1, height)) % 1;
-      p.x = (p.x + delta * (rain ? -.12 : .025) + 1) % 1;
+      p.y = (p.y + delta * (rain ? 650 : fog ? 2 : ash ? 25 : 55) / Math.max(1, height)) % 1;
+      p.x = (p.x + delta * (rain ? -.12 : ash ? .045+Math.sin(now/900+p.y*10)*.02 : .025) + 1) % 1;
     }
     context.beginPath();
     if (rain) { context.moveTo(p.x * width, p.y * height); context.lineTo(p.x * width - 3, p.y * height + 14); context.stroke(); }
-    else { context.arc(p.x * width, p.y * height, p.size, 0, Math.PI * 2); context.fill(); }
+    else if(fog) {
+      const radius=p.size*65, x=p.x*width, y=p.y*height;
+      const haze=context.createRadialGradient(x,y,0,x,y,radius);
+      haze.addColorStop(0,weatherColor+'12'); haze.addColorStop(1,weatherColor+'00');
+      context.fillStyle=haze;
+      context.fillRect(x-radius,y-radius,radius*2,radius*2);
+    }
+    else { context.arc(p.x * width, p.y * height, ash ? p.size*.65 : p.size, 0, Math.PI * 2); context.fill(); }
   }
   if (!reducedMotion.matches && !document.hidden) frame = requestAnimationFrame(drawWeather);
 }

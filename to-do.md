@@ -1,5 +1,14 @@
 # GeezVTT to-do
 
+## Prop categories, walls and weather - 2026-11-23
+
+- [x] Categorized Props with outdoor vegetation, rocks/rubble, storage/camp additions and Lights & Fire. Added SVG icons and procedural 3D meshes; barrels, sacks and carts support compartments.
+- [x] Added wooden fences, iron fences, barricades and broken walls under Walls. These retain standard wall movement and sight blocking.
+- [x] Moved new light placement into Props; retained existing light objects and their settings.
+- [x] Added ash and atmospheric fog weather and configurable weather colors, persisted with scenes/maps and shared state.
+- [ ] User verification of categories, new props/compartments, light attachment and editing, wall variants, all views, Undo/Redo, scene persistence, shared updates, weather colors and reduced motion.
+- [ ] Optional future presentation: tree canopy controls and height-aware sight blocking for low/open wall variants. Repository-relative prop assets remain outstanding below.
+
 ## Token art, rules, vision and campaign tools - 2026-11-23
 
 - [x] Match token art by character name, use the repository catalog for image-name suggestions, and override through Token > Image name. Applies in Initiative, 2D and 3D, with existing fallback art when no image loads. Overrides survive scene export/import and live updates.
@@ -42,7 +51,7 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 - Portable named `.geezvtt` scene downloads/opening and unsaved-change warnings.
 - Local dice rolls, advantage/disadvantage, recent local history, and optional animated dice.
 - Manual fog of war in both views, with light-based reveal blocked by walls and closed doors.
-- Clear/rain/snow weather and original/day/dawn/dusk/night presentation, saved with scenes and maps.
+- Clear/rain/snow/fog/ash weather with weather colors and original/day/dawn/dusk/night presentation, saved with scenes and maps.
 
 ## 1. Reconcile architecture and plan
 

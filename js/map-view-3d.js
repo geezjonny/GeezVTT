@@ -248,11 +248,38 @@ export function createMapView3D(host) {
     controls.update();
     invalidate();
   }
-  function slabs(points, material, parent, open = false, doorIndex) {
+  function slabs(points, material, parent, open = false, doorIndex, wallStyle) {
     for (let i = 1; i < points.length; i++) {
       const a = points[i - 1], b = points[i];
       const dx = b.x - a.x, dz = b.y - a.y, length = Math.hypot(dx, dz);
       if (length < 0.00001) continue;
+      if(['wooden fence','iron fence','barricade','broken wall'].includes(wallStyle)) {
+        const group=new THREE.Group();
+        const piece=(x,y,z,w,h,d,angle=0)=>{
+          const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);
+          mesh.position.set(x,y,z); mesh.rotation.z=angle;
+          mesh.castShadow=mesh.receiveShadow=true; group.add(mesh);
+        };
+        const count=Math.max(1,Math.min(256,Math.ceil(length/(wallStyle==='iron fence'?.22:.6))));
+        if(wallStyle==='broken wall') {
+          for(let n=0;n<count;n++) {
+            const h=.4+(n%3)*.28;
+            piece((n+.5)*length/count,h/2,0,length/count,h,.22);
+            piece((n+.5)*length/count,.08,.19,length/count*.7,.16,.2,.15*(n%2?1:-1));
+          }
+        } else {
+          for(let n=0;n<=count;n++) piece(n*length/count,.5,0,.07,1,.1);
+          for(const y of [.32,.78]) piece(length/2,y,0,length,.09,.08);
+          if(wallStyle==='barricade') for(let n=0;n<count;n++) {
+            const x=(n+.5)*length/count;
+            piece(x,.5,.07,.08,1.2,.1,.6);
+            piece(x,.5,-.07,.08,1.2,.1,-.6);
+          }
+        }
+        group.position.set(a.x,0,a.y); group.rotation.y=-Math.atan2(dz,dx);
+        parent.add(group);
+        continue;
+      }
       const thickness = doorIndex !== undefined ? 0.24 : 0.12;
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(length, 2, thickness), material);
       if (doorIndex !== undefined) mesh.userData.doorIndex = doorIndex;
@@ -367,7 +394,7 @@ export function createMapView3D(host) {
     model.walls.forEach((points, i) => {
       if(!isGM && model.wallHidden?.[i]) return;
       const start = groups.walls.children.length;
-      slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls);
+      slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls, false, undefined, model.wallMaterials?.[i]);
       for (const mesh of groups.walls.children.slice(start)) mesh.traverse(child => { child.userData.wallIndex = i; });
     });
     model.doors.forEach((door,index) => {

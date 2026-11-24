@@ -8,13 +8,15 @@ export const TIMES = {
   dusk: { color: '#ff9966', ambient: .2, sun: .7, tint: '#532d7355' },
   night: { color: '#91b8ff', ambient: .12, sun: .2, tint: '#07132b99' }
 };
+export const WEATHER_COLORS = { clear: '#b9d6ed', rain: '#b9d6ed', snow: '#ffffff', fog: '#cbd2d6', ash: '#969087' };
 // Bound fog geometry on large maps; ordinary maps use one-square cells.
 export const fogSize = map => Math.max(1, Math.ceil(Math.max(map.width, map.height) / 128));
 export function environmentSettings(raw, map) {
   const size = fogSize(map), cols = Math.ceil(map.width / size), rows = Math.ceil(map.height / size);
   return {
     time: Object.hasOwn(TIMES, raw?.time) ? raw.time : 'original',
-    weather: ['clear', 'rain', 'snow'].includes(raw?.weather) ? raw.weather : 'clear',
+    weather: Object.hasOwn(WEATHER_COLORS, raw?.weather) ? raw.weather : 'clear',
+    weatherColor: typeof raw?.weatherColor === 'string' && /^#[0-9a-f]{6}$/i.test(raw.weatherColor) ? raw.weatherColor : WEATHER_COLORS[raw?.weather] || WEATHER_COLORS.clear,
     fog: { covered: raw?.fog?.covered === true, cells: [...new Set((Array.isArray(raw?.fog?.cells) ? raw.fog.cells : []).filter(key => {
       if (typeof key !== 'string' || !/^\d+,\d+$/.test(key)) return false;
       const [x, y] = key.split(',').map(Number);

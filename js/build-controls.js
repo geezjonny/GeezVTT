@@ -1,6 +1,6 @@
 import { openPanel } from './menu-bar.js';
 import { isGM } from './session-role.js';
-import { PROPS } from './prop-model.js';
+import { PROPS, PROP_CATEGORIES } from './prop-model.js';
 import { propIcon } from './prop-icons.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 
@@ -27,10 +27,12 @@ for(const button of buttons) {
     if(!isGM || button.disabled || floor.getAttribute('aria-busy')==='true') return;
     const rect=button.getBoundingClientRect();
     if(layer==='props') {
-      showMapMenu(rect.left,rect.bottom,Object.entries(PROPS).map(([kind,prop])=>({
-        label:prop.name,icon:propIcon(kind),action:()=>{
+      showMapMenu(rect.left,rect.bottom,Object.entries(PROP_CATEGORIES).map(([category,kinds])=>({
+        label:category,action:()=>showMapMenu(rect.left,rect.bottom,kinds.map(kind=>({
+        label:PROPS[kind].name,icon:propIcon(kind),action:()=>{
           $('prop-kind').value=kind; $('prop-kind').dispatchEvent(new Event('input')); start(layer);
         }
+      })),button,rect)
       })),button,rect);
     } else if(swatches) {
       closeMapMenu();

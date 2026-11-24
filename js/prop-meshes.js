@@ -3,7 +3,7 @@ import * as THREE from 'three';
 // One kit per map build; the renderer owns disposal of the shared resources.
 export function createPropKit() {
   const materials = new Map(), geometries = new Map();
-  const colors = { wood: '#90613c', trim: '#c19a64', metal: '#4c535d', stone: '#888b91', bone: '#dfd3ad', coal: '#29252a', flame: '#ff8a25', core: '#ffe29a' };
+  const colors = { leaves: '#486b37', cloth: '#c1a578', wax: '#eee0b4', wood: '#90613c', trim: '#c19a64', metal: '#4c535d', stone: '#888b91', bone: '#dfd3ad', coal: '#29252a', flame: '#ff8a25', core: '#ffe29a' };
   function material(role, lightColor) {
     const fire = role === 'flame' || role === 'core';
     const key = fire && lightColor ? `${role}:${lightColor}` : role;
@@ -46,6 +46,102 @@ export function createPropKit() {
       tip.rotation.z=-.16;
     };
     switch(prop.kind) {
+      case 'tree':
+      case 'pine':
+        rod('wood',[0,0,0],[0,1.8,0],.16);
+        if(prop.kind==='pine') {
+          for(const y of [1,1.6,2.2]) part('cone','leaves',0,y,0,.8-(y-1)*.3,1.3,.8-(y-1)*.3);
+        } else {
+          part('sphere','leaves',0,2,0,1,.85,1);
+          part('sphere','leaves',-.45,1.7,.2,.55,.6,.6);
+        }
+        break;
+      case 'bush':
+        for(const x of [-.24,0,.24]) part('sphere','leaves',x,.3,0,.26,.35,.43);
+        break;
+      case 'stump':
+        part('cylinder','wood',0,.22,0,.32,.44,.32);
+        part('cylinder','trim',0,.445,0,.3,.015,.3);
+        for(const x of [-.28,.28]) box('wood',x,.07,0,.24,.14,.23);
+        break;
+      case 'log':
+        rod('wood',[-.85,.25,0],[.85,.25,0],.25);
+        rod('trim',[-.86,.25,0],[-.85,.25,0],.21);
+        rod('trim',[.85,.25,0],[.86,.25,0],.21);
+        break;
+      case 'rock':
+      case 'boulder': {
+        const size=prop.kind==='boulder'?1:.44;
+        const rock=part('sphere','stone',0,size*.4,0,size*.8,size*.55,size*.65);
+        rock.rotation.y=.4; rock.rotation.z=.12;
+        break;
+      }
+      case 'rubble':
+        for(let i=0;i<9;i++) {
+          const angle=i*2.4, radius=i*.065;
+          const stone=box('stone',Math.cos(angle)*radius,.12+(i%3)*.05,Math.sin(angle)*radius,.25,.22,.3);
+          stone.rotation.set(i*.23,i*.7,i*.13);
+        }
+        break;
+      case 'barrel':
+        part('cylinder','wood',0,.4,0,.35,.8,.35);
+        for(const y of [.13,.65]) part('cylinder','metal',0,y,0,.365,.065,.365);
+        part('cylinder','trim',0,.81,0,.33,.025,.33);
+        break;
+      case 'sack':
+        part('sphere','cloth',0,.28,0,.34,.32,.31);
+        part('cone','cloth',0,.62,0,.13,.16,.13).rotation.z=Math.PI;
+        part('cylinder','wood',0,.55,0,.09,.035,.09);
+        break;
+      case 'cart':
+        box('wood',0,.45,0,1,.12,1.3);
+        for(const x of [-.48,.48]) box('trim',x,.7,0,.08,.5,1.3);
+        for(const z of [-.62,.62]) box('wood',0,.7,z,1,.5,.08);
+        for(const x of [-.62,.62]) {
+          rod('metal',[x-.04,.3,0],[x+.04,.3,0],.29);
+          rod('trim',[x-.05,.3,0],[x+.05,.3,0],.12);
+        }
+        for(const x of [-.35,.35]) rod('wood',[x,.4,.5],[x,.35,1.3],.04);
+        break;
+      case 'tent':
+        for(const side of [-1,1]) {
+          const roof=box('cloth',side*.47,.6,0,1.52,.04,1.9);
+          roof.rotation.z=-side*Math.atan2(1.2,.94);
+        }
+        rod('wood',[0,0,-.9],[0,1.2,-.9],.04);
+        rod('wood',[0,0,.9],[0,1.2,.9],.04);
+        rod('wood',[0,1.2,-1],[0,1.2,1],.04);
+        break;
+      case 'campfire':
+        rod('wood',[-.4,.12,-.3],[.4,.12,.3],.1);
+        rod('wood',[-.4,.12,.3],[.4,.12,-.3],.1);
+        fire(.44,.24);
+        break;
+      case 'candle':
+        part('cylinder','wax',0,.18,0,.1,.36,.1);
+        fire(.43,.055);
+        break;
+      case 'fairyLights':
+        for(const x of [-.95,.95]) rod('wood',[x,0,0],[x,1.4,0],.025);
+        for(let i=0;i<8;i++) {
+          const x=-.9+i*1.8/7, y=1.1+.3*(x/.9)**2;
+          if(i) { const px=-.9+(i-1)*1.8/7; rod('metal',[px,1.1+.3*(px/.9)**2,0],[x,y,0],.01); }
+          part('sphere','core',x,y-.04,0,.045,.065,.045);
+        }
+        break;
+      case 'fireflies':
+        for(let i=0;i<9;i++) part('sphere','core',Math.sin(i*2.4)*.55,.2+(i%4)*.2,Math.cos(i*2.4)*.55,.025,.025,.025);
+        break;
+      case 'signpost':
+        rod('wood',[0,0,0],[0,1.4,0],.055);
+        box('trim',0,1.15,0,.95,.32,.1);
+        break;
+      case 'gravestone':
+        box('stone',0,.35,0,.65,.7,.18);
+        part('sphere','stone',0,.7,0,.325,.25,.09);
+        box('coal',0,.53,.095,.24,.035,.012);
+        box('coal',0,.51,.095,.035,.27,.012);
+        break;
       case 'tripwire': {
         const half = (prop.length ?? 1) / 2;
         for (const x of [-half, half]) {

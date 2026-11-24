@@ -18,7 +18,7 @@ export function propMarker(prop) {
   group.append(node('rect', { x: -width/2, y: -depth/2, width, height: depth, rx: .04,
     fill: '#15191f', 'fill-opacity': .65, stroke: '#ffffff30', 'stroke-width': .025 }));
   const kind=prop.icon?.startsWith('prop:') && Object.hasOwn(PROPS,prop.icon.slice(5))?prop.icon.slice(5):prop.kind;
-  const icon = propIcon(kind, ['torch','brazier'].includes(kind) ? prop.lightColor : ['lever','button','pressurePlate'].includes(kind) && prop.open ? '#7ee09a' : undefined);
+  const icon = propIcon(kind, PROPS[kind].light ? prop.lightColor : ['lever','button','pressurePlate'].includes(kind) && prop.open ? '#7ee09a' : undefined);
   for (const [key, value] of Object.entries({ x: -width/2, y: -depth/2, width, height: depth, preserveAspectRatio: 'none' })) icon.setAttribute(key, value);
   group.append(icon);
   return group;

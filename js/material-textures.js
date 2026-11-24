@@ -15,7 +15,7 @@ export function materialCanvas(name) {
     for(const point of points.slice(1)) ctx.lineTo(...point);
     ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
   };
-  if(['wood','dark wood','burnt wood','reinforced wood','timber'].includes(name)) {
+  if(['wooden fence','barricade','wood','dark wood','burnt wood','reinforced wood','timber'].includes(name)) {
     for(let plank=0;plank<4;plank++) {
       const x=plank*32;
       ctx.fillStyle=`rgba(${plank%2?255:20},${plank%2?220:12},${plank%2?160:5},.08)`;
@@ -33,7 +33,7 @@ export function materialCanvas(name) {
       ctx.fillStyle='#b4b5ad';
       for(const x of [8,40,88,120]) { ctx.beginPath(); ctx.arc(x,y+4,2,0,Math.PI*2); ctx.fill(); }
     }
-  } else if(['brick','stone','cobble','sandstone','limestone','mossy stone','tile'].includes(name)) {
+  } else if(['broken wall','brick','stone','cobble','sandstone','limestone','mossy stone','tile'].includes(name)) {
     const rows=name==='brick'?4:name==='stone'?2:4, h=128/rows;
     const w=name==='brick'?64:name==='stone'?64:32;
     ctx.fillStyle=name==='brick'?'#b5a18a':'#484b48'; ctx.fillRect(0,0,128,128);
@@ -49,7 +49,7 @@ export function materialCanvas(name) {
     if(name==='mossy stone') for(let i=0;i<45;i++) {
       ctx.fillStyle='#45633388'; ctx.beginPath(); ctx.arc(random()*128,random()*128,2+random()*7,0,Math.PI*2); ctx.fill();
     }
-  } else if(['metal','rusty iron','bronze'].includes(name)) {
+  } else if(['iron fence','metal','rusty iron','bronze'].includes(name)) {
     for(let y=0;y<128;y++) {
       ctx.fillStyle=`rgba(${y%3?'255,255,255':'10,25,35'},${random()*.1})`; ctx.fillRect(0,y,128,1);
     }

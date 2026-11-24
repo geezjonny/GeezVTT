@@ -2,6 +2,20 @@
 
 Updated: 2026-11-23
 
+## Prop categories, wall variants, and weather colors saved - 2026-11-23
+
+- Organizes Props into Nature, Rocks & Rubble, Furniture, Storage & Supplies, Travel & Camp, Lights & Fire, Decor & Landmarks, and Dungeon & Ruins. Both the build menu and prop window use the categories.
+- Adds trees, pine trees, bushes, stumps, fallen logs, rocks, boulders, rubble, barrels, sacks, carts, tents, campfires, candles, fairy lights, fireflies, signposts and gravestones, with SVG icons and procedural 3D meshes. Barrels, sacks and carts reuse compartments.
+- Removes standalone Lights buttons from Build and Edit. Newly placed light props attach their light automatically; existing light objects and their context settings remain supported. Existing torches/braziers are not retroactively changed.
+- Adds wooden fences, iron fences, barricades and broken walls to Walls, with distinct 2D line styling and 3D geometry. Uses existing wall material persistence, collision and sight blocking; fences and low/broken walls still block movement and sight like other walls.
+- Adds ash and atmospheric fog weather, plus a color picker for rain, snow, fog and ash. Weather colors persist in scene/map exports and shared environment state. Atmospheric fog is decorative and separate from fog of war.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or application validation commands were run.
+
+Outstanding: user verification of both category selectors; placement/picking/resizing and compartments in 2D/3D/First Person; attached lights, movement, replacement, deletion and Undo/Redo; wall drawing, door openings and wall variants; weather colors, ash/fog, reduced motion, scene export/import, floor switching and GM/player synchronization. Earlier verification backlogs remain applicable. Prop artwork remains code-built; repository-relative prop image/model assets, tree canopy controls, and height-aware wall visibility remain future work.
+
+Save, commit and push requested to origin/main. Exclude the pre-existing changes in js/tokens.js and scene/blackpearl-whole.geezvtt.
+
 ## Player door visibility and initiative controls saved - 2026-11-23
 
 - Fixes the shared vision check so door and wall surfaces do not block sight to themselves. Sight rays stop just before their destination; intervening barriers still block sight. Applies to player visibility in 2D, 3D and First Person.
