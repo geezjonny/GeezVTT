@@ -3,7 +3,7 @@ import { canControlPC } from './session-role.js';
 
 export function mountSpellSlots(container, getToken, status, onSaved) {
   let busy = false;
-  const selector = '[data-slot-level], [data-combat-field], [data-exhaustion-delta], [data-condition-toggle], [data-base-stat], [data-ac-mode]';
+  const selector = '[data-slot-level], [data-combat-field], [data-exhaustion-delta], [data-condition-toggle], [data-base-stat], [data-ac-mode], [data-rules-edition]';
   async function save(control, change) {
     const token = getToken();
     if (!token || !canControlPC(token) || busy) return;
@@ -19,7 +19,7 @@ export function mountSpellSlots(container, getToken, status, onSaved) {
       if (getToken()?.npcId === token.npcId) {
         status.textContent = `${error.message} Check the sheet before retrying.`;
         if (control.matches('[data-condition-toggle]')) control.value = '';
-        if (control.matches('[data-ac-mode]')) control.value = [...control.options].find(option => option.defaultSelected)?.value || 'stored';
+        if (control.matches('[data-ac-mode], [data-rules-edition]')) control.value = [...control.options].find(option => option.defaultSelected)?.value || 'stored';
         if (control.matches('[data-combat-field], [data-base-stat]')) control.value = control.defaultValue;
       }
     } finally {
@@ -34,9 +34,11 @@ export function mountSpellSlots(container, getToken, status, onSaved) {
     else save(button, token => updatePCCombat(token, { type: 'exhaustion', delta: Number(button.dataset.exhaustionDelta) }));
   });
   container.addEventListener('change', event => {
-    const control = event.target.closest('[data-combat-field], [data-condition-toggle], [data-base-stat], [data-ac-mode]');
+    const control = event.target.closest('[data-combat-field], [data-condition-toggle], [data-base-stat], [data-ac-mode], [data-rules-edition]');
     if (!control || !canControlPC(getToken())) return;
-    if (control.matches('[data-ac-mode]')) {
+    if (control.matches('[data-rules-edition]')) {
+      save(control, token => updatePCCombat(token, { type: 'edition', value: control.value }));
+    } else if (control.matches('[data-ac-mode]')) {
       save(control, token => updatePCCombat(token, { type: 'ac-mode', value: control.value }));
     } else if (control.matches('[data-base-stat]')) {
       if (!control.reportValidity()) return;

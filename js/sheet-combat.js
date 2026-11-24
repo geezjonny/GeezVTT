@@ -7,6 +7,10 @@ export function conditionNames(value) {
 }
 
 export function changeCombat(pc, action) {
+  if(action.type === 'edition') {
+    if(!['2014','2024'].includes(action.value)) throw new Error('Choose 2014 or 2024 rules.');
+    pc.rules_edition=action.value; return;
+  }
   if (action.type === 'base-stat') {
     if (!ITEM_STATS.includes(action.field) || !Number.isSafeInteger(action.value) || action.value < 0 || action.value > 999) throw new Error('Ability scores must be whole numbers from 0 to 999.');
     pc.roll_base_stats ||= Object.fromEntries(ITEM_STATS.map(key => [key, Number(pc.stats?.[key] ?? 10)]));

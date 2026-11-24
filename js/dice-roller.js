@@ -40,7 +40,7 @@ export function rollFromSheet(name, roll) {
   expression.value = roll.expression;
   expression.parentElement.hidden = false;
   selectedButton.hidden = false;
-  mode.value = 'normal';
+  mode.value = roll.disadvantage ? 'disadvantage' : 'normal';
   count.value = '1';
   document.querySelector('#dice-modifier').value = '0';
   count.parentElement.hidden = true;

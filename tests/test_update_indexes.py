@@ -36,6 +36,20 @@ class UpdateIndexesTest(unittest.TestCase):
             self.assertEqual(json.loads((folder / "index.json").read_text(encoding="utf-8")),
                              ["Liora.PNG", "portrait.webp", "zombie.png"])
 
+    def test_rebuilds_audio_catalogs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            for name in ("rain_loop.ogg", "theme.MP3", "ignored.txt"):
+                (folder / name).touch()
+            module.update_index(folder, "audio")
+            self.assertEqual(json.loads((folder / "index.json").read_text(encoding="utf-8")), [
+                {"file": "rain_loop.ogg", "name": "rain loop"},
+                {"file": "theme.MP3", "name": "theme"},
+            ])
+            (folder / "rain_loop.ogg").unlink()
+            module.update_index(folder, "audio")
+            self.assertEqual(len(json.loads((folder / "index.json").read_text(encoding="utf-8"))), 1)
+
     def test_appends_matching_files_and_preserves_existing_entries(self):
         for extension in (".dd2vtt", ".geezvtt"):
             with self.subTest(extension=extension), tempfile.TemporaryDirectory() as directory:

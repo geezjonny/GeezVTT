@@ -1,3 +1,4 @@
+import { carryingLoad } from './inventory-weight.js';
 import { EQUIPMENT_SLOTS, equippedName, fitsEquipment } from './inventory-model.js';
 import { appliedEffects, applyModifiers, EFFECT_TARGETS } from './effects-model.js';
 import { ITEM_STATS, ITEM_SKILLS } from './item-modifiers.js';
@@ -66,7 +67,9 @@ export function characterStats(pc, reference = {}) {
   const casting = pc.spellcasting || {};
   const spell = (value, target) => value == null || value === '' ? null : applyModifiers(Number(value) + delta(casting.ability?.toLowerCase()), target, modifiers);
   const hpDelta = (Number.isSafeInteger(pc.level) && pc.level > 0 ? pc.level : 0) * (Math.floor((stats.con - 10) / 2) - Math.floor((Number(pc.combat?.hp_base_con ?? base.stats.con) - 10) / 2));
-  return { base, stats, ac, speed: applyModifiers(base.speed, 'speed', modifiers), hpMax: applyModifiers(base.hpMax == null ? null : Number(base.hpMax) + hpDelta, 'hp_max', modifiers),
+  const load = carryingLoad(pc, stats.str, reference);
+  const speed = applyModifiers(base.speed, 'speed', modifiers);
+  return { base, stats, ac, load, speed: speed === null ? null : load.overCapacity ? 0 : Math.max(0, speed - load.speedPenalty), hpMax: applyModifiers(base.hpMax == null ? null : Number(base.hpMax) + hpDelta, 'hp_max', modifiers),
     equipment, modifiers, effects, spellAttack: spell(casting.spell_attack_bonus, 'spell_attack'), spellDC: spell(casting.spell_save_dc, 'spell_dc') };
 }
 

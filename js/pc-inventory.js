@@ -1,3 +1,6 @@
+import { hasCompartment } from './prop-model.js';
+import { characterStats } from './equipment-modifiers.js';
+import { applyConsumable, requestItemUse } from './item-use.js';
 import { changeInventory } from './inventory-model.js';
 import { useSpell } from './spell-model.js';
 import { changeSpellSlot } from './sheet-rolls.js';
@@ -15,6 +18,9 @@ const entityPath=(token,control=true)=>{
   if(!token?.npcId?.startsWith('v2:')) throw new Error('Select a linked PC.');
   return `v2/worlds/gaia/entities/${encodeURIComponent(token.npcId.slice(3))}`;
 };
+function ensureCanCarry(pc, reference) {
+  if(characterStats(pc,reference).load.overCapacity) throw new Error('This would exceed carrying capacity.');
+}
 export async function readPC(token) {
   const response=await fetch(`${base}/${entityPath(token,false)}.json`,{signal:AbortSignal.timeout(15000)});
   if(!response.ok) throw new Error(`Firebase returned ${response.status}`);
@@ -32,7 +38,7 @@ export async function updatePCSpellSlot(token, level, pip) {
 }
 export async function updatePCCombat(token, action) {
   if (action.type === 'base-stat' && !isGM) throw new Error('Only the GM can change ability scores.');
-  if (!isGM && (action.type === 'ac-mode' || (action.type === 'set' && ['ac', 'speed', 'hp_max'].includes(action.field)))) throw new Error('Only the GM can change base AC, speed, or maximum HP.');
+  if (!isGM && (action.type === 'edition' || action.type === 'ac-mode' || (action.type === 'set' && ['ac', 'speed', 'hp_max'].includes(action.field)))) throw new Error('Only the GM can change base AC, speed, or maximum HP.');
   return updatePCSheet(token, pc => changeCombat(pc, action));
 }
 export async function damagePCFromTrap(token, amount) {
@@ -40,12 +46,21 @@ export async function damagePCFromTrap(token, amount) {
   return updatePCSheet(token, pc => applyTrapDamage(pc, amount));
 }
 export async function updatePCEffects(token, action) {
+  if(action.type==='activate') {
+    const pc=await readPC(token), [group,key]=String(action.id).split(':');
+    const effect=pc[group]?.[key];
+    if(effect?.consume) return consumePCItem(token,{type:'consume',id:action.id,key:effect.inventoryKey,to:token.npcId.slice(3)});
+  }
   return updatePCSheet(token, pc => changeEffects(pc, action));
 }
 export async function consumePCItem(token, action) {
   entityPath(token);
+  if (globalThis.document?.getElementById('floor')?.tabletopMap) return requestItemUse(token, action);
+  const liveResponse=await fetch(`${base}/v2/worlds/gaia/vtt/live.json`,{signal:AbortSignal.timeout(15000)});
+  if(!liveResponse.ok) throw new Error(`Firebase returned ${liveResponse.status}`);
+  if((await liveResponse.json())?.initiative) throw new Error('Use the VTT inventory during initiative.');
   if (typeof action.key !== 'string' || !action.key) throw new Error('Choose a source item.');
-  const sourceId = token.npcId.slice(3), targetEffectId = `effects:${crypto.randomUUID()}`;
+  const sourceId = token.npcId.slice(3), targetEffectId = `effects:${crypto.randomUUID()}`, rolls = {};
   const url = `${base}/v2/worlds/gaia/entities.json`;
   for (let attempt = 0; attempt < 3; attempt++) {
     const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
@@ -55,7 +70,7 @@ export async function consumePCItem(token, action) {
     const source = Object.hasOwn(entities || {}, sourceId) ? entities[sourceId] : null;
     const target = typeof action.to === 'string' && Object.hasOwn(entities || {}, action.to) ? entities[action.to] : null;
     if (source?.kind !== 'pc' || !source.data || source.data._sheetsDeleted || target?.kind !== 'pc' || !target.data || target.data._sheetsDeleted) throw new Error('Source or target PC unavailable.');
-    changeEffects(source.data, { type: 'activate', id: action.id, inventoryKey: action.key, targetEffectId }, target.data);
+    applyConsumable(source.data, target.data, {...action,effectKey:targetEffectId.slice(8)}, {}, rolls);
     const saved = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
       body: JSON.stringify(encodeTree(entities)), signal: AbortSignal.timeout(15000) });
     if (saved.status === 412) continue;
@@ -126,6 +141,7 @@ export async function updatePCInventory(token, action, reference, combatTurn = n
       cost = equipmentTurnCost(combatTurn.map, token.id, entities[id]?.data || {}, action);
     }
     changeInventory(entities, id, action, reference);
+    if(['add','coin','transfer'].includes(action.type)) ensureCanCarry(entities[action.type==='transfer'?action.to:id].data,reference);
     // Transfer both bags together; reject concurrent equipment or inventory changes.
     const saved = await fetch(`${base}/${path}.json`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
@@ -154,13 +170,16 @@ export async function addPCInventoryItem(token, item, qty, key) {
     ...(item.weight != null ? { weight: item.weight } : {}),
     ...(item.armor_class ? { armor_class: item.armor_class, armor_category: item.armor_category } : {}),
     desc: [...(item.desc || []), ...(item.special || [])].join('\n\n') };
-  // A new stable key preserves existing bag items and makes a failed request safe to retry.
-  const response = await fetch(`${base}/${entityPath(token)}/data/inventory/${key}.json`, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(entry), signal: AbortSignal.timeout(15000)
+  return updatePCSheet(token, pc => {
+    if(Object.hasOwn(pc.inventory || {},key)) {
+      if(JSON.stringify(pc.inventory[key])!==JSON.stringify(entry)) throw new Error('Inventory key conflict.');
+      return;
+    }
+    pc.inventory={...pc.inventory,[key]:entry};
+    ensureCanCarry(pc,{[item.name.toLowerCase()]:item});
   });
-  if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
 }
-export async function takeChestItems(token, chest, itemId, props, requestId) {
+export async function takeChestItems(token, chest, itemId, props, requestId, reference = {}) {
   if (!isGM) throw new Error('Compartment transfers must go through the GM session.');
   entityPath(token);
   if (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(requestId)) throw new Error('Invalid transfer request.');
@@ -178,7 +197,7 @@ export async function takeChestItems(token, chest, itemId, props, requestId) {
     if (!live?.sceneId || sceneId && live.sceneId !== sceneId) throw new Error('Shared scene changed; reopen the compartment.');
     sceneId = live.sceneId;
     const shared = live.map?.props?.find(prop => prop.id === chest.id);
-    if (!shared || !['chest', 'crate'].includes(shared.kind) || shared.hidden || shared.locked || !shared.open) throw new Error('Compartment is unavailable or not yet synced.');
+    if (!shared || !hasCompartment(shared) || shared.hidden || shared.locked || !shared.open) throw new Error('Compartment is unavailable or not yet synced.');
     const receipt = world.vtt.loot?.[requestId];
     if (receipt) {
       if (receipt.pc !== token.npcId || receipt.chestId !== chest.id) throw new Error('Transfer request conflict.');
@@ -192,6 +211,7 @@ export async function takeChestItems(token, chest, itemId, props, requestId) {
     if (entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
     for (const item of shared.contents || []) keys[item.id] ||= crypto.randomUUID();
     takeCompartmentItems(entity.data, shared, itemId, keys);
+    ensureCanCarry(entity.data,reference);
     world.entities[entityId] = encodeTree(entity);
     world.vtt.loot = { ...world.vtt.loot, [requestId]: { pc: token.npcId, chestId: chest.id } };
     if (!currentMap()) throw new Error('Map changed; reopen the compartment.');

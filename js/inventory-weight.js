@@ -21,7 +21,15 @@ export function carryingLoad(pc, strength, reference = {}) {
     else unknown++;
   }
   const size = String(pc.size ?? pc.basic?.size ?? 'medium').toLowerCase();
-  const factor = { tiny: .5, small: 1, medium: 1, large: 2, huge: 4, gargantuan: 8 }[size] ?? 1;
-  const capacity = Number.isFinite(strength) && strength >= 0 ? strength * 15 * factor : null;
-  return { weight: Math.round(weight * 100) / 100, capacity, unknown, overCapacity: capacity !== null && weight > capacity };
+  const factor = { tiny: .5, small: 1, medium: 1, large: 2, huge: 4, gargantuan: 8, '.5': .5, '0.5': .5, '1': 1, '2': 2, '3': 4, '4': 8 }[size] ?? 1;
+  const traits = Object.entries(pc.abilities || {}).map(([key,value]) => `${key.replace(/_/g,' ')} ${value?.label || ''}`).join(' ');
+  const powerful = pc.carrying?.powerful_build === true || /powerful build|little giant|equine build|hippo build/i.test(traits);
+  const multiplier = factor * (powerful ? 2 : 1);
+  const capacity = Number.isFinite(strength) && strength >= 0 ? strength * 15 * multiplier : null;
+  const heavy = capacity !== null && weight > strength * 10 * multiplier;
+  const encumbered = capacity !== null && weight > strength * 5 * multiplier;
+  const overCapacity = capacity !== null && weight > capacity;
+  return { speedPenalty: heavy ? 20 : encumbered ? 10 : 0, physicalDisadvantage: heavy,
+    status: overCapacity ? 'Over capacity (cannot carry)' : heavy ? 'Heavily encumbered (-20 ft; physical disadvantage)' : encumbered ? 'Encumbered (-10 ft)' : 'Unencumbered',
+    pushDragLift: capacity === null ? null : capacity * 2, weight: Math.round(weight * 100) / 100, capacity, unknown, overCapacity: capacity !== null && weight > capacity };
 }

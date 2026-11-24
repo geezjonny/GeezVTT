@@ -1,3 +1,6 @@
+import { visibleObject, visibilityFor } from './player-vision.js';
+import { tokenImage } from './token-art.js';
+import { resizeObject, resizeDoorWalls } from './object-size.js';
 import { readPC, pcInventory, takeChestItems, damagePCFromTrap } from './pc-inventory.js';
 import { loadSheetReference } from './sheet-view.js';
 import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
@@ -14,7 +17,7 @@ import { initiativeState } from './initiative-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
 import { installMaterialPatterns, materialURL } from './material-textures.js';
-import { PROPS, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
+import { PROPS, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
 import { tabletopPoint, previewPlacement } from './map-view-toggle.js';
 import { importedTriggers, activateTriggers, collisionSources, objectRef, triggerObject } from './trigger-model.js';
@@ -80,7 +83,7 @@ function fireTriggers(event,sources,actor) {
 function fireInteraction(layer,object,actor=activatingPC()) { fireTriggers('interact',[objectRef(layer,object)],actor); }
 function fireCollision(token,before,path=[token]) { fireTriggers('collision',collisionSources(model,token,before,path),token); }
 mountTriggers(()=>model, update=>{
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
   remember(); update(); render();
 },()=>{stopBuild(); cancelGesture(); panel.hidden=true; $('fog-tool').value='off';});
 function buttons() {
@@ -114,6 +117,7 @@ function settings() {
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
+  const canSee=visibilityFor({...floor.tabletopMap,tokens:model.tokens,walls:model.walls,doors:model.doors,lights:model.lights});
   model.lights=model.lights.filter(light=>!light.propId || model.props.some(prop=>prop.id===light.propId));
   for(const light of model.lights) if(light.propId) {
     const prop=model.props.find(prop=>prop.id===light.propId);
@@ -125,7 +129,7 @@ function render(notify=true) {
     model[name].forEach((obj,index)=>{
       if(typeof obj.id!=='string' || !obj.id || obj.id.length>100 || ids.has(obj.id)) obj.id=crypto.randomUUID();
       ids.add(obj.id);
-      if(obj.hidden && !isGM) return;
+      if(!canSee(obj)) return;
       let el;
       if(name==='props') {
         if(obj.hidden && !showHiddenProps()) return;
@@ -137,12 +141,12 @@ function render(notify=true) {
       } else if(name==='portals') {
         if(obj.hidden && !showHiddenPortals()) return;
         const destination=portalDestination(portalEntries(),obj);
-        el=node('g',{transform:`translate(${obj.x} ${obj.y})`,opacity:obj.hidden?.3:1,tabindex:0,role:'button','aria-label':`${obj.hidden?'Hidden portal':'Portal'}. Right-click for actions.`});
+        el=node('g',{transform:`translate(${obj.x} ${obj.y}) scale(${obj.size || 1})`,opacity:obj.hidden?.3:1,tabindex:0,role:'button','aria-label':`${obj.hidden?'Hidden portal':'Portal'}. Right-click for actions.`});
         el.dataset.portalId=obj.id;
         el.append(node('circle',{r:.42,fill:'#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':.3,fill:'#fff','pointer-events':'none'});
         const appearance=propAppearance(obj);
-        if(appearance) el.append(propMarker({...appearance,x:0,y:0}));
+        if(appearance) el.append(propMarker({...appearance,x:0,y:0,size:1}));
         else { text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text); }
       } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`});
@@ -158,6 +162,10 @@ function render(notify=true) {
           icon.textContent=symbol; el.append(icon);
         }
         el.append(text);
+        const image=node('image',{href:tokenImage(obj),x:-obj.size/2,y:-obj.size/2,width:obj.size,height:obj.size,preserveAspectRatio:'xMidYMid slice','pointer-events':'none'});
+        image.style.clipPath='circle(50%)';
+        image.addEventListener('error',()=>image.remove(),{once:true});
+        el.append(image);
         const status=pcTokenStatus(obj);
         if(status) {
           const width=obj.size*.9, top=obj.size*.56;
@@ -168,7 +176,7 @@ function render(notify=true) {
           el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`);
         }
       } else if(name==='floors') {
-        el=node('rect',{x:obj.x-.5,y:obj.y-.5,width:1,height:1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
+        el=node('rect',{x:obj.x-(obj.size || 1)/2,y:obj.y-(obj.size || 1)/2,width:obj.size || 1,height:obj.size || 1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
         el.dataset.floorIndex=index;
         el.setAttribute('tabindex','0'); el.setAttribute('role','button');
         el.setAttribute('aria-label',`Floor, ${obj.material}. Right-click for actions.`);
@@ -182,7 +190,7 @@ function render(notify=true) {
         marker.classList.add('light-source'); el.append(marker);
       } else {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
-        if(name==='doors' && obj.type!=='window') {
+        if(name==='doors') {
           el.dataset.doorIndex=index;
           el.setAttribute('tabindex','0');
           el.setAttribute('role','button');
@@ -206,7 +214,7 @@ function render(notify=true) {
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),wallHidden:model.walls.map(w=>w.hidden===true),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -377,7 +385,7 @@ host.addEventListener('pointermove',event=>{
 host.addEventListener('pointerleave',()=>{ hover=null; clearPreview(); });
 host.addEventListener('pointercancel',cancelGesture);
 host.addEventListener('pointerdown',event=>{
-  if(!isGM || !model || !floor.buildLayer || host.hidden || event.button!==0 || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || !floor.buildLayer || host.hidden || event.button!==0 || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const raw=point(event);
   if(!raw || (!['floors','portals','props'].includes(layer()) && !contains(raw))) return;
   event.preventDefault(); host.querySelector('canvas').focus({preventScroll:true});
@@ -480,7 +488,7 @@ $('object-light-form').addEventListener('submit',event=>event.preventDefault());
 for(const prefix of ['object-light-','edit-']) for(const property of ['color','intensity','range']) {
   const input=$(prefix+property);
   input.addEventListener('input',()=>{
-    if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true' || !input.validity.valid) return;
+    if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true' || !input.validity.valid) return;
     const value=property==='color'?input.value:input.valueAsNumber;
     if(property!=='color' && !Number.isFinite(value)) return;
     const lights=prefix==='object-light-'?(model.lights.includes(editingLight)?[editingLight]:[]):
@@ -524,7 +532,7 @@ function requestChest(chest,command,itemId) {
 }
 function openChest(id) { chestId=id; chestMessage=''; $('chest-add').hidden=true; openPanel($('chest-panel')); drawChest(); }
 function drawChest() {
-  const chest=model?.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind));
+  const chest=model?.props.find(item=>item.id===chestId && hasCompartment(item));
   if(!chest || !chest.open || (!isGM && (chest.hidden || chest.locked))) { $('chest-panel').hidden=true; return; }
   const list=$('chest-items'); list.replaceChildren();
   $('chest-title').textContent=`${PROPS[chest.kind].name} · Compartment`;
@@ -574,7 +582,7 @@ $('chest-add-custom').addEventListener('click',()=>addChestForm('custom'));
 $('chest-add-cancel').addEventListener('click',()=>{$('chest-add').hidden=true;});
 $('chest-add').addEventListener('submit',async event=>{
   event.preventDefault();
-  const chest=model?.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind)), name=$('chest-item-name').value.trim();
+  const chest=model?.props.find(item=>item.id===chestId && hasCompartment(item)), name=$('chest-item-name').value.trim();
   if(!isGM || chestBusy || pendingTake || !chest || !name || !$('chest-add').reportValidity()) return;
   const props=model.props, qty=Number($('chest-item-qty').value), enteredWeight=$('chest-item-weight').value.trim(), mode=chestAddMode;
   chestBusy=true;
@@ -596,16 +604,17 @@ async function transferChest(chest,token,itemId,requestId) {
   try {
     await floor.flushSharedTabletop?.();
     floor.compartmentBusy=true;
-    const contents=await takeChestItems(token,chest,itemId,props,requestId);
+    const reference=await loadSheetReference();
+    const contents=await takeChestItems(token,chest,itemId,props,requestId,reference);
     if(model?.props!==props) throw new Error('Transfer saved; scene changed. Check the bag.');
     undo=[]; redo=[];
     chest.contents=contents; render();
   } finally { floor.compartmentBusy=false; chestBusy=false; drawChest(); }
 }
 async function chestAction(action) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
   const {chestId,tokenId,command,itemId,requestId}=action;
-  const chest=model.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind) && !item.hidden);
+  const chest=model.props.find(item=>item.id===chestId && hasCompartment(item) && !item.hidden);
   const token=model.tokens.find(item=>item.id===tokenId && item.kind==='pc');
   if(!chest || !token || Math.hypot(chest.x-token.x,chest.y-token.y)>token.size/2+1) throw new Error('Move the selected PC next to the compartment.');
   if(command==='pick' && chest.locked) {
@@ -663,7 +672,7 @@ function iconMenu(x,y,change,origin,portal=false) {
   }))],origin);
 }
 function portalMenu(id,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const portal=model.portals.find(item=>item.id===id);
   if(!portal) return;
@@ -673,7 +682,7 @@ function portalMenu(id,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('portals',portal)),
+    triggerMenuItem(objectRef('portals',portal)), resizeMenuItem('portals',portal),
     ...interactionMenuItems(objectRef('portals',portal)),
     {label:'Use',disabled:!portalDestination(portalEntries(),portal),action:()=>usePortal(portal)},
     {label:'Add light',action:()=>change(()=>addObjectLight(portal))},
@@ -683,14 +692,14 @@ function portalMenu(id,x,y,origin) {
   ],origin);
 }
 function lightMenu(index,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const light=model.lights[index];
   if(!light) return;
   if(!isGM) { const actions=!light.hidden && interactionMenuItems(objectRef('lights',light)); if(actions?.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{ if(!model.lights.includes(light)) return; remember(); update(); render(); };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('lights',light)),
+    triggerMenuItem(objectRef('lights',light)), resizeMenuItem('lights',light),
     ...interactionMenuItems(objectRef('lights',light)),
     {label:light.off?'Turn on':'Turn off',action:()=>change(()=>{light.off=!light.off; fireInteraction('lights',light);})},
     {label:light.hidden?'Show':'Hide',action:()=>change(()=>{light.hidden=!light.hidden;})},
@@ -706,9 +715,9 @@ function lightMenu(index,x,y,origin) {
   ],origin);
 }
 function doorMenu(index,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const door=model.doors[index];
-  if(!door || door.type==='window' || door.hidden && !isGM) return;
+  if(!door || door.hidden && !isGM) return;
   if(!isGM) {
     showMapMenu(x,y,[{label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))}],origin); return;
   }
@@ -718,16 +727,16 @@ function doorMenu(index,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('doors',door)),
+    triggerMenuItem(objectRef('doors',door)), resizeMenuItem('doors',door),
     {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))},
-    {label:door.locked?'Unlock':'Lock',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
+    {label:door.locked?'Unlock':'Lock',disabled:door.type==='window',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
     {label:door.hidden?'Show':'Hide',action:()=>change(()=>{door.hidden=!door.hidden;})},
     {label:'Add light',action:()=>change(()=>addObjectLight({x:(door.points[0].x+door.points[1].x)/2,y:(door.points[0].y+door.points[1].y)/2}))},
     {label:'Delete',action:()=>change(()=>{model.doors=model.doors.filter(item=>item!==door);})}
   ],origin);
 }
 function floorMenu(index,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const tile=model.floors[index];
   if(!tile) return;
@@ -737,7 +746,7 @@ function floorMenu(index,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('floors',tile)),
+    triggerMenuItem(objectRef('floors',tile)), resizeMenuItem('floors',tile), {label:tile.hidden?'Show':'Hide',action:()=>change(()=>{tile.hidden=!tile.hidden;})},
     {label:'Change material...',action:()=>showMapMenu(x,y,Object.keys(MATERIALS).map(material=>({
       label:material,action:()=>change(()=>{tile.material=material;})
     })),origin)},
@@ -745,10 +754,10 @@ function floorMenu(index,x,y,origin) {
   ],origin);
 }
 function wallMenu(index,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const wall=model.walls[index];
   if(!wall) return;
-  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall))]:[]),...interactionMenuItems(objectRef('walls',wall))];
+  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall)),resizeMenuItem('walls',wall),{label:wall.hidden?'Show':'Hide',action:()=>{remember(); wall.hidden=!wall.hidden; render();}}]:[]),...interactionMenuItems(objectRef('walls',wall))];
   if(actions.length) showMapMenu(x,y,actions,origin);
 }
 async function fillCompartment(prop,tier) {
@@ -772,23 +781,23 @@ function compartmentMenu(prop,x,y,origin) {
     else requestChest(prop,'open');
   };
   showMapMenu(x,y,[
-    ...(isGM?[{label:'Contents',action:()=>showMapMenu(x,y,LOOT_TIERS.map((tier,index)=>({label:tier.label,action:()=>fillCompartment(prop,index+1)})),origin)}]:[]),
+    ...(isGM?[{label:prop.locked?'Unlock':'Lock',action:()=>{remember(); prop.locked=!prop.locked; if(prop.locked) prop.open=false; render();}},{label:'Contents',action:()=>showMapMenu(x,y,LOOT_TIERS.map((tier,index)=>({label:tier.label,action:()=>fillCompartment(prop,index+1)})),origin)}]:[]),
     {label:'Open',disabled:!!prop.locked,action:open}
   ],origin);
 }
 function propMenu(id,x,y,origin) {
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const prop=model.props.find(item=>item.id===id);
   if(!prop || (!isGM && prop.hidden)) return;
-  if(['lever','button'].includes(prop.kind)) {
+  if(['lever','button'].includes(prop.kind) && !hasCompartment(prop)) {
     showMapMenu(x,y,[{label:prop.open?'Toggle off':'Toggle on',action:()=>requestObjectInteraction(objectRef('props',prop))},
-      ...(isGM?[triggerMenuItem(objectRef('props',prop)),
+      ...(isGM?[triggerMenuItem(objectRef('props',prop)), resizeMenuItem('props',prop),
         {label:prop.hidden?'Show':'Hide',action:()=>{remember(); prop.hidden=!prop.hidden; render();}},
         {label:'Rotate 90°',action:()=>{remember(); prop.rotation=(prop.rotation+90)%360; render();}},
         {label:'Delete',action:()=>{remember(); model.props=model.props.filter(item=>item!==prop); render();}}]:[])],origin); return;
   }
-  if(!isGM && !['chest','crate'].includes(prop.kind)) {
+  if(!isGM && !hasCompartment(prop)) {
     const actions=interactionMenuItems(objectRef('props',prop));
     if(actions.length) showMapMenu(x,y,actions,origin);
     return;
@@ -806,8 +815,8 @@ function propMenu(id,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    triggerMenuItem(objectRef('props',prop)),
-    ...(!['chest','crate'].includes(prop.kind)?interactionMenuItems(objectRef('props',prop)):[]),
+    triggerMenuItem(objectRef('props',prop)), resizeMenuItem('props',prop),
+    ...(!hasCompartment(prop)?interactionMenuItems(objectRef('props',prop)):[]),
     {label:'Delete',action:()=>change(()=>{model.props=model.props.filter(item=>item!==prop);})},
     {label:prop.hidden?'Show':'Hide',action:()=>change(()=>{prop.hidden=!prop.hidden;})},
     {label:'Change icon...',action:()=>showMapMenu(x,y,Object.entries(PROPS).map(([kind,entry])=>({
@@ -820,7 +829,7 @@ function propMenu(id,x,y,origin) {
         if(light) editLight(light);
       }}
     ]:[{label:'Add light',action:()=>change(()=>addObjectLight(prop))}]),
-    ...(['chest','crate'].includes(prop.kind)?[
+    ...(hasCompartment(prop)?[
       {label:prop.locked?'Unlock':'Lock',action:()=>change(()=>{prop.locked=!prop.locked; if(prop.locked) prop.open=false;})},
       {label:prop.open?'Close':'Open',disabled:!prop.open && prop.locked,action:()=>{requestObjectInteraction(objectRef('props',prop)); if(prop.open) openChest(prop.id);}},
       {label:'Compartment',action:()=>compartmentMenu(prop,x,y,origin)}
@@ -837,10 +846,10 @@ onMapRightClick(svg,event=>{
   if(!model || svg.hidden) return;
   const p=point(event);
   // Tokens are drawn above portals and retain their own right-click action.
-  if(model.tokens.some(token=>Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
+  if(model.tokens.some(token=>visibleObject(floor.tabletopMap,token) && Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
   const portal=model.portals.findLast(item=>{
     const appearance=propAppearance(item);
-    return (!item.hidden || showHiddenPortals()) && (appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=.42);
+    return (!item.hidden || showHiddenPortals()) && (appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=.42*(item.size || 1));
   });
   if(portal) { portalMenu(portal.id,event.clientX,event.clientY,svg); return; }
   const prop=model.props.findLast(item=>(!item.hidden || showHiddenProps()) && propDistance(item,p)===0);
@@ -848,7 +857,7 @@ onMapRightClick(svg,event=>{
   const matrix=svg.getScreenCTM();
   let best=9/Math.max(.001,Math.hypot(matrix.a,matrix.b)), index=-1;
   model.doors.forEach((door,i)=>{
-    if(door.type==='window' || (door.hidden && !isGM)) return;
+    if(!visibleObject(floor.tabletopMap,door)) return;
     const d=Math.min(...segments(door.points).map(([a,b])=>distance(p,a,b)));
     if(d<=best) { best=d; index=i; }
   });
@@ -861,7 +870,7 @@ onMapRightClick(svg,event=>{
   if(lightIndex>=0) { lightMenu(lightIndex,event.clientX,event.clientY,svg); return; }
   const wallIndex=model.walls.findLastIndex(wall=>segments(wall.points).some(([a,b])=>distance(p,a,b)<=best));
   if(wallIndex>=0) { wallMenu(wallIndex,event.clientX,event.clientY,svg); return; }
-  const floorIndex=model.floors.findLastIndex(tile=>Math.abs(p.x-tile.x)<=.5 && Math.abs(p.y-tile.y)<=.5);
+  const floorIndex=model.floors.findLastIndex(tile=>Math.abs(p.x-tile.x)<=(tile.size || 1)/2 && Math.abs(p.y-tile.y)<=(tile.size || 1)/2);
   if(floorIndex>=0) floorMenu(floorIndex,event.clientX,event.clientY,svg);
 });
 $('floors').addEventListener('keydown',event=>{
@@ -937,9 +946,39 @@ for(const element of [panel,$('portals-panel'),$('props-panel')]) new MutationOb
   if(model) render(false);
 }).observe(element,{attributes:true,attributeFilter:['hidden']});
 floor.addEventListener('map-changed',closeMapMenu);
+floor.addEventListener('tabletop-item-saved',event=>{
+  if(!isGM || !model) return;
+  const saved=event.detail;
+  undo=[]; redo=[];
+  model.tokens=clone(saved.tokens || []); model.props=clone(saved.props || []);
+  floor.tabletopMap.initiative=clone(saved.initiative);
+  render();
+});
+floor.addEventListener('object-resize',event=>{
+  if(!isGM || !model || floor.equipmentBusy) return;
+  const {layer,id}=event.detail, object=model[layer]?.find(item=>item.id===id);
+  if(!object) return;
+  const current=object.points?Math.hypot(object.points.at(-1).x-object.points[0].x,object.points.at(-1).y-object.points[0].y):object.range ?? object.length ?? object.size ?? 1;
+  const value=window.prompt('Size in grid squares:',String(current));
+  if(value===null) return;
+  try {
+    const next=clone(object); resizeObject(next,Number(value.trim() || NaN)); remember();
+    if(layer==='doors') model.walls=resizeDoorWalls(model.walls,object.points,next.points);
+    Object.assign(object,next); render();
+  }
+  catch(error) { window.alert(error.message); }
+});
+floor.addEventListener('object-hide',event=>{
+  if(!isGM || !model || floor.equipmentBusy) return;
+  const object=model[event.detail.layer]?.find(item=>item.id===event.detail.id);
+  if(object) { remember(); object.hidden=!object.hidden; render(); }
+});
+function resizeMenuItem(layer,object) {
+  return {label:'Resize...',action:()=>floor.dispatchEvent(new CustomEvent('object-resize',{detail:{layer,id:object.id}}))};
+}
 floor.addEventListener('token-sync',event=>{
-  const {npcId,name,size,hp,kind,hpMax,ac,speed,turnFeatures}=event.detail;
-  const props={name,size,hp,kind,hpMax,ac,speed,turnFeatures};
+  const {npcId,name,hp,kind,hpMax,ac,speed,turnFeatures,vision,overCapacity,invisible}=event.detail;
+  const props={name,hp,kind,hpMax,ac,speed,turnFeatures,vision,overCapacity:overCapacity===true,invisible:invisible===true};
   if(!model?.tokens.some(token=>token.npcId===npcId && Object.keys(props).some(key=>JSON.stringify(token[key])!==JSON.stringify(props[key])))) return;
   cancelGesture();
   for(const token of model.tokens) if(token.npcId===npcId) Object.assign(token,props);
@@ -952,12 +991,13 @@ floor.addEventListener('token-update',event=>{
     if(!token) throw new Error('This token no longer exists.');
     const props=tokenProperties(event.detail.name,event.detail.size,event.detail.hp);
     props.icon=tokenIcon(event.detail.icon ?? token.icon);
+    if (typeof event.detail.imageName === 'string' && event.detail.imageName.length <= 150 && !/[/\\?#]/.test(event.detail.imageName) && !event.detail.imageName.includes('..')) props.imageName=event.detail.imageName;
     remember(); Object.assign(token,props); render();
   } catch(error) { event.detail.error=error.message; }
 });
 floor.addEventListener('vtt-door-toggle',event=>{
   if(!isGM) return;
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const index=typeof event.detail==='number'?event.detail:event.detail.index;
   const actor=typeof event.detail==='number'?activatingPC():model.tokens.find(token=>token.id===event.detail.tokenId);
   const door=model.doors[index];
@@ -966,11 +1006,11 @@ floor.addEventListener('vtt-door-toggle',event=>{
 });
 floor.addEventListener('vtt-object-interact',event=>{
   const fail=text=>{event.detail.error=text; $('session-status').textContent=text;};
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') {fail('Table is busy; try again.'); return;}
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') {fail('Table is busy; try again.'); return;}
   const {ref,tokenId,remote}=event.detail, object=triggerObject(model,ref);
   const token=model.tokens.find(token=>token.id===tokenId && token.kind==='pc');
   if(!object || remote && (!token || object.hidden)) {fail('Object is unavailable.'); return;}
-  if(remote && !(ref.layer==='doors' || ref.layer==='props' && ['chest','crate','lever','button'].includes(object.kind) ||
+  if(remote && !(ref.layer==='doors' || ref.layer==='props' && (hasCompartment(object) || ['lever','button'].includes(object.kind)) ||
       model.triggers.some(rule=>rule.event==='interact' && rule.source.layer===ref.layer && rule.source.id===ref.id))) {fail('This object has no interaction.'); return;}
   if(remote) {
     const range=ref.layer==='props'?propDistance(object,token):object.points?Math.min(...segments(object.points).map(([a,b])=>distance(token,a,b))):Math.hypot(object.x-token.x,object.y-token.y);
@@ -984,7 +1024,7 @@ floor.addEventListener('vtt-object-interact',event=>{
   fireInteraction(ref.layer,object,token); render();
 });
 floor.addEventListener('vtt-object-move',event=>{
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const {kind,id,index,x,y}=event.detail;
   const object=kind==='lights'?model.lights[index]:['props','portals'].includes(kind)?model[kind].find(item=>item.id===id):null;
   if(!object || !Number.isFinite(x) || !Number.isFinite(y)) return;
@@ -995,14 +1035,14 @@ floor.addEventListener('vtt-object-move',event=>{
   render();
 });
 floor.addEventListener('vtt-token-rotate',event=>{
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const token=model.tokens.find(item=>item.id===event.detail);
   if(!token) return;
   cancelGesture(); remember(); token.rotation=((token.rotation || 0)+90)%360; render();
 });
 floor.addEventListener('vtt-token-move',event=>{
   if(!isGM) return;
-  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const {id,x,y}=event.detail, token=model.tokens.find(item=>item.id===id);
   if(!token || !Number.isFinite(x) || !Number.isFinite(y)) return;
   const destination=floor.initiativeActive
@@ -1027,7 +1067,7 @@ function stopBuild() {
 }
 floor.addEventListener('build-stop',stopBuild);
 floor.addEventListener('build-start',event=>{
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const name=event.detail;
   if(!['walls','floors','lights','doors','portals','props','tokens'].includes(name)) return;
   cancelGesture(); floor.buildLayer=name; panel.hidden=true; $('fog-tool').value='off';
@@ -1128,7 +1168,7 @@ $('portal-new-pair').addEventListener('click',()=>{
   pendingPortal=null; selected.clear(); toolInput.value='paint'; updateTools();
 });
 async function usePortal(source) {
-  if(!isGM || !model || !model.portals.includes(source) || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!isGM || !model || !model.portals.includes(source) || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const destination=portalDestination(portalEntries(),source);
   if(!destination) { message('This portal needs a second node.'); return; }
@@ -1196,8 +1236,8 @@ floor.addEventListener('map-ready',()=>{
     triggers:importedTriggers(saved?.triggers),
     portals:importedPortals(saved?.portals),
     props:importedProps(saved?.props),
-    floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
-    walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,material:saved?.wallMaterials?.[i]}))),
+    floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,size:Number.isFinite(o.size) && o.size>=.25 && o.size<=20?o.size:1,hidden:o.hidden===true,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
+    walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,hidden:saved?.wallHidden?.[i]===true,material:saved?.wallMaterials?.[i]}))),
     doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),hidden:d.source?.geezvtt_hidden===true,locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.source?.geezvtt_locked!==true && d.open,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l,propId:typeof l.source?.geezvtt_prop_id==='string'?l.source.geezvtt_prop_id:null,hidden:l.source?.geezvtt_hidden===true,off:l.source?.geezvtt_off===true,icon:propAppearance({icon:l.source?.geezvtt_icon})?l.source.geezvtt_icon:''})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
@@ -1230,6 +1270,7 @@ export function serializeMap() {
   raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',geezvtt_prop_id:l.propId || null,geezvtt_hidden:!!l.hidden,geezvtt_off:!!l.off,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   raw.geezvtt_editor.triggers=clone(model.triggers);
+  raw.geezvtt_editor.wallHidden=model.walls.map(w=>w.hidden===true);
   raw.geezvtt_editor.objectIds=Object.fromEntries(['floors','walls','doors','lights','props','portals','tokens'].map(name=>[name,model[name].map(object=>object.id)]));
   raw.geezvtt_editor.initiative=initiativeState(floor.tabletopMap.initiative,model.tokens);
   return raw;
@@ -1258,3 +1299,6 @@ $('edit-export').addEventListener('click',()=>{
 });
 // Modules may finish loading after an import.
 if(floor.tabletopMap) floor.dispatchEvent(new Event('map-ready'));
+
+window.addEventListener('token-art-ready',()=>{if(model) render();});
+window.addEventListener('player-signed-in',()=>{if(model) render();});

@@ -12,7 +12,8 @@ export function sheetRolls(pc, reference = {}) {
   const mod = ability => Math.floor((score(ability) - 10) / 2);
   const delta = ability => mod(ability) - baseMod(ability);
   const proficiency = number(pc.combat?.proficiency_bonus, 2 + Math.floor((number(pc.level, 1) - 1) / 4));
-  const check = (key, label, bonus, detail = '') => ({ key, label, bonus, detail, expression: `1d20${sign(bonus)}` });
+  const physical = ability => final.load.physicalDisadvantage && ['str','dex','con'].includes(ability);
+  const check = (key, label, bonus, detail = '') => ({ key, label, bonus, detail, disadvantage: physical(key.split(':')[1]), expression: `1d20${sign(bonus)}` });
   const proficientSaves = Object.values(pc.saves?.proficient || {});
   const armorName = equippedName(pc, 'armor');
   const armor = Object.values(pc.inventory || {}).find(item => item?.name?.toLowerCase() === armorName.toLowerCase() && Number(item.qty ?? 1) > 0);
@@ -26,8 +27,8 @@ export function sheetRolls(pc, reference = {}) {
       const ability = skill.ability_score.index;
       const bonus = number(data.bonus, baseMod(ability) + (data.expertise ? 2 : data.proficient ? 1 : 0) * proficiency)
         + delta(ability);
-      const disadvantage = key === 'stealth' && stealthDisadvantage;
-      return { ...check(`skill:${key}`, `${skill.name}${data.expertise ? ' (expertise)' : data.proficient ? ' (proficient)' : ''}`, applyModifiers(bonus, `skill:${key}`, final.modifiers), disadvantage ? `Disadvantage: ${armorName}` : ''), disadvantage };
+      const disadvantage = key === 'stealth' && stealthDisadvantage || physical(ability);
+      return { ...check(`skill:${key}`, `${skill.name}${data.expertise ? ' (expertise)' : data.proficient ? ' (proficient)' : ''}`, applyModifiers(bonus, `skill:${key}`, final.modifiers), disadvantage ? `Disadvantage: ${physical(ability) ? 'heavy encumbrance' : armorName}` : ''), disadvantage };
     }),
     Initiative: [check('initiative', 'Initiative', applyModifiers(number(pc.combat?.initiative_bonus, baseMod('dex')) + delta('dex'), 'initiative', final.modifiers))],
     Weapons: Object.entries(pc.attacks || {}).flatMap(([key, attack]) => {
@@ -46,7 +47,7 @@ export function sheetRolls(pc, reference = {}) {
         (term, sign, value) => damageAdjustment ? (Number(`${sign}${value}`) + damageAdjustment >= 0 ? '+' : '') + (Number(`${sign}${value}`) + damageAdjustment) : term);
       if (damageAdjustment && !suffix.test(damageSource)) damage = damage.replace(/^(\s*\d*d\d+)/i, `$1${sign(damageAdjustment)}`);
       return [
-        { ...check(`attack:${key}`, `${attack.name} attack`, bonus), detail: 'To hit' },
+        { ...check(`attack:${key}`, `${attack.name} attack`, bonus), detail: 'To hit', disadvantage: physical(finesse ? (mod('dex') > mod('str') ? 'dex' : 'str') : ability) },
         { key: `damage:${key}`, label: `${attack.name} damage`, expression: damage, detail: attack.damage_type || '' }
       ];
     })

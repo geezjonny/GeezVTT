@@ -1,3 +1,4 @@
+import { viewersFor, visibleObject } from './player-vision.js';
 import { openPanel } from './menu-bar.js';
 import './map-editor.js';
 import { TIMES, fogSize, fogRectangles } from './environment-model.js';
@@ -14,7 +15,7 @@ function changed() {
 }
 function drawFog() {
   const model = floor.tabletopMap;
-  $('fog-of-war').replaceChildren(...fogRectangles(model).map(rect => {
+  $('fog-of-war').replaceChildren(...fogRectangles(model, viewersFor(model)).map(rect => {
     const node = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     for (const [name, value] of Object.entries(rect)) node.setAttribute(name, value);
     return node;
@@ -92,6 +93,7 @@ floor.addEventListener('map-ready', () => {
   $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
   drawFog(); updateWeather();
 });
+window.addEventListener('player-signed-in',()=>{if(floor.tabletopMap?.environment) drawFog();});
 floor.addEventListener('map-changed', () => {
   if (floor.tabletopMap?.environment) drawFog();
 });

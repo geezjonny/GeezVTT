@@ -1,14 +1,30 @@
 # GeezVTT to-do
 
+## Token art, rules, vision and campaign tools - 2026-11-23
+
+- [x] Match token art by character name, use the repository catalog for image-name suggestions, and override through Token > Image name. Applies in Initiative, 2D and 3D, with existing fallback art when no image loads. Overrides survive scene export/import and live updates.
+- [x] Add GM Resize to token, prop, portal, light, wall, floor, door and window context menus. Tokens retain half-square steps; segment resizing preserves the midpoint and door resizing adjusts adjoining wall openings. Light resizing changes its range. Door and compartment Lock/Unlock reuse their saved states; props with inventory use compartment controls.
+- [x] Read individual sight/darkvision from Firebase senses. Player visibility uses controlled PC tokens, illumination, walls and closed doors; GM-hidden objects stay hidden from players. Dynamic player sight takes precedence over the GM's manual fog cover/reveal overlay. This does not add Firebase access control or remembered exploration. Sight defaults to 120 ft when no sight range is stored.
+- [x] Add GM per-character 2014/2024 selection in Stats; default to 2024. Potion use takes a bonus action in 2024 and an action in 2014. Other configured consumables use an action. Out of initiative, do not charge turn resources. VTT use saves item spending, target HP/effects and the turn budget together through the online GM, with conditional writes and retry receipts. Standalone sheets direct combat item use to the VTT.
+- [x] Healing potions automatically heal, respecting maximum HP; configurable instant healing/damage items spend quantity and apply HP changes, with damage spending temporary HP first. Recognized potions create timed Effects automatically, including giant strength, speed/AC, heroism temporary HP, named resistances and descriptive special effects. Reusing a spent dose cannot activate it for free.
+- [x] Add item Throw with map destination picking, weight/strength, range and obstruction checks. Spends an attack during initiative and places one recoverable item in a small map compartment. Throw weight uses carrying capacity as a table rule: D&D does not specify a general maximum throwable weight. Hit/save outcomes and throwing damage remain manual.
+- [x] Apply requested variant encumbrance: STR x 5 / x 10 thresholds, -10 / -20 ft, physical-roll disadvantage, size and recognized Powerful Build traits, and movement blocked above capacity. Known totals reject capacity-exceeding bag additions, transfers and compartment taking; unknown weights remain flagged and must be supplied for complete enforcement.
+- [x] Add VTT Journal per linked player character, GM player selection, conditional saves and unsaved-note protection. Add GM Handouts for PNG/JPEG/WebP/GIF/TXT files up to 1 MB, pushed to selected linked PC tokens. Recipients receive the handout window.
+- [x] Add the standard-width Soundboard window with ambience, SFX and music channels, GM Play/Stop, shared playback position, reconnect state, local volume and Enable audio. Repository catalogs are in ambience/, sfx/ and music/; update_indexes.py now rebuilds them. Audio URLs are also accepted. No audio files were supplied; the initial catalogs are empty.
+- [ ] User verification of all new controls, 2D/3D/First Person presentation, imports/reloads, GM/player behavior, journal conflicts, handout delivery, audio unlock/reconnect/drift, item/turn atomicity and denied/conflicting Firebase writes. New regression cases are unrun.
+
+Known limits: special potion rules such as charm targets, aerial movement, mind reading, attack-triggered expiration, damage-type resolution and additional Haste actions still need GM adjudication. Effect timers use the existing game-time controls. Hidden objects, journals and handouts follow the existing trusted-group Firebase model; UI filtering is not server authorization.
+
 ## Requested additions - 2026-11-23
 
 - [x] Traps and triggers: tripwire segment drawing, single-cell pressure plates, levers, and buttons with SVG icons and code-built 3D models. Object > Trigger > Connect to selects a target; Connect opens collision/interact and state/damage/move settings. Supports multiple editable/deletable connections, activating-PC or specific-token damage, and picked movement destinations. Connections persist with stable object IDs in scene/map exports and shared updates. Implementation awaits user verification.
 - [ ] Verify trap drawing and picking in 2D/3D/First Person; collision entry/crossing and movement paths; lever/button and chest/door interactions across GM/player sessions; open/close/lock/unlock, fixed/dice damage and temporary HP, specific targets, saved destinations, chained movement, deletion, export/import, reconnect, proximity/ownership denial, and Firebase conflict/error handling. New trigger regression cases are unrun. Player trigger resolution requires an online GM session. Movement effects relocate directly without wall blocking; linked PC damage uses conditional character saves, while other token damage is scene-local. Character damage and scene effects are separate saves; failed damage is reported for GM resolution.
 - [x] Compartments for crates/chests: right click > Compartment > Contents > adventuring tier 1–4 generates random coins, gear, and tier-matched magic items. Generation adds to existing contents. Compartment > Open offers Add SRD Item and Add Custom Item. Clicking an item transfers one unit; Take All transfers all remaining contents to the selected controlled PC. Coins credit the coin purse. Bag additions, compartment removal, and retry receipts save together using a conditional world write. Implementation awaits user verification.
 - [x] Item weights and calculated carrying limits: SRD weights, editable custom weights, stack totals, coin weight, current STR and creature-size capacity, unknown-weight warnings, and over-capacity status. Implementation awaits user verification.
-- [ ] Optional encumbrance speed penalties, special carrying traits, and hard enforcement of carrying limits.
+- [x] Variant encumbrance penalties, recognized Powerful Build traits and known-weight capacity enforcement (see latest entry).
 - [x] Configured consumables: Item > Use > target PC > Confirm use. Source consumption and target modifiers save together; target copies expire/end through the existing Effects controls and cannot reactivate for free. Available in the VTT and standalone sheet. Implementation awaits user verification.
-- [ ] Instant healing/damage consumables, automatic potion effect definitions, non-PC consumable targets, and effect configuration following transferred items.
+- [x] Instant healing/damage consumables and automatic recognized potion definitions (see latest entry).
+- [ ] Non-PC consumable targets and effect configuration following transferred items.
 
 Current implementation notes: tier loot uses bounded SRD pools and app-defined coin ranges rather than reproducing DMG hoard tables; items without a known reference or custom weight remain explicitly unknown. Compartment taking requires an online GM session and a nearby selected PC. Conditional compartment saves require Firebase write access at `v2/worlds/gaia`; targeted consumables require write access at the entities collection. Existing trusted-group permissions remain in effect.
 
@@ -51,7 +67,8 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 
 - [x] Load repository battlemap and saved-scene catalogs through the Load library, with local file opening also available. Implementation awaits user verification.
 - [x] Add repository token PNG assets and `token/index.json`, with `update_indexes.py` to rebuild the filename catalog alongside battlemap and scene indexes. Initiative portraits match lowercase names with underscores; missing images retain letters. Implementation awaits user verification.
-- [ ] Add a token image picker and render token portraits on the map; finish repository-relative prop asset support where missing.
+- [x] Add a token image-name picker and map-token portraits.
+- [ ] Finish repository-relative prop asset support where missing.
 - [x] Add distance measurement, including shared measurement events and distance labels at 5 feet per square. Implementation awaits user verification.
 - [ ] Add adjustable grid scale and offset.
 - [ ] Add object resize controls, locking, hiding/revealing, and layer ordering where missing.
@@ -63,11 +80,11 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 
 ## 4. Complete visibility
 
-- [ ] Calculate individual player vision from linked character tokens, including configurable sight and darkvision.
-- [ ] Combine token vision with wall/door obstruction and illumination.
+- [x] Calculate individual player vision from linked character tokens and Firebase sight/darkvision.
+- [x] Combine token vision with wall/door obstruction and illumination.
 - [ ] Separate current visibility, remembered exploration, manual reveals, and hidden-object state; preserve exploration per player.
 - [ ] Add GM preview of an individual player's view.
-- [ ] Keep hidden tokens and props out of the player's revealed view.
+- [x] Keep hidden tokens and props out of the player's revealed view.
 - [ ] Extend fog coverage to painted floors outside the imported image, including negative coordinates.
 - [ ] Decide whether finer fog boundaries are needed; current reveal and light obstruction use fog-cell centers and larger cells on large maps.
 - [ ] Address consistency between fog obstruction and 3D lighting: fog tests all blocking walls/closed doors, while only eight eligible point lights currently cast visual shadows.
@@ -84,9 +101,10 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 
 ## 6. Campaign tools
 
-- [ ] Add private and selectively shared journals/handouts.
-- [ ] Add repository music/SFX catalogs and a GM soundboard with one-shots and looping audio.
-- [ ] Synchronize playback controls, retain local player volume, and save scene audio settings.
+- [x] Add per-character journals and selectively pushed handouts; existing trusted-group Firebase access applies.
+- [x] Add repository ambience/music/SFX catalogs and a GM soundboard with one-shots and looping audio.
+- [x] Synchronize playback controls and retain local player volume.
+- [ ] Save audio settings per scene; current shared playback persists across scene changes.
 - [ ] Add campaign export/import backups in addition to existing portable scene files.
 - [ ] Finish collapsible character, journal, asset, and soundboard panels and combat initiative presentation.
 - [ ] Confirm GitHub Pages hosting/deployment setup and asset paths for the integrated application.

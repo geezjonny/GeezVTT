@@ -13,7 +13,8 @@ test('carried weight includes stacks and coins, resolves reference weights, and 
   const reference = { torch: { weight: 1 } };
   const pc = { inventory: { torch: { name: 'Torch', qty: 3 }, custom: { name: 'Custom', weight: .5, qty: 2 },
     unknown: { name: 'Unknown' }, empty: { name: 'Empty', qty: 0 } }, coin_purse: { gp: 50 } };
-  assert.deepEqual(carryingLoad(pc, 12, reference), { weight: 5, capacity: 180, unknown: 1, overCapacity: false });
+  const load=carryingLoad(pc,12,reference);
+  assert.deepEqual([load.weight,load.capacity,load.unknown,load.overCapacity],[5,180,1,false]);
   assert.equal(itemWeight({ name: 'Torch', weight: 0 }, reference), 0);
   assert.equal(itemWeight({ name: 'Torch', weight: -1 }, reference), null);
   assert.equal(carryingLoad({ ...pc, size: 'Tiny' }, 12, reference).capacity, 90);

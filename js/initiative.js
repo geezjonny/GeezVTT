@@ -1,3 +1,6 @@
+import { visibleObject } from './player-vision.js';
+import { visibleObject } from './player-vision.js';
+import { tokenImage } from './token-art.js';
 import { isGM, canControlPC } from './session-role.js';
 import { openPanel } from './menu-bar.js';
 import { initiativeState, initiativeOrder, startTurn, remainingMovement, attacksPerTurn } from './initiative-model.js';
@@ -33,7 +36,7 @@ function render() {
   list.replaceChildren();
   const order = initiativeOrder(state).slice(0, 4);
   for (let i = 0; i < 4; i++) {
-    const token = map?.tokens.find(token => token.id === order[i]?.id);
+    const token = map?.tokens.find(token => token.id === order[i]?.id && visibleObject(map,token));
     const tile = document.createElement('li');
     tile.textContent = token ? Array.from(token.name.trim())[0].toUpperCase() : '·';
     tile.title = token ? token.name : 'Empty turn';
@@ -43,7 +46,7 @@ function render() {
       const image = document.createElement('img');
       image.alt = '';
       image.addEventListener('error', () => image.remove(), { once: true });
-      image.src = `token/${encodeURIComponent(token.name.trim().toLowerCase().replace(/\s+/g, '_'))}.png`;
+      image.src = tokenImage(token);
       tile.append(image);
     }
     list.append(tile);

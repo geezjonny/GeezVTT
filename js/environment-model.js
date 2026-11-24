@@ -1,3 +1,4 @@
+import { visionTest } from './vision-model.js';
 import { crosses, segments } from './map-editor-model.js';
 
 export const TIMES = {
@@ -21,10 +22,11 @@ export function environmentSettings(raw, map) {
     }))] }
   };
 }
-export function fogRectangles(map) {
+export function fogRectangles(map, viewers = null) {
+  const visible = viewers === null ? null : visionTest(map, viewers);
   const fog = map.environment.fog, cells = new Set(fog.cells), size = fogSize(map), rectangles = [];
   const lights = (map.lights || []).filter(light => Number.isFinite(light.x) && Number.isFinite(light.y) &&
-    Number.isFinite(light.range) && light.range > 0 && (light.intensity ?? 1) > 0 && (light.opacity ?? 1) > 0);
+    !light.off && Number.isFinite(light.range) && light.range > 0 && (light.intensity ?? 1) > 0 && (light.opacity ?? 1) > 0);
   const barriers = [...(map.walls || []), ...(map.doors || []).filter(door => door.type !== 'window' && !door.open).map(door => door.points)].flatMap(segments);
   const lit = (x, y) => {
     const center = { x: Math.min((x + .5) * size, (x * size + map.width) / 2), y: Math.min((y + .5) * size, (y * size + map.height) / 2) };
@@ -35,7 +37,8 @@ export function fogRectangles(map) {
     let start = null;
     const cols = Math.ceil(map.width / size);
     for (let x = 0; x <= cols; x++) {
-      const hidden = x < cols && fog.covered !== cells.has(`${x},${y}`) && !lit(x, y);
+      const center = { x: (x + .5) * size, y: (y + .5) * size };
+      const hidden = x < cols && (visible ? !visible(center) : fog.covered !== cells.has(`${x},${y}`) && !lit(x, y));
       if (hidden && start === null) start = x;
       if (!hidden && start !== null) {
         rectangles.push({ x: start * size, y: y * size, width: Math.min(x * size, map.width) - start * size, height: Math.min(size, map.height - y * size) });

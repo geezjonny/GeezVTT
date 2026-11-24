@@ -1,3 +1,5 @@
+import { consumableDefinition } from './consumables.js';
+import { requestItemUse } from './item-use.js';
 import { mountInventoryAdder } from './inventory-adder.js';
 import { updatePCInventory, consumePCItem, readPC } from './pc-inventory.js';
 import { effectDefinitions } from './effects-model.js';
@@ -18,8 +20,8 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
     if (busy) return false;
     busy = true; status.textContent = 'Saving…';
     try {
-      const reference = ['coin', 'consume'].includes(action.type) ? {} : await loadSheetReference();
-      const pc = action.type === 'consume'
+      const reference = ['consume'].includes(action.type) ? {} : await loadSheetReference();
+      const pc = action.type === 'throw' ? await requestItemUse(token,action) : action.type === 'consume'
         ? await consumePCItem(token, action)
         : await updatePCInventory(token, action, reference);
       status.textContent = 'Saved.';
@@ -48,6 +50,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
         <label>AC modifier<input name="ac" type="number" min="-999" max="999" step="1" value="0" required></label>
         <details><summary>Stat score modifiers</summary><div class="sheet-modifiers">${modifierFields('stats', ITEM_STATS)}</div></details>
         <details><summary>Skill modifiers</summary><div class="sheet-modifiers">${modifierFields('skills', ITEM_SKILLS)}</div></details>
+        <label>Immediate use<select name="consumeKind"><option value="">Automatic / configured effect</option><option value="healing">Healing</option><option value="damage">Damage</option></select></label><label>Use amount<input name="consumeDice" maxlength="100" placeholder="2d4+2"></label>
         <label>Description<textarea name="desc" maxlength="20000" rows="4"></textarea></label>
         <button type="submit">Save item</button><button type="button">Cancel</button>`;
       const armorFields = document.createElement('details');
@@ -60,6 +63,8 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       field('category').value = item.category || '';
       field('qty').value = item.qty ?? 1;
       field('weight').value = item.weight ?? '';
+      field('consumeKind').value = item.consumable?.kind || '';
+      field('consumeDice').value = item.consumable?.dice || '';
       field('desc').value = Array.isArray(item.desc) ? item.desc.join('\n\n') : item.desc || '';
       field('ac').value = item.modifiers?.ac ?? 0;
       field('armorBase').value = item.armor_class?.base ?? '';
@@ -76,7 +81,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
         for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
           for (const key of keys) modifiers[group][key] = Number(field(`${group}:${key}`).value);
         }
-        const value = { name: field('name').value, category: field('category').value, qty: Number(field('qty').value), weight: field('weight').value.trim() ? Number(field('weight').value) : null, desc: field('desc').value, modifiers,
+        const value = { consumable:field('consumeKind').value?{kind:field('consumeKind').value,dice:field('consumeDice').value}:null, name: field('name').value, category: field('category').value, qty: Number(field('qty').value), weight: field('weight').value.trim() ? Number(field('weight').value) : null, desc: field('desc').value, modifiers,
           armor_class: field('armorBase').value.trim() ? { base: Number(field('armorBase').value), dex_bonus: field('armorDex').checked,
             ...(field('armorCap').value.trim() ? { max_bonus: Number(field('armorCap').value) } : {}) } : null };
         const buttons = [...form.querySelectorAll('button')];
@@ -95,7 +100,8 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
     try {
       const entities = await getPCs();
       if (getToken()?.npcId !== token.npcId) return;
-      const targets = Object.entries(entities || {}).filter(([, entity]) => entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted);
+      const placed=document.getElementById('floor')?.tabletopMap?.tokens;
+      const targets = Object.entries(entities || {}).filter(([id, entity]) => entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted && (!placed || placed.some(token=>token.npcId===`v2:${id}` && !token.hidden)));
       if (!targets.length) throw new Error('No target PCs available.');
       useForm?.remove();
       const form = useForm = document.createElement('form');
@@ -120,6 +126,21 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       controls.append(form); select.focus();
     } catch (error) { status.textContent = error.message; }
     finally { busy = false; }
+  }
+  function pickThrow(token,key) {
+    const floor=document.getElementById('floor'), svg=document.getElementById('map-view'), scene=floor.sceneDocument;
+    status.textContent='Click a destination; Escape cancels.';
+    const cancel=()=>{ window.removeEventListener('pointerdown',pick,true); window.removeEventListener('keydown',escape,true); floor.removeEventListener('map-ready',cancel); };
+    const escape=event=>{ if(event.key==='Escape') { cancel(); status.textContent='Throw cancelled.'; } };
+    const pick=async event=>{
+      if(event.button!==0 || !event.target.closest('#map-view,#view-3d')) return;
+      event.preventDefault(); event.stopImmediatePropagation(); cancel();
+      if(floor.sceneDocument!==scene || getToken()?.npcId!==token.npcId) { status.textContent='Scene or character changed.'; return; }
+      const matrix=svg.getScreenCTM();
+      const point=svg.hidden?(await import('./map-view-toggle.js')).tabletopPoint(event):matrix && new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
+      if(point) run(token,{type:'throw',key,x:Math.floor(point.x)+.5,y:Math.floor(point.y)+.5});
+    };
+    window.addEventListener('pointerdown',pick,true); window.addEventListener('keydown',escape,true); floor.addEventListener('map-ready',cancel,{once:true});
   }
   async function transfer(token, key) {
     try {
@@ -156,20 +177,23 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
     event.preventDefault(); event.stopPropagation();
     const key = row.dataset.bagKey, rect = row.getBoundingClientRect();
     const x = event.clientX ?? rect.right, y = event.clientY ?? rect.top;
-    let effects;
+    let effects, automatic;
     busy = true;
     try {
       const pc = await readPC(token);
       if (getToken()?.npcId !== token.npcId || !row.isConnected) return;
+      automatic = consumableDefinition(pc.inventory?.[key]);
       effects = effectDefinitions(pc).filter(effect => effect.mode === 'activated' && effect.consume === true && effect.inventoryKey === key);
     } catch (error) { status.textContent = error.message; return; }
     finally { busy = false; }
     showMapMenu(x, y, [
+      ...(automatic ? [{ label: 'Use', action: () => useItem(token,key,automatic) }] : []),
       ...effects.map(effect => ({ label: effects.length === 1 ? 'Use' : `Use: ${effect.label}`, action: () => useItem(token, key, effect) })),
       ...(isGM ? [{ label: 'Edit item', action: () => editItem(token, key) }] : []),
       { label: 'Remove', action: () => run(token, { type: 'remove', key }) },
       ...(isGM ? [{ label: 'Add', action: () => run(token, { type: 'add', key }) }] : []),
-      { label: 'Transfer', action: () => transfer(token, key) }
+      { label: 'Transfer', action: () => transfer(token, key) },
+      ...(document.getElementById('floor')?.tabletopMap ? [{ label: 'Throw', action: () => pickThrow(token,key) }] : [])
     ], row);
   }
   container.addEventListener('contextmenu', event => {

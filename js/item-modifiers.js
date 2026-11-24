@@ -1,3 +1,4 @@
+import { buildExpressionRoll } from './dice-roll.js';
 export const ITEM_CATEGORIES = ['Consumable', 'Armor', 'Weapon'];
 export const ITEM_STATS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 export const ITEM_SKILLS = ['acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception', 'history', 'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception', 'performance', 'persuasion', 'religion', 'sleight_of_hand', 'stealth', 'survival'];
@@ -28,6 +29,13 @@ export function validateItemEdit(value, original) {
     if (armor !== null && (!Number.isSafeInteger(armor.base) || armor.base < 0 || armor.base > 999 || typeof armor.dex_bonus !== 'boolean' ||
         armor.max_bonus != null && (!Number.isSafeInteger(armor.max_bonus) || armor.max_bonus < 0 || armor.max_bonus > 999))) throw new Error('Invalid armor calculation.');
     result.armor_class = armor === null ? null : { base: armor.base, dex_bonus: armor.dex_bonus, ...(armor.max_bonus != null ? { max_bonus: armor.max_bonus } : {}) };
+  }
+  if(value.consumable !== undefined) {
+    if(value.consumable !== null) {
+      if(!['healing','damage'].includes(value.consumable.kind) || typeof value.consumable.dice!=='string') throw new Error('Choose a healing/damage amount.');
+      buildExpressionRoll(value.consumable.dice,'normal',()=>1);
+    }
+    result.consumable=value.consumable;
   }
   return result;
 }

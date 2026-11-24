@@ -2,6 +2,26 @@
 
 Updated: 2026-11-23
 
+## Token art, object controls, vision, item rules and campaign tools saved - 2026-11-23
+
+- Adds character-name token portrait lookup with a catalog-backed Image name override, preserved through scene imports/exports and shared state. Portraits appear in Initiative and on 2D/3D token bases. Fixes the reported missing 3D miniatures by removing portrait-load behavior that hid them; increments the renderer import version.
+- Adds GM Resize actions for tokens, props, portals, lights, floors, walls, doors and windows. Segment resizing preserves the midpoint; door resizing adjusts adjoining wall openings. Retains door/compartment Lock and Unlock and extends compartment controls to props containing inventory.
+- Reads individual sight and darkvision from Firebase senses, with wall/closed-door obstruction and illumination. Filters GM-hidden objects from player views. Dynamic player sight takes precedence over manual fog cover/reveal; the GM retains the manual overlay.
+- Adds per-character 2014/2024 rules selection, defaulting to 2024. VTT consumables use GM-mediated conditional world saves for inventory, target HP/effects, turn costs and retry receipts together. Potions spend a bonus action in 2024 and an action in 2014; outside initiative action tracking is off. Standalone sheets direct combat consumable use to the VTT.
+- Adds automatic healing potion HP changes, configurable immediate healing/damage consumables, recognized timed potion effects and descriptions, and inventory quantity spending. Damage spends temporary HP first. Throw picks a map destination, checks weight/strength, range and obstruction, spends an attack during initiative, and leaves one recoverable item in a small compartment.
+- Applies requested variant encumbrance penalties to movement and physical rolls, including automatic disadvantage selection. Accounts for size and recognized Powerful Build traits; blocks movement above capacity and rejects known-weight capacity-exceeding additions/transfers/taking. Unknown weights remain flagged.
+- Adds standard-width Journal, Handouts and Soundboard windows. Journals are stored per linked PC with conditional saves and unsaved-note protection. GM handouts send image/text files up to 1 MB to selected linked PC tokens. Soundboard shares ambience/SFX/music playback state and position with local volume and audio unlocking. Adds empty repository audio catalogs and extends update_indexes.py to rebuild them; no audio tracks were supplied.
+- Suppresses the native browser context menu across the VTT page without stopping app right-click event handlers.
+- Adds unrun regression cases for images, resizing and door openings, sight/darkvision, encumbrance, consumables, throwing, conditional item transactions and audio catalogs; updates affected existing assertions and to-do.md.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, updater execution or other application validation commands were run. Firebase character records were read only to identify the existing senses fields; no live data was changed. The user reported missing 3D tokens after the earlier changes; the code fix and native-context-menu suppression await user verification.
+
+Outstanding: verify all new menus/windows in 2D/3D/First Person, portrait loading alongside miniatures, object resize/lock persistence, per-player visibility, item HP/effect/quantity/turn transactions and conflict/retry behavior, carrying totals and penalties, journal conflicts, handout recipients, audio unlock/reconnect/synchronization, audio index generation, and browser context-menu suppression. Earlier verification backlogs remain applicable.
+
+Known limits: special potion mechanics such as charm targets, aerial movement, mind reading, attack-triggered expiration, damage-type resolution and extra Haste actions require GM adjudication. Timed effects use existing game-time controls. Throw hit/save/damage resolution is manual; carrying capacity is the table rule for maximum throwable weight. Missing weights prevent complete capacity enforcement. Audio assets must be supplied. Existing trusted-group Firebase access governs journals, handouts, shared state and hidden data; UI filtering is not server authorization.
+
+Save, commit and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
 ## Token portraits, index updater, and TODO corrections saved - 2026-11-23
 
 - Adds the supplied token PNG images and existing filename catalog at `token/index.json`. Initiative portrait paths now lowercase character names and replace whitespace with underscores to match files such as `liora.png` and `adult_black_dragon.png`; missing portraits retain the letter fallback.

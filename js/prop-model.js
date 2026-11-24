@@ -17,14 +17,14 @@ export const PROPS = {
 
 export function propAppearance(object) {
   const kind = typeof object.icon === 'string' && object.icon.startsWith('prop:') ? object.icon.slice(5) : '';
-  return Object.hasOwn(PROPS, kind) ? { x: object.x, y: object.y, kind, size: 1, rotation: 0 } : null;
+  return Object.hasOwn(PROPS, kind) ? { x: object.x, y: object.y, kind, size: object.size || 1, rotation: 0 } : null;
 }
 
 export function propProperties(kind, size = 1, rotation = 0) {
   if (!Object.hasOwn(PROPS, kind)) throw new Error('Choose a prop from the palette.');
-  if (!Number.isFinite(size) || size < .25 || size > 10) throw new Error('Prop size must be between 0.25 and 10.');
+  if (!Number.isFinite(size) || size < .25 || size > 20) throw new Error('Prop size must be between 0.25 and 20.');
   if (!Number.isFinite(rotation)) throw new Error('Enter a rotation in degrees.');
-  return { kind, size: kind === 'pressurePlate' ? 1 : size, rotation: ((rotation % 360) + 360) % 360 };
+  return { kind, size, rotation: ((rotation % 360) + 360) % 360 };
 }
 
 export function importedProps(value) {
@@ -38,7 +38,7 @@ export function importedProps(value) {
       if (ids.has(id)) return [];
       ids.add(id);
       if (prop.kind === 'tripwire' && prop.length != null && (!Number.isFinite(prop.length) || prop.length < .01 || prop.length > 10000)) return [];
-      return [{ id, x: prop.x, y: prop.y, ...properties, ...(prop.kind === 'tripwire' ? { length: prop.length ?? 1 } : {}), hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
+      return [{ id, x: prop.x, y: prop.y, ...properties, ...(typeof prop.name==='string'?{name:prop.name.slice(0,100)}:{}), ...(prop.kind === 'tripwire' ? { length: prop.length ?? 1 } : {}), hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
     } catch { return []; }
   });
 }
@@ -61,6 +61,8 @@ export function propDistance(prop, point) {
 export function propDimensions(prop) {
   return prop.kind === 'tripwire' ? { width: prop.length ?? 1, depth: .12 } : PROPS[prop.kind];
 }
+
+export const hasCompartment = prop => !!prop && (['chest','crate'].includes(prop.kind) || Array.isArray(prop.contents) && prop.contents.length > 0);
 
 export function importedItems(value) {
   if(!Array.isArray(value)) return [];

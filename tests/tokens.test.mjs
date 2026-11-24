@@ -40,7 +40,7 @@ test('token catalog includes PCs and NPCs without duplicating legacy mirrors', (
     removed: { kind: 'npc', source: { mirrors: ['characters/npcs/removed'] }, data: { _sheetsDeleted: true } }
   };
   const result = npcCatalog(entities, { old: { name: 'Duplicate' }, removed: { name: 'Deleted' }, ogre: { name: 'Ogre', size: 'Large', combat: { hp_max: 59 } }, invalid: null });
-  assert.deepEqual(result, [
+  assert.deepEqual(result.map(({vision,...token})=>token), [
     { npcId: 'v2:goblin', name: 'Goblin', size: 1, hp: 0 },
     { npcId: 'legacy:ogre', name: 'Ogre', size: 2, hp: 59 },
     { npcId: 'v2:pc', name: 'Player', size: 1, hp: 18, kind: 'pc', hpMax: 24, ac: 16 }

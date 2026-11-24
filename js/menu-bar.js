@@ -2,7 +2,7 @@ import { isGM } from './session-role.js';
 
 document.querySelectorAll('summary[data-gm-only]').forEach(summary => summary.closest('.menu').setAttribute('data-gm-only', ''));
 document.querySelectorAll('.editor-panel').forEach(panel => {
-  if (!['vtt-panel', 'dice-panel', 'chest-panel', 'initiative-panel', 'player-turn-panel', 'first-person-health', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
+  if (!['journal-panel', 'handout-panel', 'soundboard-panel', 'vtt-panel', 'dice-panel', 'chest-panel', 'initiative-panel', 'player-turn-panel', 'first-person-health', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
 });
 const menus = [...document.querySelectorAll('.menu')];
 const floor = document.querySelector('#floor');

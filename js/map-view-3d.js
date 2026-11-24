@@ -1,3 +1,5 @@
+import { tokenImage } from './token-art.js';
+import { viewersFor, visibleObject, visibilityFor } from './player-vision.js';
 // Adapted from view3d.js: grid coordinates map directly to world (x, z).
 // One grid cell = one world unit = 5 ft; walls and doors are two units high.
 import * as THREE from 'three';
@@ -292,6 +294,7 @@ export function createMapView3D(host) {
   function setMap(next, refit = true) {
     disposeContents();
     model = next;
+    const canSee=visibilityFor(model);
     bounds = (model.floors || []).reduce((box, tile) => ({
       left: Math.min(box.left, tile.x-.5), top: Math.min(box.top, tile.y-.5),
       right: Math.max(box.right, tile.x+.5), bottom: Math.max(box.bottom, tile.y+.5)
@@ -352,7 +355,8 @@ export function createMapView3D(host) {
       return materials.get(name);
     };
     (model.floors || []).forEach((tile,index)=>{
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material(tile.material, 'stone'));
+      if(!canSee(tile)) return;
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(tile.size || 1, tile.size || 1), material(tile.material, 'stone'));
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(tile.x, -0.001, tile.y);
       mesh.receiveShadow = true;
@@ -360,16 +364,17 @@ export function createMapView3D(host) {
       groups.floors.add(mesh);
     });
     model.walls.forEach((points, i) => {
+      if(!isGM && model.wallHidden?.[i]) return;
       const start = groups.walls.children.length;
       slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls);
       for (const mesh of groups.walls.children.slice(start)) mesh.traverse(child => { child.userData.wallIndex = i; });
     });
     model.doors.forEach((door,index) => {
-      if(door.hidden && !isGM) return;
+      if(!canSee(door)) return;
       const window = door.type === 'window';
       const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
         : material(door.material, 'wood');
-      slabs(door.points, surface, groups.doors, !window && door.open, window?undefined:index);
+      slabs(door.points, surface, groups.doors, !window && door.open, index);
     });
     const propMesh=createPropKit();
     const appearanceMesh=(appearance,key,value)=>{
@@ -377,7 +382,7 @@ export function createMapView3D(host) {
       mesh.traverse(object=>{delete object.userData.propId; object.userData[key]=value;});
       return mesh;
     };
-    for (const prop of model.props || []) if(isGM || !prop.hidden) groups.props.add(propMesh({
+    for (const prop of model.props || []) if(canSee(prop)) groups.props.add(propMesh({
       ...prop,...(prop.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(prop,token)===0)}:{}),kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
     }));
     model.lights.forEach((light,index)=>{
@@ -391,7 +396,7 @@ export function createMapView3D(host) {
       }
     });
     for (const portal of model.portals || []) {
-      if (portal.hidden && !isGM) continue;
+      if (!canSee(portal)) continue;
       const appearance=propAppearance(portal);
       if(appearance) {
         groups.portals.add(appearanceMesh(appearance,'portalId',portal.id));
@@ -407,13 +412,14 @@ export function createMapView3D(host) {
       context.fillText(PORTAL_ICONS[portal.icon] || PORTAL_ICONS.portal,64,64);
       const texture=new THREE.CanvasTexture(canvas);
       texture.colorSpace=THREE.SRGBColorSpace;
-      const ring=new THREE.Mesh(new THREE.PlaneGeometry(.86,.86),new THREE.MeshBasicMaterial({map:texture,transparent:true,alphaTest:.1,side:THREE.DoubleSide}));
+      const ring=new THREE.Mesh(new THREE.PlaneGeometry(.86*(portal.size || 1),.86*(portal.size || 1)),new THREE.MeshBasicMaterial({map:texture,transparent:true,alphaTest:.1,side:THREE.DoubleSide}));
       ring.rotation.x=-Math.PI/2; ring.position.set(portal.x,.015,portal.y);
       ring.userData.portalId=portal.id;
       groups.portals.add(ring);
     }
     const tokenMini = model.tokens?.length ? createTokenMiniKit() : null;
     for (const token of model.tokens || []) {
+      if (!canSee(token)) continue;
       const status = pcTokenStatus(token);
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = status ? 384 : 256;
@@ -432,6 +438,14 @@ export function createMapView3D(host) {
       }
       const texture = new THREE.CanvasTexture(canvas);
       texture.colorSpace = THREE.SRGBColorSpace;
+      const image = new Image();
+      image.onload = () => {
+        if (!groups.tokens.children.includes(group)) return;
+        context.save(); context.beginPath(); context.arc(128,128,120,0,Math.PI*2); context.clip();
+        const crop=Math.min(image.width,image.height);
+        context.drawImage(image,(image.width-crop)/2,(image.height-crop)/2,crop,crop,8,8,240,240); context.restore(); texture.needsUpdate=true; invalidate();
+      };
+      image.src = tokenImage(token);
       const geometry = new THREE.PlaneGeometry(token.size, token.size * (status ? 1.5 : 1));
       if (status) geometry.translate(0, -token.size * .25, 0);
       const mesh = new THREE.Mesh(geometry,
@@ -515,7 +529,7 @@ export function createMapView3D(host) {
     fogGroup.children.forEach(mesh => mesh.geometry.dispose());
     fogGroup.clear();
     // Cover wall height too, so orbiting cannot expose geometry beneath the fog.
-    for (const rect of fogRectangles(model)) {
+    for (const rect of fogRectangles(model, viewersFor(model))) {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(rect.width, 2.2, rect.height), fogMaterial);
       mesh.position.set(rect.x + rect.width / 2, 1.05, rect.y + rect.height / 2);
       fogGroup.add(mesh);

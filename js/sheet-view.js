@@ -66,6 +66,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
         + `<div class="sheet-exhaustion"><button type="button" data-exhaustion-delta="-1" aria-label="Decrease exhaustion"${exhaustion <= 0 ? ' disabled' : ''}>−</button>${edit('Exhaustion', 'exhaustion', exhaustion, 6)}<button type="button" data-exhaustion-delta="1" aria-label="Increase exhaustion"${exhaustion >= 6 ? ' disabled' : ''}>+</button></div>`;
     }
     if (editableCombat && gm) {
+      html += `<label>Rules<select data-rules-edition><option value="2024"${String(pc.rules_edition || pc.edition || '2024') === '2014' ? '' : ' selected'}>2024</option><option value="2014"${String(pc.rules_edition || pc.edition) === '2014' ? ' selected' : ''}>2014</option></select></label>`;
       html += `<label class="sheet-equipment">AC calculation<select data-ac-mode>${['stored', 'unarmored', 'armor'].map(mode => `<option value="${mode}"${(combat.ac_mode || 'stored') === mode ? ' selected' : ''}>${{ stored: 'Stored AC + effects', unarmored: '10 + DEX + effects', armor: 'Equipped armor + DEX + effects' }[mode]}</option>`).join('')}</select></label>`;
       html += edit('SPD base (ft)', 'speed', baseSpeed(pc), 1000);
     }
@@ -100,7 +101,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     const items = Object.entries(pc.inventory || {}).filter(([, item]) => item && typeof item.name === 'string');
     const load = carryingLoad(pc, final.stats.str, reference);
     let html = row('Carried (lb)', `${load.weight}${load.unknown ? ' + unknown' : ''} / ${load.capacity ?? '—'}`)
-      + row('Load', load.overCapacity ? 'Over carrying capacity' : load.unknown ? 'Incomplete weights' : 'Within carrying capacity')
+      + row('Load', `${load.status}${load.unknown ? '; incomplete weights' : ''}`)
       + heading('Equipment');
     for (const [slot, label] of Object.entries(EQUIPMENT_SLOTS)) {
       const name = equippedName(pc, slot);

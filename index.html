@@ -84,6 +84,10 @@
     #view-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
     #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
+    #journal-text, #token-image-name, #handouts-panel input[type="file"], #soundboard-tracks input { width: 100%; box-sizing: border-box; }
+    #journal-text { min-height: 12rem; resize: vertical; }
+    #handout-recipients { display: grid; }
+    #handout-content pre { margin: 0; }
     .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
     #vtt-panel, #build-panel, #scene-panel, #initiative-panel { min-width: 2.5rem; }
     #dice-panel { min-width: 4rem; }
@@ -302,6 +306,21 @@
       <span id="session-status" role="status" aria-live="polite"></span>
       <span id="scene-state" role="status" aria-live="polite"></span>
     </div>
+    <section id="journal-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="journal-title" hidden>
+      <div class="editor-titlebar" tabindex="0"><h2 id="journal-title">Journal</h2><button class="editor-close" type="button" aria-label="Close journal">&times;</button></div>
+      <form id="journal-form" class="editor-body"><label data-gm-only>Player<select id="journal-player"></select></label><label>Notes<textarea id="journal-text" rows="14" maxlength="100000"></textarea></label><button type="submit">Save</button><span id="journal-status" role="status"></span></form>
+    </section>
+    <section id="handouts-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="handouts-title" hidden>
+      <div class="editor-titlebar" tabindex="0"><h2 id="handouts-title">Handouts</h2><button class="editor-close" type="button" aria-label="Close handouts">&times;</button></div>
+      <form id="handouts-form" class="editor-body"><label>Image / text<input id="handout-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif,.txt,text/plain" required></label><fieldset id="handout-recipients"><legend>Tokens</legend></fieldset><button type="submit">Push handout</button><span id="handouts-status" role="status"></span></form>
+    </section>
+    <section id="handout-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="handout-title" hidden>
+      <div class="editor-titlebar" tabindex="0"><h2 id="handout-title">Handout</h2><button class="editor-close" type="button" aria-label="Close handout">&times;</button></div><div id="handout-content" class="editor-body"></div>
+    </section>
+    <section id="soundboard-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="soundboard-title" hidden>
+      <div class="editor-titlebar" tabindex="0"><h2 id="soundboard-title">Soundboard</h2><button class="editor-close" type="button" aria-label="Close soundboard">&times;</button></div>
+      <div class="editor-body"><label>Local volume<input id="sound-volume" type="range" min="0" max="1" step=".05" value=".7"></label><button id="sound-enable" type="button">Enable audio</button><div id="soundboard-tracks" data-gm-only></div><span id="soundboard-status" role="status"></span></div>
+    </section>
     <section id="library-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="library-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move library window. Drag or use arrow keys.">
         <h2 id="library-title">Load Battlemap</h2>
@@ -327,6 +346,9 @@
         <button id="vtt-view" type="button" title="2D view. Cycle 2D / 3D / 1st Person" aria-label="2D view. Cycle 2D / 3D / 1st Person" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
         <button id="vtt-grid" type="button" title="Toggle grid" aria-label="Toggle grid" aria-controls="grid" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
         <button id="vtt-environment" type="button" title="Environment" aria-label="Environment" aria-controls="environment-panel" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="M9 1v2M1 9h2m1-5L2 2m12 2 2-2M4 14l-2 2m11 4h6a3 3 0 0 0 0-6 5 5 0 0 0-9-1 3.5 3.5 0 0 0 0 7Z"/></svg></button>
+        <button id="vtt-journal" type="button" title="Journal" aria-label="Journal" aria-controls="journal-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 3h16v18H4ZM8 3v18m3-13h6m-6 4h6"/></svg></button>
+        <button id="vtt-handouts" type="button" title="Handouts" aria-label="Handouts" aria-controls="handouts-panel" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 17l5-5 4 4 4-6 5 7"/><circle cx="8" cy="8" r="2"/></svg></button>
+        <button id="vtt-soundboard" type="button" title="Soundboard" aria-label="Soundboard" aria-controls="soundboard-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 10v4h4l5 5V5l-5 5Zm12-3q6 5 0 10m3-13q9 8 0 16"/></svg></button>
         <button id="vtt-new-scene" type="button" title="New blank scene" aria-label="New blank scene" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/></svg></button>
         <div id="vtt-floors" role="group" aria-label="Floor navigation" data-gm-only>
           <button id="vtt-floor-up" type="button" title="Floor up; create a blank floor at the top" aria-label="Floor up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 15 6-6 6 6"/></svg></button>
@@ -597,6 +619,10 @@
         <p id="sheet-weapons-status" role="status"></p>
       </div>
     </section>
+    <section id="token-image-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="token-image-title" hidden>
+      <div class="editor-titlebar" tabindex="0"><h2 id="token-image-title">Token image</h2><button type="button" class="editor-close" aria-label="Close token image">&times;</button></div>
+      <form id="token-image-form" class="editor-body"><label>Image name<input id="token-image-name" list="token-image-options" maxlength="150" placeholder="aboleth"></label><datalist id="token-image-options"></datalist><button type="submit">Apply</button><span id="token-image-status" role="status"></span></form>
+    </section>
     <section id="token-properties-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="token-properties-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move token properties window. Drag or use arrow keys.">
         <h2 id="token-properties-title">Token properties</h2>
@@ -698,6 +724,7 @@
   </main>
 
   <script>
+    document.addEventListener('contextmenu', event => event.preventDefault(), { capture: true });
     // Keep local file import independent of the optional Three.js download.
     const fileInput = document.querySelector('#map-file');
     const floor = document.querySelector('#floor');
@@ -927,5 +954,6 @@
   <script type="module" src="js/scene-controls.js"></script>
   <script type="module" src="js/initiative.js"></script>
   <script type="module" src="js/tabletop-session.js"></script>
+  <script type="module" src="js/campaign-tools.js"></script>
 </body>
 </html>

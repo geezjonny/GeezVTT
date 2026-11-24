@@ -1,3 +1,4 @@
+import { characterVision } from './vision-model.js';
 import { crosses, distance, segments } from './map-editor-model.js';
 import { applyModifiers } from './effects-model.js';
 import { characterStats } from './equipment-modifiers.js';
@@ -71,10 +72,13 @@ export function npcCatalog(entities, legacy, reference = {}) {
     const speed = final.speed;
     const turnFeatures = kind === 'pc' ? characterTurnFeatures(data) : null;
     if (turnFeatures?.dreadAmbusher && final.base.speed !== null) {
-      const bonus = applyModifiers(final.base.speed + 10, 'speed', final.modifiers) - final.speed;
+      const bonus = applyModifiers(final.base.speed + 10, 'speed', final.modifiers) - applyModifiers(final.base.speed, 'speed', final.modifiers);
       if (bonus !== 10) turnFeatures.firstTurnSpeedBonus = bonus;
     }
     npcs.push({ npcId: id, name: (typeof name === 'string' && name.trim() ? name.trim() : id).slice(0, 100),
+      vision: characterVision(data),
+      ...(final.effects.some(effect=>effect.invisible)?{invisible:true}:{}),
+      ...(final.load.overCapacity ? {overCapacity:true} : {}),
       size: Number.isFinite(size) && size >= .5 && size <= 20 && Number.isInteger(size * 2) ? size : 1,
       ...(speed !== null ? { speed } : {}),
       ...(turnFeatures ? { turnFeatures } : {}),
@@ -105,6 +109,11 @@ export function importedTokens(value, width, height) {
       ids.add(id);
       return [{ id, ...props, x: token.x, y: token.y, ...(tokenSpeed(token.speed) !== null ? { speed: tokenSpeed(token.speed) } : {}),
         ...(importedTurnFeatures(token.turnFeatures) ? { turnFeatures: importedTurnFeatures(token.turnFeatures) } : {}),
+        ...(token.overCapacity === true ? {overCapacity:true} : {}),
+        ...(typeof token.imageName === 'string' && token.imageName.length <= 150 && !/[/\\?#]/.test(token.imageName) && !token.imageName.includes('..') ? { imageName: token.imageName } : {}),
+        ...(token.hidden === true ? {hidden:true} : {}),
+        ...(token.invisible === true ? {invisible:true} : {}),
+        ...(token.vision ? { vision: characterVision({vision: token.vision}) } : {}),
         ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
         ...(Number.isFinite(token.rotation) ? { rotation: ((token.rotation % 360) + 360) % 360 } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),

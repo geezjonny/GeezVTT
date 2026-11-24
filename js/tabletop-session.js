@@ -1,3 +1,4 @@
+import { resolveItemUse } from './item-use.js';
 import { isGM, sessionClient as client, playerIdentity, canControlPC } from './session-role.js';
 import { playerPresence } from './player-presence.js';
 import { ownsPC, validPlayer } from './player-session-model.js';
@@ -41,6 +42,23 @@ async function equip(action, token) {
   if (action.client === client) floor.dispatchEvent(new CustomEvent('session-equipment-result', { detail: result }));
   else await write('actions', { type: 'equipment-result', ...result, target: action.client,
     client, sceneId: action.sceneId, actor: { character: 'GM' }, time: Date.now() }, 'POST');
+}
+async function useItem(action, token) {
+  let result;
+  try {
+    if (floor.equipmentBusy || floor.compartmentBusy) throw new Error('Another inventory change is saving. Try again.');
+    if (action.floorIndex !== floor.activeFloorIndex) throw new Error('Floor changed; reopen the bag.');
+    floor.equipmentBusy = true;
+    floor.dispatchEvent(new Event('map-changed'));
+    try {
+      const reference = await loadSheetReference();
+      result = await resolveItemUse(token, action, reference);
+    } finally { floor.equipmentBusy = false; floor.dispatchEvent(new Event('map-changed')); }
+  } catch (error) { result = { error: error.message }; }
+  const detail = { requestId: action.requestId, error: result.error || null, text: result.text || '' };
+  status.textContent = detail.error || detail.text;
+  if (action.client === client) floor.dispatchEvent(new CustomEvent('session-item-result', { detail }));
+  else await write('actions', { type: 'item-result', ...detail, target: action.client, client, sceneId, actor: { character: 'GM' }, time: Date.now() }, 'POST');
 }
 async function write(path, data, method = 'PUT') {
   const response = await fetch(`${base}/${path}.json`, {
@@ -145,7 +163,7 @@ if (isGM) {
 floor.addEventListener('session-action', event => {
   if (!sceneId) { status.textContent = 'Waiting for a shared map'; return; }
   if (!isGM && !playerIdentity) { status.textContent = 'Sign in first.'; return; }
-  if (!isGM && ['move', 'door', 'chest', 'turn', 'equip', 'interact'].includes(event.detail.type) &&
+  if (!isGM && ['move', 'door', 'chest', 'turn', 'equip', 'interact', 'item-use'].includes(event.detail.type) &&
       !canControlPC(floor.tabletopMap?.tokens.find(token => token.id === event.detail.tokenId))) return;
   const action = { ...event.detail, client, sceneId, floorIndex: floor.activeFloorIndex, actor: isGM ? { character: 'GM' } : playerIdentity, time: Date.now() };
   if (action.type === 'move' && !floor.initiativeActive) sendMovement(action);
@@ -164,6 +182,11 @@ listen('actions', actions => {
     if (isGM) setTimeout(() => write(`actions/${id}`, null, 'DELETE').catch(report), 5000);
     if (!validPlayer(action.actor) && action.actor?.character !== 'GM') continue;
     if (!isGM && action.actor.character !== 'GM' && action.actor.campaign !== playerIdentity?.campaign) continue;
+    if (action.type === 'item-result' && action.target === client && action.actor.character === 'GM') {
+      floor.dispatchEvent(new CustomEvent('session-item-result', { detail: action }));
+      status.textContent = action.error || action.text || 'Item used.';
+      continue;
+    }
     if (action.type === 'equipment-result' && action.actor.character === 'GM' && action.target === client) {
       floor.dispatchEvent(new CustomEvent('session-equipment-result', { detail: action }));
       continue;
@@ -176,7 +199,7 @@ listen('actions', actions => {
       status.textContent = typeof action.text === 'string' ? action.text : 'Interaction complete.';
       continue;
     }
-    if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip', 'interact'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
+    if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip', 'interact', 'item-use'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
     const by = action.actor.character;
     if (action.type === 'ping' && Number.isFinite(action.x) && Number.isFinite(action.y)) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y, by, client: action.client } }));
@@ -189,8 +212,12 @@ listen('actions', actions => {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-dice', { detail: action.text }));
     } else if (isGM && floor.tabletopMap && floor.getAttribute('aria-busy') !== 'true') {
       const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && (token.kind === 'pc' || action.client === client));
-      if (['move', 'chest', 'door', 'turn', 'equip', 'interact'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
+      if (['move', 'chest', 'door', 'turn', 'equip', 'interact', 'item-use'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
         write(`actions/${id}`, null, 'DELETE').catch(report);
+        continue;
+      }
+      if (action.type === 'item-use') {
+        useItem(action,token).catch(report);
         continue;
       }
       if (action.type === 'equip') {

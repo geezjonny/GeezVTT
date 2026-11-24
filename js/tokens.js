@@ -1,3 +1,5 @@
+import { visibleObject } from './player-vision.js';
+import { tokenImages, imageName } from './token-art.js';
 import { openPanel } from './menu-bar.js';
 import { isGM, canControlPC } from './session-role.js';
 import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
@@ -209,13 +211,37 @@ function editToken(token) {
   openPanel(properties);
   $('token-name').focus();
 }
+async function pickImage(token) {
+  const panel = $('token-image-panel'), form = $('token-image-form'), input = $('token-image-name');
+  input.value = token.imageName || '';
+  $('token-image-status').textContent = '';
+  form.onsubmit = event => {
+    event.preventDefault();
+    const value = imageName(input.value);
+    if (value && (/[/\\?#]/.test(value) || value.includes('..') || value.length > 150)) { $('token-image-status').textContent = 'Choose an image name from the catalog.'; return; }
+    const current=tokens().find(item=>item.id===token.id);
+    if(!current) { $('token-image-status').textContent='Token is no longer available.'; return; }
+    const detail={...current,imageName:value};
+    floor.dispatchEvent(new CustomEvent('token-update',{detail}));
+    if(detail.error) $('token-image-status').textContent=detail.error; else panel.hidden=true;
+  };
+  openPanel(panel); input.focus();
+  try {
+    const names = await tokenImages();
+    $('token-image-options').replaceChildren(...names.map(name => new Option(name, name)));
+  } catch (error) { $('token-image-status').textContent = error.message; }
+}
 function tokenMenu(token, x, y, origin) {
+  if (!visibleObject(floor.tabletopMap, token)) return;
   if (!isGM && !pcId(token) && !interactionMenuItems({layer:'tokens',id:token.id}).length) return;
   showMapMenu(x, y, [
     ...interactionMenuItems({layer:'tokens',id:token.id}),
     ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
     ...(isGM ? [
       triggerMenuItem({layer:'tokens',id:token.id}),
+      { label: 'Image name...', action: () => pickImage(token) },
+      { label: 'Resize...', action: () => floor.dispatchEvent(new CustomEvent('object-resize', { detail: { layer: 'tokens', id: token.id } })) },
+      { label: token.hidden ? 'Show' : 'Hide', action: () => floor.dispatchEvent(new CustomEvent('object-hide', { detail: { layer: 'tokens', id: token.id } })) },
       { label: 'Edit token...', action: () => editToken(token) },
       { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
       { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },
@@ -235,7 +261,7 @@ onMapRightClick(svg, event => {
   // Pointer capture can target the map instead of the token under the cursor.
   const matrix = svg.getScreenCTM();
   const point = matrix && new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
-  const token = tokenAt(event) || (point && tokens().findLast(token => Math.hypot(point.x - token.x, point.y - token.y) <= token.size / 2));
+  const token = tokenAt(event) || (point && tokens().findLast(token => visibleObject(floor.tabletopMap,token) && Math.hypot(point.x - token.x, point.y - token.y) <= token.size / 2));
   if (!token) return;
   event.preventDefault();
   event.stopPropagation();
@@ -326,3 +352,5 @@ floor.addEventListener('map-changed', () => {
   for (const id of new Set(tokens().map(pcId).filter(Boolean))) applyPC(id);
 });
 if (floor.tabletopMap) loadNPCs();
+
+tokenImages().catch(error => { $('token-status').textContent=error.message; });

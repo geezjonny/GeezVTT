@@ -35,7 +35,7 @@ export function startTurn(state, tokenId) {
 
 export function remainingMovement(map, token) {
   const turn = map?.initiative?.turn;
-  return token && turn && turn.tokenId === token.id
+  return token && !token.overCapacity && turn && turn.tokenId === token.id
     ? Math.max(0, (token.speed ?? 0) + (turn.firstTurn && token.turnFeatures?.dreadAmbusher ? token.turnFeatures.firstTurnSpeedBonus ?? 10 : 0) - turn.movementSpent) : 0;
 }
 

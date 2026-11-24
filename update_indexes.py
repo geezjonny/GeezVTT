@@ -1,4 +1,4 @@
-"""Run python update_indexes.py to update token, battlemap, and scene indexes."""
+"""Run python update_indexes.py to update token, battlemap, scene, and soundboard indexes."""
 
 import json
 from pathlib import Path
@@ -6,6 +6,12 @@ import tempfile
 
 
 def update_index(folder, extension=None):
+    folder.mkdir(exist_ok=True)
+    if extension == "audio":
+        entries = [{"file": file.name, "name": file.stem.replace("_", " ")} for file in sorted(folder.iterdir())
+                   if file.is_file() and file.suffix.lower() in {".mp3", ".ogg", ".wav", ".m4a", ".aac", ".flac"}]
+        write_index(folder / "index.json", entries)
+        return len(entries)
     index = folder / "index.json"
     if extension is None:
         entries = sorted(
@@ -44,7 +50,7 @@ def write_index(index, entries):
 
 
 def update_indexes(root):
-    for directory, extension in (("token", None), ("battlemap", ".dd2vtt"), ("scene", ".geezvtt")):
+    for directory, extension in (("token", None), ("battlemap", ".dd2vtt"), ("scene", ".geezvtt"), ("ambience", "audio"), ("sfx", "audio"), ("music", "audio")):
         count = update_index(root / directory, extension)
         status = f"{count} images" if extension is None else f"added {count}"
         print(f"{directory}/index.json: {status}", flush=True)

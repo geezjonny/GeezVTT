@@ -1,3 +1,4 @@
+import { viewersFor, visibleObject } from './player-vision.js';
 import { openPanel } from './menu-bar.js';
 import { isGM, canControlPC, playerIdentity, sessionClient } from './session-role.js';
 import { fogRectangles } from './environment-model.js';
@@ -23,7 +24,7 @@ function updateMovement() {
   movementToken = floor.initiativeActive && model?.tokens.find(token => token.id === model.initiative?.currentId);
   movementCells = moving && movementToken && canControlPC(movementToken) ? reachableCells(model, movementToken) : new Map();
   if (movementCells.size && !isGM) {
-    const fog = fogRectangles(model);
+    const fog = fogRectangles(model, viewersFor(model));
     for (const [key, cell] of movementCells) if (fog.some(rect => cell.x >= rect.x && cell.x < rect.x + rect.width && cell.y >= rect.y && cell.y < rect.y + rect.height)) movementCells.delete(key);
   }
   $('combat-move').disabled = !movementToken || !canControlPC(movementToken);

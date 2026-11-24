@@ -68,7 +68,7 @@ toggle.addEventListener('click', async () => {
     }
     toggle.textContent = 'Loading 3D…';
     if (!view) {
-      const { createMapView3D } = await import('./map-view-3d.js?v=triggers-1');
+      const { createMapView3D } = await import('./map-view-3d.js?v=tabletop-tools-3');
       view = createMapView3D(host);
       view.setMap(floor.tabletopMap);
     }
