@@ -23,10 +23,11 @@
       <button type="button" data-tool="doors" aria-pressed="false" title="Drag across a wall to cut a doorway">Door</button>
       <button type="button" data-tool="floors" aria-pressed="false" title="Drag to paint tiles; Shift-click to fill a room">Floor</button>
       <button type="button" data-tool="props" aria-pressed="false">Props</button>
+      <button type="button" data-tool="chains" aria-pressed="false">Chains</button>
       <button type="button" data-tool="tokens" aria-pressed="false">Tokens</button>
       <button type="button" data-tool="lever" aria-pressed="false">Lever</button>
       <button type="button" data-tool="plate" aria-pressed="false">Plate</button>
-      <button type="button" data-tool="connect" aria-pressed="false" title="Select a trigger, then its doors">Connect</button>
+      <button type="button" data-tool="connect" aria-pressed="false" title="Select a lever or plate, then doors or chains">Connect</button>
       <button type="button" data-tool="remove" aria-pressed="false" title="Click a trigger, door, wall, or floor to erase">Erase</button>
     </div>
     <div id="walk-paint-controls" hidden>
@@ -66,7 +67,12 @@
       <label>Size<input id="walk-token-size" type="number" min=".5" max="20" step=".5" value="1"></label>
       <label>HP<input id="walk-token-hp" type="number" min="0" max="999999" step="1" value="0"></label>
       <label>Rotation<input id="walk-token-rotation" type="number" step="15" value="0"></label>
+      <label class="walk-checkbox"><input id="walk-token-ai" type="checkbox"> NPC AI</label>
+      <label>Disposition<select id="walk-token-disposition"><option value="enemy">Enemy</option><option value="friendly">Friendly</option></select></label>
+      <label>Wake door<select id="walk-token-ai-door"><option value="-1">Start now</option></select></label>
+      <label>Chains<select id="walk-token-ai-chain"><option value="">None</option></select></label>
     </div>
+    <div id="walk-chain-controls" hidden><label class="walk-checkbox"><input id="walk-chain-locked" type="checkbox" checked> Locked</label></div>
     <button id="walk-editor-save" type="button">Save map</button>
     <label>Puzzle name<input id="walk-puzzle-name" type="text" maxlength="120" value="Puzzle"></label>
     <div class="walk-tools">
@@ -78,6 +84,7 @@
     <output id="walk-editor-status" role="status" aria-live="polite"></output>
   </aside>
   <p id="walk-paused" role="status" hidden>Paused</p>
+  <output id="walk-caught" role="status" aria-live="polite" hidden></output>
   <button id="walk-dice-toggle" type="button" aria-expanded="false" aria-controls="walk-dice">Dice</button>
   <aside id="walk-dice" aria-label="Dice" hidden>
     <label>Roll<select id="walk-dice-check" disabled></select></label>

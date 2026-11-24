@@ -2,6 +2,22 @@
 
 Updated: 2026-11-24
 
+## NPC AI, chains and GM token actions saved - 2026-11-24
+
+- Adds GM right-click Activate/Reset lever, Delete token, Release PC and Set HP actions to minigame2.html while preserving right-drag panning. PC deletion uses a map-only marker so automatic stand-ins do not immediately reappear; character sheets remain intact and deletion supports undo.
+- Adds opt-in enemy/friendly NPC AI with wake-door and chain selectors. The GM page runs a single shared simulation using conditional Firebase writes and an expiring host lease; other pages smooth the reported positions. NPC paths avoid walls and closed doors using a bounded half-tile search.
+- Freed NPCs seek PCs without requiring sight first. Enemies freeze one visible PC and approach to battle distance; friendlies follow without freezing. Combat remains manual: no automatic damage, grapple rolls or escape rolls. GM Release PC permits escape without immediate recapture until that PC leaves sight. NPC defeat, removal, disabling AI or locking its chains releases its captive.
+- Adds draggable chains with locked/unlocked states, NPC attachment through AI settings, lever/plate connections, direct GM lock controls and shared lock-state updates. Locked NPCs neither move nor freeze PCs. Unlocking chains activates the NPC without waiting for a separate wake-door event; physical doors still block navigation.
+- Adds NPC HP editing through existing token controls and the right-click menu. Zero HP disables the NPC's AI, preserving its position. Adds disposition/AI status labels and a captured-player status message. Includes chain geometry, trigger links and NPC AI configuration in puzzle import/export and undo/redo; importing a puzzle resets its AI runtime.
+- Addresses code paths behind the reported stationary NPCs: enemies previously stopped immediately on first sight, and unlocked NPCs could continue waiting on a configured door. Adds unrun regression cases for approach movement, seeking unseen PCs, chain locking/relocking, door activation, following, release behavior, navigation, token deletion and puzzle persistence.
+- Publishes the user-saved minigame/chapel_dungeon.geezpuzzle and adds its library entry. Includes the conditional Firebase update helper required by NPC AI.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run. The reported NPC movement issue has code fixes but remains unverified in the browser.
+
+Outstanding: user verification of actual NPC movement after reloading the GM page, door/chains activation, seeking around walls, enemy freeze/approach, friendly following, manual release, NPC HP/death behavior, multiple GM pages and lease recovery, token deletion/undo, chained-NPC freeze prevention and saved-puzzle loading. A GM page must remain active to run AI. NPC collision currently uses the standard walker radius rather than size-dependent clearance; navigation search is bounded. Earlier verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Include the minigame NPC/chain controls, GM object actions, supporting models/helpers, saved puzzle/catalog, regression cases and this progress update. Leave unrelated tabletop, Horde, asset and scene changes uncommitted.
+
 ## Walking minigame and GM puzzle editor saved - 2026-11-24
 
 - Adds minigame2.html with shared top-down character movement, door interaction, character vision, dice rolls, GM pause controls and spectator navigation. GM links open as spectators unless an explicit character is requested.

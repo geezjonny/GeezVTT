@@ -23,6 +23,12 @@ export function tokenProperties(name, size, hp) {
   if (!Number.isSafeInteger(hp) || hp < 0 || hp > 999999) throw new Error('HP must be a whole number from 0 to 999999.');
   return { name: name.trim(), size, hp };
 }
+export function walkAIProperties(value) {
+  if (!value || typeof value !== 'object' || !Number.isInteger(value.door) || value.door < -1 || value.door > 19999) throw new Error('Choose a wake door for NPC AI.');
+  if (value.chain != null && (typeof value.chain !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(value.chain))) throw new Error('Choose a chain for NPC AI.');
+  if (value.disposition != null && !['enemy', 'friendly'].includes(value.disposition)) throw new Error('Choose enemy or friendly NPC AI.');
+  return { door: value.door, chain: value.chain ?? null, disposition: value.disposition ?? 'enemy' };
+}
 
 function pcStats(hpMax, ac) {
   const number = value => value == null || value === '' ? NaN : Number(value);
@@ -118,6 +124,8 @@ export function importedTokens(value, width, height) {
         ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
         ...(Number.isFinite(token.rotation) ? { rotation: ((token.rotation % 360) + 360) % 360 } : {}),
         ...(Number.isFinite(token.walkMovedAt) && token.walkMovedAt >= 0 ? { walkMovedAt: token.walkMovedAt } : {}),
+        ...(token.walkDeleted === true ? { walkDeleted: true } : {}),
+        ...(token.kind !== 'pc' && token.walkAI != null ? { walkAI: walkAIProperties(token.walkAI) } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }

@@ -9,7 +9,7 @@ export const RADIUS = 0.35;                // body radius in tiles
 // `open` holds the indices (into doors) of the doors that are currently open; every door starts closed.
 // `swing` is each door's animated progress, 0 (shut) to 1 (fully open); a door blocks until it reaches 1.
 // `triggers` are the levers and pressure plates the GM placed: { id, kind, x, y, doors: [door indices], on }.
-export const world = { w: 10, h: 10, walls: [], doors: [], floors: [], props: [], tokens: [], wallMaterials: [], doorMaterials: [], open: new Set(), swing: new Map(), triggers: [] };
+export const world = { w: 10, h: 10, walls: [], doors: [], floors: [], props: [], tokens: [], chains: [], wallMaterials: [], doorMaterials: [], open: new Set(), swing: new Map(), triggers: [] };
 
 // Keep only the geometry of a .dd2vtt: size, line_of_sight polylines as segments, portals as door segments. The image is dropped.
 export function buildWorld(dd) {
@@ -23,7 +23,7 @@ export function buildWorld(dd) {
   return { w, h, walls, doors };
 }
 export const setWorld = dd => {
-  Object.assign(world, buildWorld(dd), { floors: [], props: [], tokens: [], open: new Set(), swing: new Map(), triggers: [] });
+  Object.assign(world, buildWorld(dd), { floors: [], props: [], tokens: [], chains: [], open: new Set(), swing: new Map(), triggers: [] });
   world.wallMaterials = world.walls.map(() => 'stone');
   world.doorMaterials = world.doors.map(() => 'wood');
   return world;
@@ -47,11 +47,20 @@ export function cleanMapEdit(raw, w, h) {
   const floors = raw.floors ?? [];
   if (!Array.isArray(floors) || floors.length > 100000 || floors.some(t => !t || !point(t.x, t.y) || typeof t.material !== 'string')) return null;
   result.floors = floors.map(t => ({ x: t.x, y: t.y, material: t.material }));
+  const chains = raw.chains ?? [], ids = new Set();
+  if (!Array.isArray(chains) || chains.length > 5000) return null;
+  for (const chain of chains) {
+    if (!chain || typeof chain.id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(chain.id) || ids.has(chain.id) || !point(chain.x, chain.y) || typeof chain.locked !== 'boolean') return null;
+    ids.add(chain.id);
+  }
+  result.chains = chains.map(c => ({ id: c.id, x: c.x, y: c.y, locked: c.locked }));
   for (const name of ['props', 'tokens']) {
     const objects = raw[name] ?? [];
     if (!Array.isArray(objects) || objects.length > 5000 || objects.some(o => !o || typeof o.id !== 'string' || !/^[A-Za-z0-9_-]{1,100}$/.test(o.id) || !point(o.x, o.y))) return null;
     const clean = name === 'props' ? importedProps(objects) : importedTokens(objects, w, h);
     if (clean.length !== objects.length || clean.some((o, i) => o.id !== objects[i].id)) return null;
+    if (name === 'tokens' && clean.some(t => t.walkAI && t.walkAI.door >= result.doors.length)) return null;
+    if (name === 'tokens' && clean.some(t => t.walkAI?.chain && !ids.has(t.walkAI.chain))) return null;
     result[name] = clean;
   }
   return result;
@@ -62,7 +71,9 @@ export function cleanTrigger(id, raw, map = world) {
   if (typeof id !== 'string' || !raw || !['lever', 'plate'].includes(raw.kind) || !Number.isFinite(raw.x) || !Number.isFinite(raw.y) ||
       raw.x < 0 || raw.x > map.w || raw.y < 0 || raw.y > map.h) return null;
   const doors = [...new Set(Object.values(raw.doors || {}).filter(d => Number.isInteger(d) && d >= 0 && d < map.doors.length))].slice(0, 20);
-  return { id, kind: raw.kind, x: raw.x, y: raw.y, doors, on: !!raw.on };
+  const chainIds = new Set((map.chains || []).map(c => c.id));
+  const chains = [...new Set(Object.values(raw.chains || {}).filter(id => chainIds.has(id)))].slice(0, 100);
+  return { id, kind: raw.kind, x: raw.x, y: raw.y, doors, on: !!raw.on, ...(chains.length ? { chains } : {}) };
 }
 // The lever or plate closest to a point within `reach` tiles (optionally of one kind), or null.
 export function nearestTrigger(x, y, reach, kind) {
@@ -87,7 +98,7 @@ export function syncPropTrigger(prop) {
   else if (kind) world.triggers.push({ id: prop.id, kind, x: prop.x, y: prop.y, doors: [], on: false });
 }
 export function movePlacedObject(layer, id, x, y, snap = true) {
-  if (!['props', 'tokens'].includes(layer) || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+  if (!['props', 'tokens', 'chains'].includes(layer) || !Number.isFinite(x) || !Number.isFinite(y)) return false;
   const object = world[layer].find(o => o.id === id);
   if (!object) return false;
   if (snap) { x = Math.floor(x) + 0.5; y = Math.floor(y) + 0.5; }
@@ -95,6 +106,15 @@ export function movePlacedObject(layer, id, x, y, snap = true) {
   object.x = x; object.y = y;
   if (layer === 'props') syncPropTrigger(object);
   return true;
+}
+export function removeWalkTokens(ids) {
+  const removed = new Set(ids);
+  // PCs have automatic stand-ins; retain a map-only removal marker so those do not respawn.
+  world.tokens = world.tokens.filter(token => {
+    if (!removed.has(token.id)) return true;
+    if (token.kind === 'pc') { token.walkDeleted = true; return true; }
+    return false;
+  });
 }
 // Doors wired to a lever or plate can't be opened by hand and don't shut by themselves.
 export const lockedDoors = () => new Set(world.triggers.flatMap(t => t.doors));

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanMapEdit, movePlacedObject, moveTrigger, setWorld, syncPropTrigger, world } from '../js/walk-model.js';
+import { cleanMapEdit, movePlacedObject, moveTrigger, removeWalkTokens, setWorld, syncPropTrigger, world } from '../js/walk-model.js';
 import { bucketCells, cutDoorOpening, eraseStrokeIndices, floorBrushCells, paintFloorTiles } from '../js/map-editor-model.js';
 
 test('shared map edits preserve door indices and copy geometry', () => {
@@ -15,7 +15,7 @@ test('shared map edits preserve door indices and copy geometry', () => {
   assert.equal(cleanMapEdit({ ...raw, walls: [[-1, 0, 4, 0]] }, 5, 5), null);
   assert.equal(cleanMapEdit({ ...raw, doors: [[1, 1, 1, 1]] }, 5, 5), null);
   assert.equal(cleanMapEdit({ ...raw, floors: [{ x: 8, y: 1, material: 'stone' }] }, 5, 5), null);
-  assert.deepEqual(cleanMapEdit({ version: 1 }, 5, 5), { w: 5, h: 5, walls: [], wallMaterials: [], doors: [], doorMaterials: [], floors: [], props: [], tokens: [] });
+  assert.deepEqual(cleanMapEdit({ version: 1 }, 5, 5), { w: 5, h: 5, walls: [], wallMaterials: [], doors: [], doorMaterials: [], floors: [], props: [], tokens: [], chains: [] });
 });
 
 test('dragging a trigger changes its position while preserving its door links and identity', () => {
@@ -40,6 +40,23 @@ test('GM object moves ignore walls and keep a prop linked to its trigger', () =>
   assert.equal(movePlacedObject('tokens', 'token1', 5, 2, false), true, 'GM can put a token inside a wall');
   assert.deepEqual([world.tokens[0].x, world.tokens[0].y], [5, 2]);
   assert.equal(movePlacedObject('tokens', 'token1', 20, 2), false, 'map bounds still apply');
+});
+
+test('token deletion removes NPCs and retains a shared removal marker for automatic PC stand-ins', () => {
+  setWorld({ resolution: { map_size: { x: 10, y: 10 } } });
+  const pc = { id: 'pc-token', npcId: 'v2:pc1', kind: 'pc', name: 'Seris', size: 1, hp: 8, x: 3.5, y: 4.5 };
+  const npc = { id: 'npc-token', name: 'Guard', size: 1, hp: 4, x: 1.5, y: 1.5 };
+  world.tokens = [pc, npc];
+  const before = structuredClone(world.tokens);
+  removeWalkTokens(['pc-token', 'npc-token']);
+  assert.equal(world.tokens.length, 1);
+  assert.equal(world.tokens[0].walkDeleted, true);
+  assert.equal(world.tokens[0].npcId, 'v2:pc1', 'deletion only affects the map representation');
+  const received = cleanMapEdit({ version: 1, tokens: world.tokens }, 10, 10);
+  assert.equal(received.tokens[0].walkDeleted, true, 'the marker survives sync/import normalization');
+  world.tokens = before;
+  assert.equal(world.tokens[0].walkDeleted, undefined, 'an undo snapshot restores the PC token');
+  assert.equal(world.tokens.length, 2);
 });
 
 test('painting controls share room barriers, floor strokes and wall erasing with the main editor', () => {

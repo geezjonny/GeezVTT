@@ -11,12 +11,14 @@ import { watchTabletop } from './tabletop-stream.js';
 import { hordeBase, serverNow, syncClock } from './horde-sync.js';
 import { MATERIAL_LAYERS, bucketCells, cutDoorOpening, distance, eraseStrokeIndices, floorBrushCells, inBox, paintFloorTiles } from './map-editor-model.js';
 import { materialCanvas, materialURL } from './material-textures.js';
-import { RADIUS, cleanMapEdit, movePlacedObject, moveTrigger, syncPropTrigger } from './walk-model.js';
+import { RADIUS, cleanMapEdit, movePlacedObject, moveTrigger, removeWalkTokens, syncPropTrigger } from './walk-model.js';
+import { closeMapMenu, showMapMenu } from './map-object-menu.js';
 import { readPuzzle, savePuzzle } from './walk-puzzle.js';
 import { importedProps, propCorners, propDistance } from './prop-model.js';
 import { importedTokens } from './token-model.js';
 import { tokenImages } from './token-art.js';
-import { drawWalkProp, drawWalkToken, loadWalkTokenSources, mountWalkObjects, selectWalkObject, walkObjectSettings } from './walk-objects.js';
+import { drawWalkProp, drawWalkToken, loadWalkTokenSources, mountWalkObjects, refreshWalkAIDoors, selectWalkObject, walkObjectSettings } from './walk-objects.js';
+import { createWalkAI } from './walk-ai.js';
 import { KEY_TO_MOVE, TILE_H, TILE_W, cleanTrigger, direction, doorBlocked, doorIsOpen, doorOccupied, hitsWall, hpFraction, lineOfSight, lockedDoors, move, nearestDoor, nearestTrigger, project, setWorld, smooth, spawn, unproject, validWalker, VISION, visionPolygon, world } from './walk-model.js';
 
 const $ = id => document.getElementById(id);
@@ -54,14 +56,14 @@ let lastPost = 0, lastSent = '', lastHp = 0, stopWatch = null, joined = false;
 let baseGeometry = null, sharedWalk = null, appliedEdit = '', loadingMap = 0;
 let stroke = null, editWrites = 0, editQueue = Promise.resolve();
 const unsavedEdits = new Map();
-const geometry = () => Object.fromEntries(['w', 'h', 'walls', 'doors', 'floors', 'props', 'tokens', 'wallMaterials', 'doorMaterials'].map(key => [key, structuredClone(world[key])]));
-const geometryKey = data => JSON.stringify(['w', 'h', 'walls', 'doors', 'floors', 'props', 'tokens', 'wallMaterials', 'doorMaterials'].map(key => key === 'tokens' ? importedTokens(data.tokens || [], data.w, data.h) : data[key] ?? []));
-const objectLayer = name => ['props', 'tokens'].includes(name);
+const geometry = () => Object.fromEntries(['w', 'h', 'walls', 'doors', 'floors', 'props', 'tokens', 'chains', 'wallMaterials', 'doorMaterials'].map(key => [key, structuredClone(world[key])]));
+const geometryKey = data => JSON.stringify(['w', 'h', 'walls', 'doors', 'floors', 'props', 'tokens', 'chains', 'wallMaterials', 'doorMaterials'].map(key => key === 'tokens' ? importedTokens(data.tokens || [], data.w, data.h) : data[key] ?? []));
+const objectLayer = name => ['props', 'tokens', 'chains'].includes(name);
 const editableLayer = name => MATERIAL_LAYERS[name] || objectLayer(name);
 const pcToken = pcId => world.tokens.find(t => t.kind === 'pc' && t.npcId === `v2:${pcId}`);
 const tokenPosition = token => {
   const pcId = token.kind === 'pc' && token.npcId?.startsWith('v2:') ? token.npcId.slice(3) : null;
-  return pcId ? (me?.pcId === pcId ? me.pos : others.get(pcId)?.shown || lastPositions.get(pcId) || token) : token;
+  return pcId ? (me?.pcId === pcId ? me.pos : others.get(pcId)?.shown || lastPositions.get(pcId) || token) : ai.position(token);
 };
 const pcStart = (pcId, seat) => {
   const token = pcToken(pcId);
@@ -70,6 +72,13 @@ const pcStart = (pcId, seat) => {
 let undo = [], redo = [], chain = [], hover = null, paintAction = 'paint', suppressClick = false;
 const selection = new Set();
 const editState = () => ({ ...geometry(), triggers: structuredClone(world.triggers), open: [...world.open] });
+const ai = createWalkAI({ mapKey: () => currentMap ? mapKey() : null, active: () => joined && !paused && !stroke, pcs: aiPCs, onError: message });
+function aiPCs() {
+  const pcs = new Map(roster.map(bot => [bot.pcId, { pcId: bot.pcId, name: bot.name, hp: bot.hp, ...(lastPositions.get(bot.pcId) || pcStart(bot.pcId, bot.seat)) }]));
+  for (const [pcId, p] of others) pcs.set(pcId, { pcId, name: p.name, hp: p.hp, ...p.target });
+  if (me) pcs.set(me.pcId, { pcId: me.pcId, name: me.name, hp: me.hp, ...me.pos });
+  return [...pcs.values()].filter(pc => !pcToken(pc.pcId)?.walkDeleted && !pcToken(pc.pcId)?.hidden && !pcToken(pc.pcId)?.invisible && (pc.hp == null || pc.hp > 0));
+}
 function restoreEdit(state) {
   const previousTokens = new Map(world.tokens.map(t => [t.id, t]));
   const { open, ...data } = structuredClone(state);
@@ -86,6 +95,8 @@ function editButtons() {
   $('walk-apply').disabled = $('walk-delete').disabled = !selection.size;
   $('walk-paint-controls').hidden = !editableLayer(tool);
   $('walk-prop-controls').hidden = tool !== 'props'; $('walk-token-controls').hidden = tool !== 'tokens';
+  $('walk-chain-controls').hidden = tool !== 'chains';
+  refreshWalkAIDoors();
   document.querySelector('[data-paint-action="bucket"]').disabled = tool === 'walls' || objectLayer(tool);
   $('walk-spacing-label').hidden = !(paintAction === 'bucket' && tool === 'doors');
   document.querySelectorAll('[data-paint-action]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.paintAction === paintAction)));
@@ -104,7 +115,7 @@ function editHistory(back) {
 
 // --- sharing positions: each page reports only its own circle; everyone reads everyone's
 async function post(force = false) {
-  if (!me) return;
+  if (!me || pcToken(me.pcId)?.walkDeleted) return;
   const now = performance.now(), key = `${me.pos.x.toFixed(2)},${me.pos.y.toFixed(2)},${me.hp},${me.max},${me.roll?.at}`;
   if (!force && (key === lastSent ? now - lastPost < 3000 : now - lastPost < 120)) return;
   lastPost = now; lastSent = key;
@@ -128,7 +139,8 @@ async function loadMap(file) {
   const edits = await editResponse.json();
   if (request !== loadingMap) return;
   setWorld(raw); baseGeometry = geometry(); appliedEdit = ''; stroke = null; camera = null; zoom = 1; endPan();
-  currentMap = file; $('walk-map').value = file; pendingDoors.clear(); botSpots.clear(); selected = null;
+  currentMap = file; $('walk-map').value = file; pendingDoors.clear(); pendingChains.clear(); botSpots.clear(); selected = null;
+  ai.receive(null);
   others.clear(); lastPositions.clear();
   $('walk-puzzle-name').value = file.replace(/\.dd2vtt$/i, '');
   undo = []; redo = []; chain = []; hover = null; selection.clear(); editButtons();
@@ -148,7 +160,8 @@ const doorPath = index => `${hordeBase}/walk/doors/${mapKey()}/d${index}.json`; 
 const SWING_SECONDS = 0.3;
 // Our own toggles hold until the server shows the same state (or 3 s pass), so a stream update sent before our write landed cannot flip the door back mid-swing.
 const pendingDoors = new Map();   // door index -> { open, until }
-const everyone = () => [me.pos, ...[...others.values()].flatMap(o => [o.target, o.shown])];
+const pendingChains = new Map();
+const everyone = () => [...(me && !pcToken(me.pcId)?.walkDeleted ? [me.pos] : []), ...[...others.entries()].filter(([id]) => !pcToken(id)?.walkDeleted).flatMap(([, o]) => [o.target, o.shown]), ...world.tokens.filter(t => t.kind !== 'pc' && !t.walkDeleted).map(tokenPosition)];
 // A door seen for the first time starts at rest (no swing on load). It blocks until fully open.
 function stepDoors(dt) {
   world.doors.forEach((_, i) => {
@@ -164,7 +177,7 @@ function setDoor(index, opening) {
 }
 // Doors shut behind you: once fully open and nobody is within a tile and a half, close. Every player's page does this; the writes are identical.
 function autoClose() {
-  if (!me) return;
+  if (!me || pcToken(me.pcId)?.walkDeleted) return;
   const points = everyone();
   const locked = lockedDoors();
   for (const index of world.open) if (!locked.has(index) && doorIsOpen(index) && !pendingDoors.has(index) && !doorOccupied(index, points)) setDoor(index, false);
@@ -183,13 +196,23 @@ const triggerPath = id => `${hordeBase}/walk/triggers/${mapKey()}/${id}.json`;
 const putJson = (url, body) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })
   .catch(error => message(`Sync problem: ${error.message}`));
 let triggersHold = 0;   // just after we edit, ignore stream copies of the list that were sent before our write landed
-const saveTrigger = t => { triggersHold = performance.now() + 1500; return putJson(triggerPath(t.id), { kind: t.kind, x: t.x, y: t.y, doors: t.doors, on: t.on }); };
+const saveTrigger = t => { triggersHold = performance.now() + 1500; return putJson(triggerPath(t.id), { kind: t.kind, x: t.x, y: t.y, doors: t.doors, on: t.on, ...(t.chains?.length ? { chains: t.chains } : {}) }); };
+function setChain(id, locked) {
+  const chain = world.chains.find(c => c.id === id);
+  if (!chain) return;
+  const before = chain.locked, hold = { locked, until: performance.now() + 3000 };
+  chain.locked = locked; pendingChains.set(id, hold);
+  fetch(`${hordeBase}/walk/chains/${mapKey()}/${id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(locked), signal: AbortSignal.timeout(8000) })
+    .then(response => { if (!response.ok) throw new Error(`Firebase returned ${response.status}`); })
+    .catch(error => { if (pendingChains.get(id) === hold) { chain.locked = before; pendingChains.delete(id); } message(`Chains sync problem: ${error.message}`); });
+}
 function fire(t) {
   for (const index of t.doors) {
     const opening = !world.open.has(index);
     if (!opening && everyone().some(p => doorBlocked(index, p.x, p.y))) { message('Something is in the way.'); continue; }
     setDoor(index, opening);
   }
+  for (const id of t.chains || []) { const chain = world.chains.find(c => c.id === id); if (chain) setChain(id, !chain.locked); }
   if (t.kind === 'lever') { t.on = !t.on; saveTrigger(t); }
 }
 const standingOn = new Set();   // plates our own character is on, so a plate fires once per step onto it
@@ -221,10 +244,7 @@ function editClick(event) {
     if (placed) { removeObjects(placed.layer, [placed.index]); commitEdit(before); return; }
     const door = nearestDoor(p.x, p.y, 0.25);
     if (door >= 0) {
-      world.doors.splice(door, 1); world.doorMaterials.splice(door, 1);
-      world.triggers.forEach(t => { t.doors = t.doors.filter(i => i !== door).map(i => i > door ? i - 1 : i); });
-      world.open = new Set([...world.open].filter(i => i !== door).map(i => i > door ? i - 1 : i));
-      world.swing.clear(); pendingDoors.clear();
+      removeObjects('doors', [door]);
       commitEdit(before); return;
     }
     const wall = world.walls.findIndex(([ax, ay, bx, by]) => distance(p, { x: ax, y: ay }, { x: bx, y: by }) <= 0.25);
@@ -237,7 +257,14 @@ function editClick(event) {
     commitEdit(before);
   } else if (tool === 'connect') {
     const door = nearestDoor(p.x, p.y, 0.6), picked = world.triggers.find(t => t.id === selected);
+    const chain = placedHit(p, ['chains']);
     if (hit) selected = hit.id;
+    else if (chain && picked) {
+      const links = picked.chains || [];
+      picked.chains = links.includes(chain.object.id) ? links.filter(id => id !== chain.object.id) : [...links, chain.object.id];
+      if (!picked.chains.length) delete picked.chains;
+      commitEdit(before);
+    }
     else if (door >= 0 && picked) { picked.doors = picked.doors.includes(door) ? picked.doors.filter(d => d !== door) : [...picked.doors, door]; commitEdit(before); }
     else selected = null;
   }
@@ -370,6 +397,7 @@ function installPuzzle(puzzle) {
   focus = me ? { ...me.pos } : { x: world.w / 2, y: world.h / 2 };
   if (JSON.stringify(before) === JSON.stringify(editState())) saveMapEdit(true);
   else commitEdit(before);
+  ai.reset();
   editButtons();
 }
 async function loadPuzzleLibrary() {
@@ -389,6 +417,7 @@ function applyMapEdit(raw) {
   const resized = clean.w !== world.w || clean.h !== world.h;
   const previousTokens = new Map(world.tokens.map(t => [t.id, t]));
   Object.assign(world, clean); appliedEdit = signature; botSpots.clear();
+  if (me && pcToken(me.pcId)?.walkDeleted) standingOn.clear();
   for (const token of world.tokens) {
     const before = previousTokens.get(token.id);
     if (token.kind === 'pc' && token.npcId?.startsWith('v2:') && (!before || before.x !== token.x || before.y !== token.y || before.walkMovedAt !== token.walkMovedAt)) {
@@ -410,8 +439,9 @@ function saveMapEdit(remapDoors = false) {
   unsavedEdits.set(key, pending);
   const patch = { [`edits/${key}`]: edit };
   if (remapDoors) {
-    patch[`triggers/${key}`] = Object.fromEntries(world.triggers.map(t => [t.id, { kind: t.kind, x: t.x, y: t.y, doors: t.doors, on: t.on }]));
+    patch[`triggers/${key}`] = Object.fromEntries(world.triggers.map(t => [t.id, { kind: t.kind, x: t.x, y: t.y, doors: t.doors, on: t.on, ...(t.chains?.length ? { chains: t.chains } : {}) }]));
     patch[`doors/${key}`] = Object.fromEntries([...world.open].map(i => [`d${i}`, true]));
+    patch[`chains/${key}`] = Object.fromEntries(world.chains.map(c => [c.id, c.locked]));
   }
   editWrites++; $('walk-editor-status').textContent = 'Saving…';
   editQueue = editQueue.then(async () => {
@@ -426,14 +456,17 @@ const editPoint = event => {
   const p = canvasPoint(event);
   return { x: Math.max(0, Math.min(world.w, p.x)), y: Math.max(0, Math.min(world.h, p.y)) };
 };
-const layerObjects = name => name === 'tokens' ? world.tokens.map(t => ({ ...t, ...tokenPosition(t) })) : name === 'floors' || name === 'props' ? world[name] : world[name].map(s => ({ points: [{ x: s[0], y: s[1] }, { x: s[2], y: s[3] }] }));
+const layerObjects = name => name === 'tokens' ? world.tokens.map(t => ({ ...t, ...tokenPosition(t) })) : name === 'chains' ? world.chains.map(c => ({ ...c, size: 1 })) : name === 'floors' || name === 'props' ? world[name] : world[name].map(s => ({ points: [{ x: s[0], y: s[1] }, { x: s[2], y: s[3] }] }));
 const objectDistance = (layer, object, p) => {
+  if (object.walkDeleted) return Infinity;
+  if (layer === 'chains') return Math.max(0, Math.hypot(object.x - p.x, object.y - p.y) - 0.4);
   if (layer === 'props') return propDistance(object, p);
   const position = tokenPosition(object);
   return Math.max(0, Math.hypot(position.x - p.x, position.y - p.y) - object.size * 0.4);
 };
-function placedHit(p, layers = ['tokens', 'props']) {
+function placedHit(p, layers = ['tokens', 'props', 'chains']) {
   for (const layer of layers) for (let i = world[layer].length - 1; i >= 0; i--) {
+    if (world[layer][i].walkDeleted) continue;
     if (objectDistance(layer, world[layer][i], p) <= 0.1) return { layer, index: i, object: world[layer][i] };
   }
   return null;
@@ -449,6 +482,12 @@ function snapPoint(event) {
 }
 function removeObjects(name, indices) {
   const removed = new Set(indices);
+  if (name === 'tokens') { removeWalkTokens(world.tokens.filter((_, i) => removed.has(i)).map(t => t.id)); return; }
+  if (name === 'chains') {
+    const ids = new Set(world.chains.filter((_, i) => removed.has(i)).map(c => c.id));
+    world.triggers.forEach(t => { if (t.chains) { t.chains = t.chains.filter(id => !ids.has(id)); if (!t.chains.length) delete t.chains; } });
+    world.tokens.forEach(t => { if (t.walkAI && ids.has(t.walkAI.chain)) t.walkAI.chain = null; });
+  }
   if (name === 'props') {
     const ids = new Set(world.props.filter((_, i) => removed.has(i)).map(p => p.id));
     world.triggers = world.triggers.filter(t => !ids.has(t.id));
@@ -457,6 +496,10 @@ function removeObjects(name, indices) {
     const remap = new Map(); let next = 0;
     world.doors.forEach((_, i) => { if (!removed.has(i)) remap.set(i, next++); });
     world.triggers.forEach(t => { t.doors = t.doors.filter(i => remap.has(i)).map(i => remap.get(i)); });
+    for (const token of world.tokens) if (token.walkAI && token.walkAI.door >= 0) {
+      if (remap.has(token.walkAI.door)) token.walkAI.door = remap.get(token.walkAI.door);
+      else delete token.walkAI;
+    }
     world.open = new Set([...world.open].filter(i => remap.has(i)).map(i => remap.get(i)));
     world.swing.clear(); pendingDoors.clear();
   }
@@ -474,8 +517,12 @@ function applySelection(erase, before = editState()) {
   if (erase) removeObjects(tool, selection);
   else for (const i of selection) {
     if (objectLayer(tool)) {
-      const value = { ...world[tool][i], ...settings };
-      world[tool][i] = tool === 'props' ? importedProps([value])[0] : importedTokens([value], world.w, world.h)[0];
+      const current = world[tool][i], value = { ...current, ...settings };
+      if (tool === 'tokens' && current.kind !== 'pc' && (settings.hp === 0 || JSON.stringify(current.walkAI) !== JSON.stringify(settings.walkAI))) {
+        const p = tokenPosition(current); value.x = p.x; value.y = p.y; value.walkMovedAt = serverNow();
+        Object.assign(before.tokens.find(t => t.id === current.id), { x: p.x, y: p.y });
+      }
+      world[tool][i] = tool === 'chains' ? value : tool === 'props' ? importedProps([value])[0] : importedTokens([value], world.w, world.h)[0];
       if (tool === 'props') syncPropTrigger(world.props[i]);
     }
     else if (tool === 'floors') world.floors[i].material = $('walk-material').value;
@@ -513,7 +560,7 @@ function finishChain() {
 }
 function paintStroke(p) {
   if (stroke.action === 'erase') {
-    const indices = objectLayer(stroke.tool) ? world[stroke.tool].flatMap((o, i) => distance(o, stroke.last, p) <= o.size / 2 + 0.1 || objectDistance(stroke.tool, o, p) <= 0.1 ? [i] : []) : eraseStrokeIndices(layerObjects(stroke.tool), stroke.last, p, stroke.tool, 9 / (viewScale * TILE_W));
+    const indices = objectLayer(stroke.tool) ? world[stroke.tool].flatMap((o, i) => !o.walkDeleted && (distance(o, stroke.last, p) <= (o.size || 1) / 2 + 0.1 || objectDistance(stroke.tool, o, p) <= 0.1) ? [i] : []) : eraseStrokeIndices(layerObjects(stroke.tool), stroke.last, p, stroke.tool, 9 / (viewScale * TILE_W));
     removeObjects(stroke.tool, indices); stroke.last = p; return;
   }
   const cells = floorBrushCells(stroke.last, p).filter(t => t.x < world.w && t.y < world.h);
@@ -533,7 +580,7 @@ function dragObject(event) {
   if (!stroke.moved && Math.hypot(event.clientX - stroke.screen.x, event.clientY - stroke.screen.y) < 4) return;
   if (!stroke.moved && stroke.layer === 'tokens') {
     const token = world.tokens.find(t => t.id === stroke.objectId) || stroke.objectSeed;
-    if (token?.kind === 'pc') {
+    if (token) {
       const before = stroke.before.tokens.find(t => t.id === token.id);
       if (before) Object.assign(before, stroke.position);
       else stroke.before.tokens.push({ ...structuredClone(token), ...stroke.position });
@@ -543,7 +590,10 @@ function dragObject(event) {
   if (stroke.objectSeed && !world.tokens.some(t => t.id === stroke.objectId)) world.tokens.push(stroke.objectSeed);
   const p = canvasPoint(event);
   movePlacedObject(stroke.layer, stroke.objectId, stroke.position.x + p.x - stroke.start.x, stroke.position.y + p.y - stroke.start.y, $('walk-snap').checked);
-  if (stroke.layer === 'tokens') relocateToken(world.tokens.find(t => t.id === stroke.objectId));
+  if (stroke.layer === 'tokens') {
+    const token = world.tokens.find(t => t.id === stroke.objectId);
+    token.walkMovedAt = serverNow(); relocateToken(token);
+  }
 }
 function relocateToken(token) {
   if (token?.kind !== 'pc' || !token.npcId?.startsWith('v2:')) return;
@@ -561,7 +611,7 @@ function placeObject(p) {
   const existing = tool === 'tokens' && settings.kind === 'pc' ? world.tokens.find(t => t.npcId === settings.npcId) : null;
   if (existing) Object.assign(before.tokens.find(t => t.id === existing.id), { x: tokenPosition(existing).x, y: tokenPosition(existing).y });
   const value = { ...settings, ...p, id: existing?.id || crypto.randomUUID() };
-  const object = tool === 'props' ? importedProps([value])[0] : importedTokens([value], world.w, world.h)[0];
+  const object = tool === 'chains' ? value : tool === 'props' ? importedProps([value])[0] : importedTokens([value], world.w, world.h)[0];
   if (!object) throw new Error('Invalid object settings.');
   if (existing) world.tokens[world.tokens.indexOf(existing)] = object;
   else world[tool].push(object);
@@ -573,7 +623,7 @@ function placeObject(p) {
 canvas.addEventListener('pointerdown', event => {
   if (event.button === 0) suppressClick = false;
   if (isGM && currentMap && !pan && event.button === 0 && !$('walk-editor').hidden && (!tool || tool === 'move' || objectLayer(tool) && ['paint', 'select'].includes(paintAction))) {
-    const p = canvasPoint(event), hit = placedHit(p, objectLayer(tool) ? [tool] : ['tokens', 'props']);
+    const p = canvasPoint(event), hit = placedHit(p, objectLayer(tool) ? [tool] : ['tokens', 'props', 'chains']);
     if (hit) {
       cancelStroke(); selection.clear(); if (hit.layer === tool) selection.add(hit.index);
       selectWalkObject(hit.layer, hit.object);
@@ -584,6 +634,7 @@ canvas.addEventListener('pointerdown', event => {
     }
     if (!tool || tool === 'move') {
       const actor = roster.find(bot => {
+        if (pcToken(bot.pcId)?.walkDeleted) return false;
         const position = bot.pcId === me?.pcId ? me.pos : others.get(bot.pcId)?.shown || lastPositions.get(bot.pcId) || pcStart(bot.pcId, bot.seat);
         return Math.hypot(position.x - p.x, position.y - p.y) <= 0.45;
       });
@@ -651,7 +702,7 @@ canvas.addEventListener('pointerup', event => {
   stroke = null;
   if (s.action === 'select' || s.action === 'replace') {
     const click = Math.hypot(event.clientX - s.screen.x, event.clientY - s.screen.y) < 4;
-    const indices = click ? objectLayer(s.tool) ? world[s.tool].flatMap((o, i) => objectDistance(s.tool, o, b) <= 0.1 ? [i] : []).slice(-1) : eraseStrokeIndices(layerObjects(s.tool), b, b, s.tool, 9 / (viewScale * TILE_W)).slice(-1) : layerObjects(s.tool).flatMap((o, i) => inBox(o, a, b, s.tool) ? [i] : []);
+    const indices = click ? objectLayer(s.tool) ? world[s.tool].flatMap((o, i) => objectDistance(s.tool, o, b) <= 0.1 ? [i] : []).slice(-1) : eraseStrokeIndices(layerObjects(s.tool), b, b, s.tool, 9 / (viewScale * TILE_W)).slice(-1) : layerObjects(s.tool).flatMap((o, i) => !o.walkDeleted && inBox(o, a, b, s.tool === 'chains' ? 'floors' : s.tool) ? [i] : []);
     indices.forEach(i => selection.add(i));
     if (s.action === 'select' && selection.size === 1 && objectLayer(s.tool)) selectWalkObject(s.tool, world[s.tool][indices[0]]);
     if (s.action === 'replace') applySelection(false, s.before);
@@ -694,14 +745,69 @@ canvas.addEventListener('wheel', event => {
   syncCamera();
 }, { passive: false });
 canvas.addEventListener('contextmenu', event => { if (isGM) event.preventDefault(); });
+function gmObjectMenu(event) {
+  if (!isGM || !joined || !currentMap) return;
+  const p = canvasPoint(event), file = currentMap, actions = [];
+  const prop = placedHit(p, ['props']);
+  const lever = (prop && world.triggers.find(t => t.id === prop.object.id && t.kind === 'lever')) || nearestTrigger(p.x, p.y, 0.6, 'lever');
+  if (lever) actions.push({ label: lever.on ? 'Reset lever' : 'Activate lever', action: () => {
+    if (!isGM || currentMap !== file) return;
+    const trigger = world.triggers.find(t => t.id === lever.id);
+    if (trigger) fire(trigger);
+  } });
+  const chain = placedHit(p, ['chains']);
+  if (chain) actions.push({ label: chain.object.locked ? 'Unlock chains' : 'Lock chains', action: () => {
+    if (isGM && currentMap === file) { const current = world.chains.find(c => c.id === chain.object.id); if (current) setChain(current.id, !current.locked); }
+  } });
+  const placed = placedHit(p, ['tokens']);
+  const actor = !placed && roster.find(bot => {
+    if (pcToken(bot.pcId)?.walkDeleted) return false;
+    const position = bot.pcId === me?.pcId ? me.pos : others.get(bot.pcId)?.shown || lastPositions.get(bot.pcId) || pcStart(bot.pcId, bot.seat);
+    return Math.hypot(position.x - p.x, position.y - p.y) <= 0.45;
+  });
+  const pcId = actor?.pcId || (placed?.object.kind === 'pc' && placed.object.npcId?.startsWith('v2:') ? placed.object.npcId.slice(3) : null);
+  const captive = pcId || ai.status(placed?.object || {})?.captured;
+  if (captive && ai.held(captive)) actions.push({ label: 'Release PC', action: () => { if (currentMap === file) ai.release(captive); } });
+  if (placed && placed.object.kind !== 'pc') actions.push({ label: 'Set HP…', action: () => {
+    if (!isGM || currentMap !== file) return;
+    const token = world.tokens.find(t => t.id === placed.object.id);
+    if (!token) return;
+    const answer = prompt(`${token.name} HP`, String(token.hp));
+    if (answer === null) return;
+    const hp = Number(answer);
+    if (!answer.trim() || !Number.isSafeInteger(hp) || hp < 0 || hp > 999999) { message('HP must be a whole number from 0 to 999999.'); return; }
+    const before = editState();
+    if (hp === 0) {
+      const p = tokenPosition(token); Object.assign(before.tokens.find(t => t.id === token.id), { x: p.x, y: p.y });
+      token.x = p.x; token.y = p.y; token.walkMovedAt = serverNow();
+    }
+    token.hp = hp; commitEdit(before);
+  } });
+  if (placed || actor) actions.push({ label: 'Delete token', action: () => {
+    if (!isGM || currentMap !== file) return;
+    const before = editState();
+    let token = placed ? world.tokens.find(t => t.id === placed.object.id) : pcToken(actor.pcId);
+    if (!token && actor) {
+      const position = actor.pcId === me?.pcId ? me.pos : others.get(actor.pcId)?.shown || lastPositions.get(actor.pcId) || pcStart(actor.pcId, actor.seat);
+      token = importedTokens([{ id: crypto.randomUUID(), npcId: `v2:${actor.pcId}`, kind: 'pc', name: actor.name, hp: Math.max(0, actor.hp || 0), size: 1, x: position.x, y: position.y }], world.w, world.h)[0];
+      if (token) world.tokens.push(token);
+    }
+    if (token) { removeWalkTokens([token.id]); selection.clear(); commitEdit(before); }
+  } });
+  if (actions.length) { pressed.clear(); showMapMenu(event.clientX, event.clientY, actions, canvas); }
+}
 canvas.addEventListener('pointerdown', event => {
   if (!isGM || !joined || !currentMap || event.button !== 2) return;
-  event.preventDefault(); cancelStroke(); freeCamera();
-  pan = { id: event.pointerId, x: event.clientX, y: event.clientY };
+  event.preventDefault(); closeMapMenu(); cancelStroke();
+  pan = { id: event.pointerId, x: event.clientX, y: event.clientY, startX: event.clientX, startY: event.clientY, moved: false };
   canvas.setPointerCapture(event.pointerId); canvas.classList.add('walk-panning');
 });
 canvas.addEventListener('pointermove', event => {
   if (!pan || pan.id !== event.pointerId) return;
+  if (!pan.moved) {
+    if (Math.hypot(event.clientX - pan.startX, event.clientY - pan.startY) < 4) return;
+    freeCamera(); pan.moved = true;
+  }
   camera.x -= (event.clientX - pan.x) / (viewScale * TILE_W);
   camera.y -= (event.clientY - pan.y) / (viewScale * TILE_H);
   pan.x = event.clientX; pan.y = event.clientY; syncCamera();
@@ -710,7 +816,11 @@ function endPan() {
   const id = pan?.id; pan = null; canvas.classList.remove('walk-panning');
   if (id != null && canvas.hasPointerCapture(id)) canvas.releasePointerCapture(id);
 }
-canvas.addEventListener('pointerup', event => { if (event.button === 2 && event.pointerId === pan?.id) endPan(); });
+canvas.addEventListener('pointerup', event => {
+  if (event.button !== 2 || event.pointerId !== pan?.id) return;
+  const moved = pan.moved; endPan();
+  if (!moved) gmObjectMenu(event);
+});
 canvas.addEventListener('pointercancel', endPan);
 canvas.addEventListener('lostpointercapture', endPan);
 addEventListener('blur', endPan);
@@ -729,6 +839,13 @@ function receive(value) {
     }
     if (!editWrites && !unsavedEdits.has(mapKey())) world.open = open;
     if (!stroke && !editWrites && !unsavedEdits.has(mapKey()) && performance.now() > triggersHold) world.triggers = Object.entries(value?.triggers?.[mapKey()] || {}).map(([id, raw]) => cleanTrigger(id, raw)).filter(Boolean);
+    if (!editWrites) for (const chain of world.chains) {
+      const locked = value?.chains?.[mapKey()]?.[chain.id], hold = pendingChains.get(chain.id);
+      if (hold && hold.locked !== locked && performance.now() < hold.until) { chain.locked = hold.locked; continue; }
+      pendingChains.delete(chain.id);
+      if (typeof locked === 'boolean') chain.locked = locked;
+    }
+    ai.receive(value?.ai?.[mapKey()] ?? null);
   }
   if ((value?.paused === true) !== paused) { paused = value?.paused === true; showPause(); }
   const records = value?.players || {}, now = serverNow(), seen = new Set();
@@ -856,7 +973,7 @@ addEventListener('keydown', event => {
 addEventListener('keydown', event => {
   if (event.key !== ' ' || !me || dialog.open || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target.matches?.('select, input')) return;
   event.preventDefault();
-  if (paused) return;
+  if (paused || pcToken(me.pcId)?.walkDeleted) return;
   const lever = nearestTrigger(me.pos.x, me.pos.y, 1, 'lever');
   if (lever) fire(lever); else toggleDoor();
 });
@@ -911,6 +1028,17 @@ function drawTrigger(t, standing) {
   ctx.fillStyle = '#3a3f4b'; ctx.fillRect(x - 12, y - 5, 24, 12);
   ctx.lineCap = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = '#c9ccd4'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tipX, tipY); ctx.stroke();
   ctx.beginPath(); ctx.arc(tipX, tipY, 5, 0, 6.2832); ctx.fillStyle = t.on ? '#6fd36b' : '#d9533a'; ctx.fill();
+}
+function drawChains(chain) {
+  const p = project(chain.x, chain.y), x = origin.x + p.x, y = origin.y + p.y;
+  ctx.save(); ctx.translate(x, y); ctx.lineWidth = 3; ctx.strokeStyle = chain.locked ? '#dfb872' : '#91bca8';
+  for (const offset of [-11, 0, 11]) { ctx.beginPath(); ctx.ellipse(offset, 0, 9, 5, offset === 0 ? -0.6 : 0.6, 0, Math.PI * 2); ctx.stroke(); }
+  if (chain.locked) { ctx.fillStyle = '#dfb872'; ctx.fillRect(-5, 7, 10, 9); ctx.beginPath(); ctx.arc(0, 7, 4, Math.PI, 0); ctx.stroke(); }
+  ctx.restore(); ctx.textAlign = 'center'; ctx.font = '10px system-ui'; ctx.fillStyle = chain.locked ? '#dfb872' : '#91bca8'; ctx.fillText(chain.locked ? 'Locked' : 'Unlocked', x, y + 29);
+  if (chain.locked) for (const token of world.tokens) if (token.walkAI?.chain === chain.id && !token.walkDeleted) {
+    const q = tokenPosition(token), b = project(q.x, q.y);
+    ctx.setLineDash([3, 3]); ctx.lineWidth = 2; ctx.strokeStyle = '#b6a186'; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(origin.x + b.x, origin.y + b.y); ctx.stroke(); ctx.setLineDash([]);
+  }
 }
 function drawWalker(name, pos, hp, max, isMe, origin, roll, pcId) {
   const token = pcToken(pcId);
@@ -984,7 +1112,7 @@ function draw() {
     } else if (objectLayer(tool) && world[tool]?.[i]) {
       const object = world[tool][i], corners = tool === 'props' ? propCorners(object) : null;
       if (corners) lines(corners.map((p, j) => [p.x, p.y, corners[(j + 1) % 4].x, corners[(j + 1) % 4].y]), 2 / viewScale, '#a2cbff');
-      else { const p = tokenPosition(object), s = project(p.x, p.y); ctx.beginPath(); ctx.arc(origin.x + s.x, origin.y + s.y, object.size * TILE_W / 2, 0, Math.PI * 2); ctx.lineWidth = 2 / viewScale; ctx.strokeStyle = '#a2cbff'; ctx.stroke(); }
+      else { const p = tokenPosition(object), s = project(p.x, p.y); ctx.beginPath(); ctx.arc(origin.x + s.x, origin.y + s.y, (object.size || 1) * TILE_W / 2, 0, Math.PI * 2); ctx.lineWidth = 2 / viewScale; ctx.strokeStyle = '#a2cbff'; ctx.stroke(); }
     } else if (world[tool]?.[i]) lines([world[tool][i]], 11, '#a2cbff99');
   }
   if (chain.length) {
@@ -1003,12 +1131,19 @@ function draw() {
     lines([[stroke.start.x, stroke.start.y, stroke.end.x, stroke.end.y]], 7, '#a2cbff');
     ctx.setLineDash([]);
   }
-  const standing = [...(me ? [me.pos] : []), ...[...others.values()].map(o => o.shown)];
+  const standing = everyone();
   for (const t of world.triggers) drawTrigger(t, standing);
+  for (const chain of world.chains) drawChains(chain);
   if (isGM && tool) for (const t of world.triggers) { // wiring is only shown while the GM is editing
     ctx.setLineDash([6, 4]); ctx.lineWidth = 2; ctx.strokeStyle = t.id === selected ? '#a2cbff' : 'rgba(162,203,255,0.4)';
     for (const index of t.doors) {
       const [ax, ay, bx, by] = world.doors[index], a = project(t.x, t.y), b = project((ax + bx) / 2, (ay + by) / 2);
+      ctx.beginPath(); ctx.moveTo(origin.x + a.x, origin.y + a.y); ctx.lineTo(origin.x + b.x, origin.y + b.y); ctx.stroke();
+    }
+    for (const id of t.chains || []) {
+      const chain = world.chains.find(c => c.id === id);
+      if (!chain) continue;
+      const a = project(t.x, t.y), b = project(chain.x, chain.y);
       ctx.beginPath(); ctx.moveTo(origin.x + a.x, origin.y + a.y); ctx.lineTo(origin.x + b.x, origin.y + b.y); ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -1025,14 +1160,25 @@ function draw() {
     g.addColorStop(0, 'rgba(5,6,10,0)'); g.addColorStop(1, 'rgba(5,6,10,0.85)');   // the light fades toward its edge
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h); ctx.restore();
   }
-  const list = [...others.entries()].map(([pcId, o]) => ({ pcId, name: o.name, pos: o.shown, hp: o.hp, max: o.max, isMe: false, roll: o.roll }));
-  for (const bot of roster) if (bot.pcId !== me?.pcId && !others.has(bot.pcId)) { // nobody is playing this PC: an idle stand-in at its start spot
+  const list = [...others.entries()].filter(([id]) => !pcToken(id)?.walkDeleted).map(([pcId, o]) => ({ pcId, name: o.name, pos: o.shown, hp: o.hp, max: o.max, isMe: false, roll: o.roll }));
+  for (const bot of roster) if (!pcToken(bot.pcId)?.walkDeleted && bot.pcId !== me?.pcId && !others.has(bot.pcId)) { // nobody is playing this PC: an idle stand-in at its last spot
     if (!botSpots.has(bot.seat)) botSpots.set(bot.seat, pcStart(bot.pcId, bot.seat));
     list.push({ pcId: bot.pcId, name: bot.name, pos: lastPositions.get(bot.pcId) || botSpots.get(bot.seat), hp: bot.hp, max: bot.max, isMe: false, roll: null });
   }
-  if (me) list.push({ pcId: me.pcId, name: me.name, pos: me.pos, hp: me.hp, max: me.max, isMe: true, roll: me.roll });
+  if (me && !pcToken(me.pcId)?.walkDeleted) list.push({ pcId: me.pcId, name: me.name, pos: me.pos, hp: me.hp, max: me.max, isMe: true, roll: me.roll });
   const represented = new Set(list.map(p => `v2:${p.pcId}`));
-  for (const token of world.tokens) if ((!token.hidden || isGM) && !(token.kind === 'pc' && represented.has(token.npcId)) && (!poly || lineOfSight(me.pos.x, me.pos.y, token.x, token.y))) drawWalkToken(ctx, token, origin);
+  for (const token of world.tokens) {
+    const p = tokenPosition(token);
+    if (token.walkDeleted || token.hidden && !isGM || token.kind === 'pc' && represented.has(token.npcId) || poly && !lineOfSight(me.pos.x, me.pos.y, p.x, p.y)) continue;
+    drawWalkToken(ctx, { ...token, x: p.x, y: p.y }, origin);
+    const status = ai.status(token);
+    if (token.walkAI) {
+      const labels = { waiting: 'Waiting for door', chained: 'Chained', wandering: 'Searching', seeking: 'Seeking PC', battle: 'In battle', following: 'Following' };
+      const friendly = token.walkAI.disposition === 'friendly';
+      const s = project(p.x, p.y); ctx.font = '11px system-ui'; ctx.textAlign = 'center'; ctx.fillStyle = friendly ? '#a8d8b0' : '#ffb4aa';
+      ctx.fillText(`${friendly ? 'Friendly' : 'Enemy'} · ${token.hp <= 0 ? 'Defeated (0 HP)' : labels[status?.mode] || 'Waiting for GM'}`, origin.x + s.x, origin.y + s.y + token.size * TILE_W * 0.4 + 28);
+    }
+  }
   list.sort((a, b) => a.pos.y - b.pos.y); // lower on screen draws on top
   for (const item of list) if (!poly || item.isMe || lineOfSight(me.pos.x, me.pos.y, item.pos.x, item.pos.y)) drawWalker(item.name, item.pos, item.hp, item.max, item.isMe, origin, item.roll, item.pcId);
 }
@@ -1043,17 +1189,22 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   stepDoors(dt);
+  ai.frame(dt);
   if (!paused) autoClose();
   if (joined) {
     const dir = direction(pressed);
-    if (me) { if (!paused && !stroke) { me.pos = move(me.pos, dir, dt, undefined, isGM ? null : hitsWall); checkPlates(); } focus = me.pos; post(); }
+    if (me) { if (!paused && !stroke && !pcToken(me.pcId)?.walkDeleted && !ai.held(me.pcId)) { me.pos = move(me.pos, dir, dt, undefined, isGM ? null : hitsWall); checkPlates(); } focus = me.pos; post(); }
     else if (spectator && !stroke && !pan) {
       if (camera) { camera.x += dir.x * dt * 6; camera.y += dir.y * dt * 6; }
       else focus = move(focus, dir, dt, 6);
     }
     for (const other of others.values()) other.shown = smooth(other.shown, other.target, dt);
     $('walk-hud').textContent = me ? `${me.name}${me.hp !== null && me.max !== null ? ` · ${me.hp}/${me.max} HP` : ''} · WASD or arrows to move${nearestTrigger(me.pos.x, me.pos.y, 1, 'lever') ? ' · Space: lever' : nearestDoor(me.pos.x, me.pos.y) >= 0 ? ' · Space: door' : ''}` : 'Spectating · WASD or arrows to look around';
+    if (me && pcToken(me.pcId)?.walkDeleted) $('walk-hud').textContent = 'Token removed by GM';
   }
+  const captor = me && !pcToken(me.pcId)?.walkDeleted ? ai.held(me.pcId) : null;
+  $('walk-caught').hidden = !captor;
+  if (captor) $('walk-caught').textContent = `Spotted by ${captor.name} · Movement stopped for battle`;
   draw();
 }
 requestAnimationFrame(frame);

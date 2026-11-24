@@ -1,9 +1,9 @@
 import { PROPS, PROP_CATEGORIES, propProperties } from './prop-model.js';
 import { propIcon } from './prop-icons.js';
-import { TOKEN_ICONS, TOKEN_SYMBOLS, npcCatalog, tokenIcon, tokenProperties } from './token-model.js';
+import { TOKEN_ICONS, TOKEN_SYMBOLS, npcCatalog, tokenIcon, tokenProperties, walkAIProperties } from './token-model.js';
 import { tokenImage, tokenImages } from './token-art.js';
 import { loadSheetReference } from './sheet-view.js';
-import { TILE_W, TILE_H } from './walk-model.js';
+import { TILE_W, TILE_H, world } from './walk-model.js';
 
 const $ = id => document.getElementById(id);
 let sources = [], loading;
@@ -28,6 +28,9 @@ export function mountWalkObjects() {
     const source = sources.find(t => t.npcId === $(id).value);
     $('walk-token-name').value = source?.name || 'Blank Token'; $('walk-token-size').value = source?.size || 1; $('walk-token-hp').value = source?.hp || 0;
     $('walk-token-icon').value = tokenIcon(source?.name?.toLowerCase());
+    $('walk-token-ai').disabled = source?.kind === 'pc';
+    for (const id of ['walk-token-disposition', 'walk-token-ai-door', 'walk-token-ai-chain']) $(id).disabled = source?.kind === 'pc';
+    if (source?.kind === 'pc') $('walk-token-ai').checked = false;
   });
 }
 export function loadWalkTokenSources() {
@@ -50,14 +53,19 @@ export function loadWalkTokenSources() {
 }
 export function walkObjectSettings(layer) {
   if (layer === 'props') return propProperties($('walk-prop-kind').value, Number($('walk-prop-size').value), Number($('walk-prop-rotation').value));
+  if (layer === 'chains') return { locked: $('walk-chain-locked').checked };
   const source = sources.find(t => t.npcId === ($('walk-token-pc').value || $('walk-token-npc').value));
   const rotation = Number($('walk-token-rotation').value);
   if (!Number.isFinite(rotation)) throw new Error('Enter a rotation in degrees.');
-  return { ...source, ...tokenProperties($('walk-token-name').value, Number($('walk-token-size').value), Number($('walk-token-hp').value)), icon: tokenIcon($('walk-token-icon').value), rotation,
+  const props = tokenProperties($('walk-token-name').value, Number($('walk-token-size').value), Number($('walk-token-hp').value));
+  if ($('walk-token-ai').checked && source?.kind === 'pc') throw new Error('NPC AI cannot be enabled for a PC.');
+  return { ...source, ...props, icon: tokenIcon($('walk-token-icon').value), rotation,
+    walkAI: $('walk-token-ai').checked ? walkAIProperties({ door: Number($('walk-token-ai-door').value), chain: $('walk-token-ai-chain').value || null, disposition: $('walk-token-disposition').value }) : null,
     ...($('walk-token-art').value ? { imageName: $('walk-token-art').value } : {}) };
 }
 export function selectWalkObject(layer, object) {
-  if (layer === 'props') {
+  if (layer === 'chains') $('walk-chain-locked').checked = object.locked;
+  else if (layer === 'props') {
     $('walk-prop-kind').value = object.kind;
     $('walk-prop-category').value = Object.keys(PROP_CATEGORIES).find(category => PROP_CATEGORIES[category].includes(object.kind));
     $('walk-prop-category').dispatchEvent(new Event('change'));
@@ -67,7 +75,21 @@ export function selectWalkObject(layer, object) {
     $('walk-token-npc').value = object.kind === 'pc' ? '' : object.npcId || '';
     $('walk-token-name').value = object.name; $('walk-token-size').value = object.size; $('walk-token-hp').value = object.hp;
     $('walk-token-icon').value = tokenIcon(object.icon); $('walk-token-art').value = object.imageName || ''; $('walk-token-rotation').value = object.rotation || 0;
+    refreshWalkAIDoors();
+    $('walk-token-ai').checked = !!object.walkAI; $('walk-token-ai').disabled = object.kind === 'pc';
+    for (const id of ['walk-token-disposition', 'walk-token-ai-door', 'walk-token-ai-chain']) $(id).disabled = object.kind === 'pc';
+    $('walk-token-ai-door').value = String(object.walkAI?.door ?? -1);
+    $('walk-token-ai-chain').value = object.walkAI?.chain || '';
+    $('walk-token-disposition').value = object.walkAI?.disposition || 'enemy';
   }
+}
+export function refreshWalkAIDoors() {
+  const select = $('walk-token-ai-door'), value = select.value;
+  select.replaceChildren(new Option('Start now', '-1'), ...world.doors.map((door, i) => new Option(`Door ${i + 1} (${((door[0] + door[2]) / 2).toFixed(1)}, ${((door[1] + door[3]) / 2).toFixed(1)})`, String(i))));
+  select.value = [...select.options].some(o => o.value === value) ? value : '-1';
+  const chains = $('walk-token-ai-chain'), chain = chains.value;
+  chains.replaceChildren(new Option('None', ''), ...world.chains.map((c, i) => new Option(`Chains ${i + 1} (${c.x.toFixed(1)}, ${c.y.toFixed(1)})`, c.id)));
+  chains.value = world.chains.some(c => c.id === chain) ? chain : '';
 }
 const propPaths = new Map(), images = new Map();
 export function drawWalkProp(ctx, prop, origin) {

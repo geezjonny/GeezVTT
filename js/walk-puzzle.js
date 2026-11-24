@@ -11,6 +11,7 @@ export function readPuzzle(raw) {
     if (!t || !/^[A-Za-z0-9_-]{1,80}$/.test(t.id) || ids.has(t.id) || !Array.isArray(t.doors) || t.doors.length > 20 || t.doors.some(i => !Number.isInteger(i) || i < 0 || i >= map.doors.length)) throw new Error('Invalid puzzle trigger links.');
     const clean = cleanTrigger(t.id, t, map);
     if (!clean) throw new Error('Invalid puzzle trigger.');
+    if (t.chains != null && (!Array.isArray(t.chains) || t.chains.length > 100 || t.chains.some(id => !map.chains.some(c => c.id === id)))) throw new Error('Invalid puzzle chain links.');
     ids.add(t.id); return clean;
   });
   if (raw.open.some(i => !Number.isInteger(i) || i < 0 || i >= map.doors.length)) throw new Error('Invalid puzzle door states.');

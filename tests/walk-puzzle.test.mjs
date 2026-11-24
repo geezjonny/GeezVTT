@@ -10,7 +10,7 @@ const puzzle = () => ({
   walls: [[0, 0, 4, 0]], wallMaterials: ['brick'],
   doors: [[4, 0, 5, 0]], doorMaterials: ['wood'],
   floors: [{ x: 0.5, y: 0.5, material: 'grass' }],
-  props: [], tokens: [],
+  props: [], tokens: [], chains: [],
   triggers: [{ id: 'lever1', kind: 'lever', x: 15, y: 8, doors: [0], on: true }], open: [0]
 });
 
@@ -43,6 +43,20 @@ test('puzzles preserve placed props, tokens, art and linked prop triggers', () =
   assert.deepEqual(loaded.state.triggers[0].doors, [0]);
   assert.throws(() => readPuzzle({ ...raw, tokens: [{ ...raw.tokens[0], size: -1 }] }));
   assert.throws(() => readPuzzle({ ...raw, props: [raw.props[0], raw.props[0]] }));
+});
+
+test('puzzles retain chains, lever lock links and NPC disposition/activation settings', () => {
+  const raw = puzzle();
+  raw.chains = [{ id: 'chain1', x: 3, y: 4, locked: true }];
+  raw.triggers[0].chains = ['chain1'];
+  raw.tokens = importedTokens([{ id: 'friend', name: 'Prisoner', size: 1, hp: 8, x: 3.5, y: 4.5,
+    walkAI: { door: 0, chain: 'chain1', disposition: 'friendly' } }], raw.w, raw.h);
+  const loaded = readPuzzle(JSON.parse(JSON.stringify(raw)));
+  assert.deepEqual(loaded.state.chains, raw.chains);
+  assert.deepEqual(loaded.state.triggers[0].chains, ['chain1']);
+  assert.deepEqual(loaded.state.tokens[0].walkAI, raw.tokens[0].walkAI);
+  assert.throws(() => readPuzzle({ ...raw, triggers: [{ ...raw.triggers[0], chains: ['missing'] }] }));
+  assert.throws(() => readPuzzle({ ...raw, chains: [] }));
 });
 
 test('export writes a portable puzzle under minigame and preserves existing library entries', async () => {
