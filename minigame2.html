@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeezVTT · Walk</title>
+  <link rel="stylesheet" href="minigame2.css?v=1">
+</head>
+<body>
+  <canvas id="walk-canvas" aria-label="Top-down map. Move with WASD or the arrow keys."></canvas>
+  <p id="walk-hud"></p>
+  <button id="walk-change" type="button" hidden>Change character</button>
+  <button id="walk-fit" type="button" aria-pressed="false" hidden>Fit to window</button>
+  <div id="walk-gm" role="toolbar" aria-label="GM tools" hidden>
+    <button id="walk-pause" type="button" aria-pressed="false">Pause</button>
+    <button id="walk-editor-toggle" type="button" aria-expanded="false" aria-controls="walk-editor">Map editor</button>
+  </div>
+  <aside id="walk-editor" class="editor-panel" aria-labelledby="walk-editor-title" hidden>
+    <header id="walk-editor-titlebar" class="editor-titlebar" tabindex="0" aria-label="Move map editor. Drag or use arrow keys."><strong id="walk-editor-title">Map editor</strong><button id="walk-editor-close" type="button" aria-label="Close map editor">×</button></header>
+    <div class="walk-tools" role="toolbar" aria-label="Map tools">
+      <button type="button" data-tool="move" aria-pressed="false" title="Drag levers and plates without changing their connections">Move</button>
+      <button type="button" data-tool="walls" aria-pressed="false" title="Click points and press Enter to finish a wall chain, or drag a single wall. Shift allows grid-line midpoints.">Wall</button>
+      <button type="button" data-tool="doors" aria-pressed="false" title="Drag across a wall to cut a doorway">Door</button>
+      <button type="button" data-tool="floors" aria-pressed="false" title="Drag to paint tiles; Shift-click to fill a room">Floor</button>
+      <button type="button" data-tool="props" aria-pressed="false">Props</button>
+      <button type="button" data-tool="tokens" aria-pressed="false">Tokens</button>
+      <button type="button" data-tool="lever" aria-pressed="false">Lever</button>
+      <button type="button" data-tool="plate" aria-pressed="false">Plate</button>
+      <button type="button" data-tool="connect" aria-pressed="false" title="Select a trigger, then its doors">Connect</button>
+      <button type="button" data-tool="remove" aria-pressed="false" title="Click a trigger, door, wall, or floor to erase">Erase</button>
+    </div>
+    <div id="walk-paint-controls" hidden>
+      <div class="walk-tools" role="toolbar" aria-label="Painting controls">
+        <button type="button" data-paint-action="select" aria-pressed="false">Select</button>
+        <button type="button" data-paint-action="paint" aria-pressed="true">Paint</button>
+        <button type="button" data-paint-action="erase" aria-pressed="false">Erase</button>
+        <button type="button" data-paint-action="bucket" aria-pressed="false" title="Fill an enclosed area">Bucket</button>
+        <button type="button" data-paint-action="replace" aria-pressed="false" title="Drag an area to change its materials">Replace</button>
+      </div>
+      <label id="walk-spacing-label" hidden>Fill spacing<input id="walk-spacing" type="number" min="0.5" max="100" step="0.5" value="4"></label>
+      <label class="walk-checkbox" title="Walls snap to grid corners; Shift allows grid-line midpoints."><input id="walk-snap" type="checkbox" checked> Snap to grid</label>
+      <div class="walk-tools">
+        <button id="walk-apply" type="button" disabled>Apply</button>
+        <button id="walk-delete" type="button" disabled>Delete</button>
+      </div>
+    </div>
+    <div class="walk-tools">
+      <button id="walk-undo" type="button" title="Ctrl+Z" disabled>Undo</button>
+      <button id="walk-redo" type="button" title="Ctrl+Y" disabled>Redo</button>
+    </div>
+    <label id="walk-material-label" hidden>Material<select id="walk-material"></select></label>
+    <div id="walk-materials" class="material-swatches" hidden></div>
+    <div id="walk-prop-controls" hidden>
+      <label>Category<select id="walk-prop-category"></select></label>
+      <div id="walk-prop-palette" class="material-swatches" role="group" aria-label="Prop type"></div>
+      <select id="walk-prop-kind" aria-label="Prop type" hidden></select>
+      <label>Size<input id="walk-prop-size" type="number" min=".25" max="20" step=".25" value="1"></label>
+      <label>Rotation<input id="walk-prop-rotation" type="number" step="15" value="0"></label>
+    </div>
+    <div id="walk-token-controls" hidden>
+      <label>PC<select id="walk-token-pc"><option value="">Select PC</option></select></label>
+      <label>NPC<select id="walk-token-npc"><option value="">Blank Token</option></select></label>
+      <label>/Token<select id="walk-token-art"><option value="">Select image</option></select></label>
+      <label>Name<input id="walk-token-name" type="text" maxlength="100" value="Blank Token"></label>
+      <label>Icon<select id="walk-token-icon"></select></label>
+      <label>Size<input id="walk-token-size" type="number" min=".5" max="20" step=".5" value="1"></label>
+      <label>HP<input id="walk-token-hp" type="number" min="0" max="999999" step="1" value="0"></label>
+      <label>Rotation<input id="walk-token-rotation" type="number" step="15" value="0"></label>
+    </div>
+    <button id="walk-editor-save" type="button">Save map</button>
+    <label>Puzzle name<input id="walk-puzzle-name" type="text" maxlength="120" value="Puzzle"></label>
+    <div class="walk-tools">
+      <button id="walk-puzzle-export" type="button">Export .geezpuzzle</button>
+      <button id="walk-puzzle-import" type="button">Import</button>
+    </div>
+    <input id="walk-puzzle-file" type="file" accept=".geezpuzzle" hidden>
+    <label>Saved puzzles<select id="walk-puzzles"><option value="">Choose puzzle</option></select></label>
+    <output id="walk-editor-status" role="status" aria-live="polite"></output>
+  </aside>
+  <p id="walk-paused" role="status" hidden>Paused</p>
+  <button id="walk-dice-toggle" type="button" aria-expanded="false" aria-controls="walk-dice">Dice</button>
+  <aside id="walk-dice" aria-label="Dice" hidden>
+    <label>Roll<select id="walk-dice-check" disabled></select></label>
+    <button id="walk-dice-roll" type="button" disabled>Roll</button>
+    <ol id="walk-dice-history"></ol>
+  </aside>
+  <output id="walk-status" role="status" aria-live="polite"></output>
+  <dialog id="walk-login" aria-labelledby="walk-login-title">
+    <form id="walk-form" method="dialog">
+      <h2 id="walk-login-title">Choose your character</h2>
+      <label>Campaign<select id="walk-campaign"></select></label>
+      <label>Map<select id="walk-map"></select></label>
+      <div id="walk-characters" role="group" aria-label="Characters"></div>
+      <button id="walk-spectate" type="button">Spectate</button>
+      <output id="walk-login-status" role="status" aria-live="polite"></output>
+    </form>
+  </dialog>
+  <script src="js/firebase-config.js"></script>
+  <script type="module" src="js/walk-page.js"></script>
+</body>
+</html>

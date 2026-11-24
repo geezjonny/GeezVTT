@@ -14,13 +14,13 @@ class UpdateIndexesTest(unittest.TestCase):
     def test_scans_all_three_directories(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name, filename in (("token", "portrait.PNG"), ("battlemap", "new_map.dd2vtt"), ("scene", "new_scene.geezvtt")):
+            for name, filename in (("token", "portrait.PNG"), ("battlemap", "new_map.dd2vtt"), ("scene", "new_scene.geezvtt"), ("minigame", "new_puzzle.geezpuzzle")):
                 folder = root / name
                 folder.mkdir()
                 (folder / filename).touch()
             module.update_indexes(root)
             self.assertEqual(json.loads((root / "token/index.json").read_text(encoding="utf-8")), ["portrait.PNG"])
-            for name, filename in (("battlemap", "new_map.dd2vtt"), ("scene", "new_scene.geezvtt")):
+            for name, filename in (("battlemap", "new_map.dd2vtt"), ("scene", "new_scene.geezvtt"), ("minigame", "new_puzzle.geezpuzzle")):
                 self.assertEqual(json.loads((root / name / "index.json").read_text(encoding="utf-8")), [
                     {"file": filename, "name": Path(filename).stem.replace("_", " ")}
                 ])
@@ -51,7 +51,7 @@ class UpdateIndexesTest(unittest.TestCase):
             self.assertEqual(len(json.loads((folder / "index.json").read_text(encoding="utf-8"))), 1)
 
     def test_appends_matching_files_and_preserves_existing_entries(self):
-        for extension in (".dd2vtt", ".geezvtt"):
+        for extension in (".dd2vtt", ".geezvtt", ".geezpuzzle"):
             with self.subTest(extension=extension), tempfile.TemporaryDirectory() as directory:
                 folder = Path(directory)
                 index = folder / "index.json"

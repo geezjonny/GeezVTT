@@ -117,6 +117,7 @@ export function importedTokens(value, width, height) {
         ...(token.vision ? { vision: characterVision({vision: token.vision}) } : {}),
         ...(token.icon !== undefined ? { icon: tokenIcon(token.icon) } : {}),
         ...(Number.isFinite(token.rotation) ? { rotation: ((token.rotation % 360) + 360) % 360 } : {}),
+        ...(Number.isFinite(token.walkMovedAt) && token.walkMovedAt >= 0 ? { walkMovedAt: token.walkMovedAt } : {}),
         ...(token.kind === 'pc' ? pcStats(token.hpMax, token.ac) : {}),
         ...(typeof token.npcId === 'string' ? { npcId: token.npcId } : {}) }];
     } catch { return []; }

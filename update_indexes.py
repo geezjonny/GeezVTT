@@ -1,4 +1,4 @@
-"""Run python update_indexes.py to update token, battlemap, scene, and soundboard indexes."""
+"""Run python update_indexes.py to update token, battlemap, scene, minigame, and soundboard indexes."""
 
 import json
 from pathlib import Path
@@ -50,7 +50,7 @@ def write_index(index, entries):
 
 
 def update_indexes(root):
-    for directory, extension in (("token", None), ("battlemap", ".dd2vtt"), ("scene", ".geezvtt"), ("ambience", "audio"), ("sfx", "audio"), ("music", "audio")):
+    for directory, extension in (("token", None), ("battlemap", ".dd2vtt"), ("scene", ".geezvtt"), ("minigame", ".geezpuzzle"), ("ambience", "audio"), ("sfx", "audio"), ("music", "audio")):
         count = update_index(root / directory, extension)
         status = f"{count} images" if extension is None else f"added {count}"
         print(f"{directory}/index.json: {status}", flush=True)

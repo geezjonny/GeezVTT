@@ -1,6 +1,22 @@
 # GeezVTT progress
 
-Updated: 2026-11-23
+Updated: 2026-11-24
+
+## Walking minigame and GM puzzle editor saved - 2026-11-24
+
+- Adds minigame2.html with shared top-down character movement, door interaction, character vision, dice rolls, GM pause controls and spectator navigation. GM links open as spectators unless an explicit character is requested.
+- Adds a draggable, standard-width GM map editor with wall and door drawing, floor brushes, shared material palettes/textures, selection, apply/delete, erase, bucket fill, replace, snapping, Shift-click room fill, wall chains and 50-edit undo/redo with Ctrl+Z/Ctrl+Y.
+- Adds fit-to-window for GMs and spectators, mouse-centered GM wheel zoom and right-drag panning. GM-controlled character movement and GM token placement can pass through walls; regular player movement retains collision.
+- Adds shared prop categories and PC/NPC/token-image controls, placement, size, rotation, HP, rendering and drag movement. Levers, buttons, pressure plates and tripwires can retain trigger IDs and door wiring when moved. Includes prop/token state in shared edits, undo/redo and puzzle files.
+- Adds .geezpuzzle import/export with map dimensions, materials, geometry, props, tokens, trigger links and door states. Import replaces the active map and can be undone. Folder-capable browsers export into a selected minigame folder (or create minigame inside a selected parent) and update its index; other browsers use a save picker or download. Adds minigame/index.json and puzzle indexing to update_indexes.py.
+- Retains last reported character positions for idle stand-ins instead of returning expired presence to spawn. GM PC-token moves use placement timestamps so older player records do not immediately undo them. Includes shared Horde color/clock modules required by the walking page, token placement timestamp import support and the shared rectangle-selection helper fix.
+- Adds or updates regression cases for map edits, trigger/object moves, stale position handling, puzzle validation and round trips, folder export and minigame indexing.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run.
+
+Outstanding: user verification of multiplayer movement and reconnects, idle-position retention, GM teleporting through walls, camera controls, panel dragging, all paint modes, object selection/dragging, retained trigger wiring, PC/NPC/image catalogs, undo/redo and .geezpuzzle export/import/library loading. Exported local files require publishing before appearing on a hosted site's library. Undo history resets on map changes or reload. Prop visuals reuse catalog paths; full tabletop inventory, sheet windows and 3D presentation are not part of this minigame page. Three.js movement integration was discussed but not implemented.
+
+Save, commit and push requested to origin/main. Include the walking minigame, puzzle editor, required shared dependencies, regression cases and this progress update. Leave unrelated tabletop changes, assets, scenes and other pending work uncommitted.
 
 ## Separate minigame page and shared team results saved - 2026-11-23
 
