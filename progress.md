@@ -2,6 +2,21 @@
 
 Updated: 2026-11-23
 
+## Zombie Typing minigame saved - 2026-11-23
+
+- Adds Scene Controls > Minigame with Zombie Typing (DEX), a Who? checklist of linked PCs, and Push game. Uses a standard-width floating window, shared with participants and spectators; viewers can select which PC to watch. The GM can end the game or push a new session.
+- Selected players roll Dexterity using their current sheet bonus and existing encumbrance disadvantage. Totals below 10 give long words, 10–14 medium words, and 15+ short words; a kept natural 20 gives single letters regardless of total. Conditional Firebase reservations allow one roll per PC per session. The GM can also play an attempt on a selected PC's behalf.
+- Runs a twenty-zombie wave locally on the participant's device. Zombies advance toward the player, completed words kill immediately, and arrivals cost one of three minigame lives. Gameplay does not wait for spectator writes. Shared snapshots update spectators, retry failed writes, and retain the final outcome. These lives and kills do not change character HP or map tokens.
+- Uses small code-built SVG zombies and a survivor, with word-prefix highlighting. Minimizing the window, hiding the browser tab, or watching another PC pauses the local attempt. Refreshing an attempt currently returns to spectating; push a new session to restart. Completed snapshots remain stored per session; retention limits are deferred.
+- Adds unrun regression cases for difficulty thresholds, natural 20 handling, complete-word kills, distinct active words, arrival/life handling, delayed frames, wave completion and shared snapshot validation. Updates to-do.md with the implementation and remaining work.
+- Discussed 3D laptop performance: integrated-graphics targets, optional local graphics settings, resolution/shadow budgets, batching repeated props and representative stress scenes. No 3D graphics settings, renderer optimizations or performance measurements were added.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run.
+
+Outstanding: user verification of PC selection/ownership, multiple simultaneous players, GM attempts, roll bonuses/disadvantage and natural 20s, word matching and arrivals, pause/resume, spectator updates, conditional reservations, write failures/reconnects, scene transitions and final outcomes. Additional minigames, puzzles, battlefield effects, attempt recovery after refresh and snapshot retention limits remain future work. Earlier verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Include only the typing minigame, its regression cases and related documentation/UI integration. Exclude unrelated battlemap assets/catalog edits, token index formatting, scene edits/new scene files, and the pre-existing player Effects-menu change in js/tokens.js.
+
 ## Erasers, object appearance, crystal obelisks and window frames saved - 2026-11-23
 
 - Adds GM right-click Wall > Delete, using existing history and shared scene updates. Adds an Eraser swatch to Walls, Floors and Doors. Click/drag erasing stays on the selected layer, uses continuous stroke intersection in 2D and floor erasing, and raycasts wall/door surfaces in 3D/First Person. Each stroke is one Undo/Redo action; cancellation restores the prior geometry. Choosing a material returns to painting.

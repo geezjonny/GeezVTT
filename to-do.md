@@ -8,7 +8,9 @@
 - [x] Crystal obelisk prop under Decor & Landmarks.
 - [x] Windows use surrounding wall material around a rectangular glass pane or opening. Inherit adjoining aligned wall material where available, and retain existing window movement/sight rules.
 - [ ] User verification of erasers, wall deletion, effects, colors, obelisks, windows, Undo/Redo, all views, imports/reloads, floor travel and shared updates. New regression cases are unrun.
-- [ ] Minigames and puzzles.
+- [x] Scene Controls > Minigame > Zombie Typing (DEX), selected PC recipients, local gameplay and shared spectator windows. DEX totals below 10 / 10–14 / 15+ give long / medium / short words; a natural 20 gives single letters. Twenty-zombie waves, three lives, and one roll per PC per pushed session. Implementation awaits user verification.
+- [ ] User verification of typing difficulty, PC selection/ownership, concurrent attempts, spectators, local timing, arrivals/kills, pause/resume, one-roll reservation, failed writes/reconnects, scene changes and final results. Regression cases are unrun. Reloading an attempt currently returns to spectating; the GM can push a new session.
+- [ ] Additional minigames, puzzles and configured battlefield effects. Zombie Typing currently affects its own wave only; it does not change character HP or map tokens.
 
 ## Floor painting - 2026-11-23
 
