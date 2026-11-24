@@ -14,7 +14,7 @@ const SPEED = 40, ARROW_SPEED = 120, MISS_COOLDOWN = 20, CAST_COOLDOWN = 45, SPE
 const GATE_HP = 100, GATE_REACH = 200;
 
 // tank: move + hold Space to charge a slam.  healer: type names to heal.  cutter: falling-rune lanes.
-// simon: repeat the pad pattern.  pitch: tune your tone to the target.  striker/support: type zombie words / spells.
+// simon: touch heal or glyphs.  cutter and pitch (the bards): play arrows on the metronome's beat.  striker: type zombie words or teleport-slash.  support: type spells.
 export const ROLES = ['tank', 'healer', 'cutter', 'simon', 'pitch', 'striker', 'support'];
 const CLASS_ROLE = {
   fighter: 'tank', barbarian: 'tank', paladin: 'tank',
@@ -23,9 +23,9 @@ const CLASS_ROLE = {
   ranger: 'striker', rogue: 'striker', monk: 'striker'
 };
 export const roleForClass = cls => CLASS_ROLE[String(cls ?? '').toLowerCase()] || 'striker';
-const MOVERS = ['tank', 'healer', 'striker', 'support'];
+const MOVERS = ['tank', 'healer', 'striker', 'support', 'simon', 'cutter', 'pitch']; // simon only walks in her touch-heal stance
 // Four roles can switch between two stances at any time (Q / E, or the two buttons); mode 0 is the default.
-export const MODE_NAMES = { tank: ['Attack', 'Hold the line'], cutter: ['Cutting words', 'Hold person'], pitch: ['Inspiration', 'Cutting words'], simon: ['Heal', 'Damage'] };
+export const MODE_NAMES = { tank: ['Attack', 'Hold the line'], cutter: ['Cutting words', 'Hold person'], pitch: ['Cutting words', 'Hold person'], simon: ['Touch heal', 'Glyphs'], striker: ['Arrows', 'Slash'] };
 const ORB_SPEED = 90;
 // The audience: spectators who are not in the party can type zombie words and shoot from the stands for half damage.
 export const CROWD_MAX = 24;
@@ -34,16 +34,17 @@ export const isSpectator = id => typeof id === 'string' && /^spec-[a-zA-Z0-9]{4,
 // Role mini-game timing, in ticks (30 per second). The view reads these too.
 export const IDEAL_CHARGE = 36, CHARGE_MAX = 90;
 export const chargeWindow = tier => 4 + 3 * tier;                 // +/- ticks around the ideal for full power
-export const RUNE_LEAD = 60, RUNE_PERFECT = 3, RUNE_GOOD = 7, RUNE_LANES = 4;
-export const runeBeat = tier => 12 + 3 * tier;                    // ticks between runes; a better roll means a slower, easier song
+export const RUNE_PERFECT = 3, RUNE_GOOD = 7, RUNE_LANES = 4, BAR_SLOTS = 8, BEAT_WORD = 2; // a typed word lands on the beat within BEAT_WORD ticks of a click
+export const runeBeat = tier => 12 + 3 * tier;                    // ticks per beat of the metronome; a better roll means a slower, easier tempo
 export const simonStart = tier => tier >= 3 ? 2 : tier >= 1 ? 3 : 4;
 export const simonStep = tier => 20 + 4 * tier;                   // ticks each pad is shown
-export const PITCH_MAX = 99, PITCH_HOLD = 45;
 // Hold the line: a planted shield pulses every PLANT_PERIOD ticks; Seris must tap Space inside the green window.
 export const PLANT_PERIOD = 36, PLANT_COOLDOWN = 90;
 export const plantWindow = tier => 5 + 2 * tier;
+// Liora's teleport slash: a ring closes on the target over SLASH_LEAD ticks; Space inside the window teleports and cuts.
+export const SLASH_LEAD = 45;
+export const slashWindow = tier => 5 + 2 * tier;
 export const plantDurability = tier => 3 + tier;
-export const pitchTolerance = tier => 5 + 2 * tier;
 
 export const ZOMBIES = {
   walker: { speed: 4, hp: 1, damage: 2, cool: 30, words: 'bones crypt ghoul skull claws grave curse risen gloom rot tomb worm mold'.split(' ') },
@@ -96,7 +97,6 @@ export function validEvent(event, participants = []) {
   if (event.k === 'o') return event.mode === 0 || event.mode === 1;
   if (event.k === 'd') return Number.isInteger(event.lane) && event.lane >= 0 && event.lane < RUNE_LANES;
   if (event.k === 's') return Number.isInteger(event.pad) && event.pad >= 0 && event.pad < 4;
-  if (event.k === 'p') return [-1, 0, 1].includes(event.dir);
   if (event.k === 'r') return Number.isInteger(event.total) && event.total >= -10 && event.total <= 60 && Number.isInteger(event.nat) && event.nat >= 1 && event.nat <= 20;
   return false;
 }
@@ -131,9 +131,10 @@ export function createGame({ seed, participants, speed = SPEED_DEFAULT }) {
   return game;
 }
 
-const newMech = role => role === 'tank' ? { charge: -1, mode: 0, plant: null, cool: 0 } : role === 'cutter' ? { notes: [], combo: 0, next: 0, mode: 0 }
-  : role === 'simon' ? { phase: 'rest', at: 0, seq: [], len: 0, progress: 0, deadline: 0, mode: 0 }
-  : role === 'pitch' ? { pitch: 50, dir: 0, target: -1, match: 0, wait: 0, mode: 0 } : {};
+const newMech = role => role === 'tank' ? { charge: -1, mode: 0, plant: null, cool: 0 } : role === 'cutter' || role === 'pitch' ? { bar: null, combo: 0, next: 0, mode: 0 }
+  : role === 'simon' ? { phase: 'rest', at: 0, seq: [], len: 0, progress: 0, deadline: 0, mode: 0, charge: -1 }
+  : role === 'striker' ? { mode: 0, slash: null, next: 0 }
+  : {};
 // Re-rolling between waves changes the maximum but keeps the damage already taken.
 function setVitals(player) {
   const max = (player.role === 'tank' ? 40 : 20) + player.tier * (player.role === 'tank' ? 8 : 4);
@@ -175,13 +176,16 @@ function spawnZombie(game) {
 // --- events
 const ranges = player => {
   const t = player.tier;
-  return { tank: (30 + 3 * t) * PX, striker: (110 + 20 * t) * PX, healer: (60 + 10 * t) * PX, support: (90 + 10 * t) * PX }[player.role];
+  return { tank: (30 + 3 * t) * PX, striker: (110 + 20 * t) * PX, healer: (60 + 10 * t) * PX, support: (90 + 10 * t) * PX, cutter: (90 + 15 * t) * PX, pitch: (90 + 15 * t) * PX }[player.role];
 };
 export { ranges as actionRange };
 export const eligible = z => z.hp - z.pending > 0;
 function miss(game, player) { player.cooldown = MISS_COOLDOWN; player.stats.misses++; log(game, 'miss', index(game, player)); }
 const index = (game, player) => game.players.indexOf(player);
 
+const isBard = player => player.role === 'cutter' || player.role === 'pitch';
+// The metronome never stops: it clicks every runeBeat ticks. A bard's words and arrows land "on the beat" within a few ticks of a click.
+const beatOffset = (game, player) => { const beat = runeBeat(player.tier), at = game.tick % beat; return Math.min(at, beat - at); };
 const rollPhase = game => game.phase === 'countdown' || game.phase === 'between';
 function applyEvent(game, event) {
   if (isSpectator(event.pcId)) return crowdWord(game, event);
@@ -189,7 +193,7 @@ function applyEvent(game, event) {
   if (!player) return;
   const mech = player.mech, tickNow = game.tick;
   switch (event.k) {
-    case 'm': if (MOVERS.includes(player.role)) { player.dx = event.dx; player.dy = event.dy; } return;
+    case 'm': if (MOVERS.includes(player.role) && !(player.role === 'simon' && mech.mode === 1)) { player.dx = event.dx; player.dy = event.dy; } return;
     case 'r':
       // Everyone rolls again before each wave; the result sets that role's difficulty for the wave.
       if (!rollPhase(game) || player.rolled) return;
@@ -198,21 +202,32 @@ function applyEvent(game, event) {
       log(game, 'roll', index(game, player), player.tier);
       return;
     case 'o':
-      if (MODE_NAMES[player.role] && !player.downed && !(player.role === 'tank' && mech.charge >= 0)) { mech.mode = event.mode; if (player.role === 'tank') mech.plant = null; } // switching stance lifts the shield
+      if (MODE_NAMES[player.role] && !player.downed && !(mech.charge >= 0)) {
+        mech.mode = event.mode; // switching stance lifts the shield and stops the walk or the ring
+        if (player.role === 'tank') mech.plant = null;
+        else if (player.role === 'simon') player.dx = player.dy = 0;
+        else if (player.role === 'striker') mech.slash = null;
+        else if (isBard(player)) { mech.bar = null; mech.combo = 0; player.dx = player.dy = 0; }
+      }
       return;
     case 'c':
-      if (player.role !== 'tank' || player.downed || game.phase !== 'wave') return;
+      if (player.downed || game.phase !== 'wave') return;
+      if (player.role === 'simon') { if (mech.mode === 0 && mech.charge < 0) mech.charge = tickNow; return; }
+      if (player.role === 'striker') { if (mech.mode === 1) slashPress(game, player); return; }
+      if (player.role !== 'tank') return;
       if (mech.mode === 1) { if (mech.plant) plantPress(game, player, tickNow); else plantShield(game, player, tickNow); } else if (mech.charge < 0) mech.charge = tickNow;
       return;
-    case 'x': if (player.role === 'tank' && mech.mode === 0 && mech.charge >= 0) release(game, player, tickNow - mech.charge); return;
-    case 'd': if (player.role === 'cutter' && !player.downed) cutRune(game, player, event.lane); return;
+    case 'x':
+      if (player.role === 'tank' && mech.mode === 0 && mech.charge >= 0) release(game, player, tickNow - mech.charge);
+      else if (player.role === 'simon' && mech.mode === 0 && mech.charge >= 0) touchHeal(game, player, tickNow - mech.charge);
+      return;
+    case 'd': if (isBard(player) && mech.mode === 1 && !player.downed) cutRune(game, player, event.lane); return;
     case 's': if (player.role === 'simon' && !player.downed) simonPad(game, player, event.pad); return;
-    case 'p': if (player.role === 'pitch' && !player.downed) mech.dir = event.dir; return;
     case 'w':
       if (player.downed || player.cooldown > 0 || game.phase !== 'wave' && game.phase !== 'between') return;
       if (player.role === 'healer') return healerWord(game, player, event.s);
       if (player.role === 'support') return supportWord(game, player, event.s);
-      if (player.role === 'striker') return fightWord(game, player, event.s);
+      if ((player.role === 'striker' || isBard(player)) && mech.mode === 0) return fightWord(game, player, event.s);
   }
 }
 
@@ -275,41 +290,46 @@ function breakShield(game, player) {
   log(game, 'shatter', index(game, player));
 }
 
-// --- cutter: runes fall down four lanes; a clean hit is a cutting word that wounds the zombie nearest the gate.
-function runeTick(game, player) {
-  const m = player.mech;
-  if (game.phase !== 'wave' || player.downed) { if (m.notes.length) m.notes = []; return; }
-  if (game.tick >= m.next) { m.notes.push({ id: game.nextId++, lane: randInt(game, RUNE_LANES), at: game.tick + RUNE_LEAD }); m.next = game.tick + runeBeat(player.tier); }
-  const live = m.notes.filter(n => n.at + RUNE_GOOD >= game.tick);
-  if (live.length !== m.notes.length) { m.combo = 0; log(game, 'drop', index(game, player)); }
-  m.notes = live;
-}
-function cutRune(game, player, lane) {
-  const m = player.mech;
-  let best = null;
-  for (const n of m.notes) if (n.lane === lane && Math.abs(n.at - game.tick) <= RUNE_GOOD && (!best || Math.abs(n.at - game.tick) < Math.abs(best.at - game.tick))) best = n;
-  if (!best) { m.combo = 0; return; }
-  m.notes = m.notes.filter(n => n !== best);
-  m.combo++;
-  const perfect = Math.abs(best.at - game.tick) <= RUNE_PERFECT, damage = (perfect ? 2 : 1) + (m.combo >= 8 ? 1 : 0);
-  const byGate = game.zombies.filter(z => z.hp > 0).sort((a, b) => b.y - a.y || a.id - b.id);
-  const target = byGate[0];
-  player.stats.cuts++;
-  if (m.mode === 1) {
-    // Hold person: every clean hit pins the zombie nearest the gate (two at a high combo). It can still be hurt by others.
-    const duration = perfect ? 75 : 45;
-    for (const z of byGate.slice(0, m.combo >= 8 ? 2 : 1)) { z.frozen = Math.max(z.frozen, duration); z.holdBy = index(game, player); log(game, 'hold', index(game, player), z.id, duration); }
-    if (byGate.length) player.stats.holds++;
+// --- bards (cutter and pitch roles): the metronome always ticks. Cutting words is typing, with a bonus for landing on the beat.
+// Hold person shows a bar of eight beats; she presses each arrow on its beat, and a clean bar pins zombies.
+function barTick(game, player) {
+  const m = player.mech, slot = index(game, player);
+  if (game.phase !== 'wave' || player.downed || m.mode !== 1) { m.bar = null; m.combo = 0; return; }
+  if (!m.bar) {
+    if (game.tick < m.next) return;
+    const beat = runeBeat(player.tier), lanes = Array.from({ length: BAR_SLOTS }, (_, i) => i === 0 || randInt(game, 5) < 3 ? randInt(game, RUNE_LANES) : -1);
+    m.bar = { at: (Math.floor(game.tick / beat) + 3) * beat, beat, lanes, res: lanes.map(() => 0) }; // on the metronome's grid, after two to three empty beats
     return;
   }
-  log(game, 'cut', index(game, player), target ? target.id : 0, perfect ? 1 : 0);
-  if (target) { hurt(game, target, damage, player); if (perfect) target.frozen = Math.max(target.frozen, 12); }
+  const bar = m.bar;
+  bar.lanes.forEach((lane, i) => { if (lane >= 0 && bar.res[i] === 0 && game.tick > bar.at + i * bar.beat + RUNE_GOOD) { bar.res[i] = -1; m.combo = 0; log(game, 'drop', slot); } });
+  if (game.tick > bar.at + (BAR_SLOTS - 1) * bar.beat + RUNE_GOOD) { finishBar(game, player); m.bar = null; m.next = game.tick + bar.beat; }
+}
+function cutRune(game, player, lane) {
+  const m = player.mech, bar = m.bar;
+  if (!bar) { m.combo = 0; return; }
+  let best = -1;
+  bar.lanes.forEach((l, i) => { const off = Math.abs(game.tick - (bar.at + i * bar.beat)); if (l >= 0 && bar.res[i] === 0 && off <= RUNE_GOOD && (best < 0 || off < Math.abs(game.tick - (bar.at + best * bar.beat)))) best = i; });
+  if (best < 0) { m.combo = 0; return; }
+  if (bar.lanes[best] !== lane) { bar.res[best] = -1; m.combo = 0; return; }
+  bar.res[best] = Math.abs(game.tick - (bar.at + best * bar.beat)) <= RUNE_PERFECT ? 2 : 1;
+  m.combo++;
+}
+function finishBar(game, player) {
+  const bar = player.mech.bar, slot = index(game, player);
+  const max = 2 * bar.lanes.filter(l => l >= 0).length, power = bar.res.reduce((sum, r) => sum + Math.max(0, r), 0);
+  if (power * 2 < max) return; // under half: the bar fizzles
+  const byGate = game.zombies.filter(z => z.hp > 0).sort((a, b) => b.y - a.y || a.id - b.id), strong = power * 4 >= max * 3;
+  player.stats.rounds++;
+  // Hold person: pins the zombie nearest the gate (two on a strong bar). It can still be hurt by others.
+  const duration = 30 + Math.floor(60 * power / max);
+  for (const z of byGate.slice(0, strong ? 2 : 1)) { z.frozen = Math.max(z.frozen, duration); z.holdBy = slot; log(game, 'hold', slot, z.id, duration); player.stats.holds++; }
 }
 
 // --- simon: watch the pads light up, repeat them; every finished round heals the party.
 function simonTick(game, player) {
   const m = player.mech;
-  if (game.phase !== 'wave' || player.downed) { m.phase = 'rest'; m.at = game.tick + 30; m.len = 0; return; }
+  if (game.phase !== 'wave' || player.downed || m.mode === 0) { m.phase = 'rest'; m.at = game.tick + 30; m.len = 0; return; }
   if (m.phase === 'rest' && game.tick >= m.at) {
     m.len = m.len || simonStart(player.tier);
     m.seq = Array.from({ length: m.len }, () => randInt(game, 4));
@@ -332,45 +352,60 @@ function simonPad(game, player, pad) {
   player.stats.rounds++;
   log(game, 'simonwin', slot, amount);
   // The finished round becomes one orb that flies to whoever needs it: the most hurt ally, or the zombie nearest the gate.
-  const orb = { id: game.nextId++, x: player.x, y: player.y, ox: player.x, oy: player.y, kind: 'orb', from: slot, to: -1, zid: 0, amount: 0, effect: m.mode === 1 ? 'hurt' : 'heal' };
-  if (m.mode === 1) {
-    const target = game.zombies.filter(z => z.hp > 0).sort((a, b) => b.y - a.y || a.id - b.id)[0];
-    if (target) { orb.zid = target.id; orb.amount = amount; game.arrows.push(orb); }
-  } else {
-    const ratio = p => p.downed ? -1 : p.hp / p.max;
-    orb.to = game.players.reduce((best, p, i) => ratio(p) < ratio(game.players[best]) ? i : best, 0);
-    orb.amount = amount * 2;
-    game.arrows.push(orb);
-  }
+  const orb = { id: game.nextId++, x: player.x, y: player.y, ox: player.x, oy: player.y, kind: 'orb', from: slot, to: -1, zid: 0, amount: 0, effect: 'heal' };
+  const ratio = p => p.downed ? -1 : p.hp / p.max;
+  orb.to = game.players.reduce((best, p, i) => ratio(p) < ratio(game.players[best]) ? i : best, 0);
+  orb.amount = amount * 2;
+  game.arrows.push(orb);
   m.phase = 'rest'; m.at = game.tick + 60; m.len = Math.min(8, m.len + 1);
 }
 
-// --- pitch: slide your tone to the target and hold it to cast Hold Person on every zombie.
-function pitchTick(game, player) {
-  const m = player.mech;
-  if (player.downed) { m.dir = 0; m.target = -1; m.match = 0; return; }
-  m.pitch = clamp(m.pitch + m.dir, 0, PITCH_MAX);
-  if (game.phase !== 'wave') { m.target = -1; m.match = 0; m.wait = 60; return; }
-  if (m.target < 0) {
-    if (--m.wait <= 0) { m.target = 10 + randInt(game, 80); m.match = 0; }
-    return;
-  }
-  if (Math.abs(m.pitch - m.target) <= pitchTolerance(player.tier)) m.match++; else m.match = Math.max(0, m.match - 2);
-  if (m.match < PITCH_HOLD) return;
-  const duration = 90 + 30 * player.tier, slot = index(game, player);
-  if (m.mode === 0) {
-    // Bardic inspiration: the whole party moves faster, takes less damage, and gets a little shield.
-    game.buffs.haste = Math.max(game.buffs.haste, duration); game.buffs.bless = Math.max(game.buffs.bless, duration);
-    for (const p of game.players) if (!p.downed) p.shield = Math.min(SHIELD_MAX, p.shield + 3);
-    log(game, 'inspire', slot, duration);
-  } else {
-    // Cutting words: psychic damage to the three zombies nearest the gate.
-    const hit = game.zombies.filter(z => z.hp > 0).sort((a, b) => b.y - a.y || a.id - b.id).slice(0, 3);
-    for (const z of hit) { log(game, 'cut', slot, z.id, 1); hurt(game, z, 2 + (player.tier >> 1), player); }
-    player.stats.cuts += hit.length;
+// --- simon, touch heal: walk up to an ally, hold Space and release in the gold zone (the same timing as the tank's slam).
+// A perfect release heals everyone beside her, a good one the neediest, a poor one a little. A downed ally is stood back up.
+function touchHeal(game, player, held) {
+  player.mech.charge = -1;
+  const diff = Math.abs(held - IDEAL_CHARGE), window = chargeWindow(player.tier), slot = index(game, player);
+  const power = diff <= window ? 2 : diff <= 2 * window ? 1 : 0, reach = (40 + 3 * player.tier) * PX;
+  const hurt = game.players.filter(p => p !== player && dist2(p, player) <= reach * reach && (p.downed || p.hp < p.max))
+    .sort((a, b) => (b.downed ? 1 : 0) - (a.downed ? 1 : 0) || a.hp * b.max - b.hp * a.max || index(game, a) - index(game, b));
+  if (!hurt.length) return miss(game, player);
+  for (const target of power === 2 ? hurt : hurt.slice(0, 1)) {
+    if (target.downed) {
+      if (!power) { miss(game, player); continue; }
+      target.downed = false; target.revive = 0; target.hp = Math.max(1, Math.ceil(target.max * 2 / 5));
+      player.stats.revives++; log(game, 'revive', slot, index(game, target));
+      continue;
+    }
+    const amount = Math.min(target.max - target.hp, power === 2 ? 8 + 2 * player.tier : power === 1 ? 5 + player.tier : 2);
+    target.hp += amount; player.stats.healed += amount;
+    log(game, 'heal', slot, index(game, target), amount);
   }
   player.stats.casts++;
-  m.target = -1; m.match = 0; m.wait = 120;
+}
+
+// --- striker, slash stance: rings close on the zombie nearest the gate; Space as they meet teleports her there for a sweep.
+function strikerTick(game, player) {
+  const m = player.mech;
+  if (m.mode !== 1 || game.phase !== 'wave' || player.downed) { m.slash = null; return; }
+  if (m.slash) {
+    if (!game.zombies.some(z => z.id === m.slash.zid && z.hp > 0)) m.slash = null;
+    else if (game.tick > m.slash.at + slashWindow(player.tier)) { m.slash = null; m.next = game.tick + 15; log(game, 'slashmiss', index(game, player)); }
+  }
+  if (m.slash || game.tick < m.next) return;
+  const target = game.zombies.filter(z => z.hp > 0).sort((a, b) => b.y - a.y || a.id - b.id)[0];
+  if (target) m.slash = { zid: target.id, start: game.tick, at: game.tick + SLASH_LEAD };
+}
+function slashPress(game, player) {
+  const m = player.mech, slot = index(game, player);
+  if (!m.slash) return;
+  const target = game.zombies.find(z => z.id === m.slash.zid && z.hp > 0), off = game.tick - m.slash.at, window = slashWindow(player.tier);
+  if (!target) { m.slash = null; return; }
+  if (Math.abs(off) > window) { m.slash = null; m.next = game.tick + 20; log(game, 'slashmiss', slot); return; } // too early: she whiffs
+  const perfect = Math.abs(off) <= window >> 1, radius = (30 + 3 * player.tier) * PX, damage = 2 + (player.tier >> 1) + (perfect ? 1 : 0);
+  player.x = player.ox = clamp(target.x, PLAYER_MIN_X, PLAYER_MAX_X); player.y = player.oy = clamp(target.y, PLAYER_MIN_Y, PLAYER_MAX_Y);
+  log(game, 'slash', slot, target.id, perfect ? 1 : 0);
+  for (const z of game.zombies.filter(z => z.hp > 0 && dist2(z, target) <= radius * radius)) hurt(game, z, damage, player);
+  player.stats.cuts++; m.slash = null; m.next = game.tick + 30;
 }
 
 function mechanicsTick(game) {
@@ -381,9 +416,12 @@ function mechanicsTick(game) {
       else if (pl && game.tick > pl.next + plantWindow(p.tier)) { pl.dur--; pl.next += PLANT_PERIOD; log(game, 'clank', index(game, p), 1); if (pl.dur <= 0) breakShield(game, p); }
       if (p.downed) p.mech.charge = -1;
       else if (p.mech.charge >= 0 && game.tick - p.mech.charge >= CHARGE_MAX) release(game, p, CHARGE_MAX);
-    } else if (p.role === 'cutter') runeTick(game, p);
-    else if (p.role === 'simon') simonTick(game, p);
-    else if (p.role === 'pitch') pitchTick(game, p);
+    } else if (p.role === 'cutter' || p.role === 'pitch') barTick(game, p);
+    else if (p.role === 'simon') {
+      if (p.downed || game.phase !== 'wave') p.mech.charge = -1;
+      else if (p.mech.charge >= 0 && game.tick - p.mech.charge >= CHARGE_MAX) touchHeal(game, p, CHARGE_MAX);
+      simonTick(game, p);
+    } else if (p.role === 'striker') strikerTick(game, p);
   }
 }
 
@@ -393,10 +431,10 @@ function fightWord(game, player, word) {
   const target = candidates[0];
   if (!target || dist2(target, player) > range * range) return miss(game, player);
   const slot = index(game, player);
-  const raw = 1 + (player.tier >> 1), damage = target.type === 'brute' ? Math.max(1, raw >> 1) : raw;
+  const raw = 1 + (player.tier >> 1) + (isBard(player) && beatOffset(game, player) <= BEAT_WORD ? 1 : 0), damage = target.type === 'brute' ? Math.max(1, raw >> 1) : raw;
   target.pending += damage;
   game.arrows.push({ id: game.nextId++, x: player.x, y: player.y, ox: player.x, oy: player.y, zid: target.id, damage, from: slot });
-  log(game, 'fire', slot, target.id);
+  log(game, 'fire', slot, target.id, isBard(player) && beatOffset(game, player) <= BEAT_WORD ? 1 : 0);
 }
 
 function healerWord(game, player, word) {
@@ -495,7 +533,7 @@ function movePlayers(game) {
   for (const p of game.players) {
     if (p.downed || !p.dx && !p.dy || p.role === 'tank' && p.mech.plant) continue;
     // Diagonals keep the same speed on both axes (a slight speed-up, fixed for everyone).
-    const pace = p.role === 'tank' && p.mech.charge >= 0 ? speed >> 1 : speed;
+    const pace = (p.role === 'tank' || p.role === 'simon') && p.mech.charge >= 0 ? speed >> 1 : speed;
     p.x = clamp(p.x + p.dx * pace, PLAYER_MIN_X, PLAYER_MAX_X);
     p.y = clamp(p.y + p.dy * pace, PLAYER_MIN_Y, PLAYER_MAX_Y);
   }

@@ -2,6 +2,15 @@
 
 Updated: 2026-11-24
 
+## Zombie Horde role rework saved - 2026-11-24
+
+- GM setup form on minigame.html (campaign, party, roles, speed). Ashara: touch heal (hold Space near allies) plus arrow-key glyph stance with notes. Liora: teleport-slash stance. Lark and Rurik: shared always-on metronome; cutting words (typing, on-beat bonus) and hold person (arrows on beat, WASD to walk). Rurik's pitch game and inspiration buff were removed.
+- Updated tests/horde.test.mjs for the new stances (touch heal, slash, on-beat words, hold-person bar).
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or application validation commands were run.
+
+Outstanding: user playtest of every role and stance; tuning of beat windows, heal amounts and slash radius; Q/E mode buttons can still overlap words; horde-design.md still describes the old runes/pitch games.
+
 ## Right-click NPC AI activation saved - 2026-11-24
 
 - Adds GM right-click token > Activate AI > Enemy/Friendly, plus Deactivate AI for configured NPCs. Activation starts immediately rather than waiting for a wake door, preserves chain attachments, and keeps the NPC at its displayed position. Locked chains still prevent movement and capture. Explicitly activating a zero-HP NPC gives it 1 HP; NPCs with positive HP keep their current HP.
@@ -11,7 +20,7 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 Outstanding: user verification of the right-click menu, activation/deactivation, disposition changes, movement, chains, HP behavior, undo/redo and shared updates. Earlier NPC movement and verification backlogs remain applicable.
 
-The preceding NPC AI commit e110942 is saved locally; GitHub rejected two push attempts with an internal server error. Include this follow-up with the pending requested push to origin/main. Leave unrelated workspace changes uncommitted.
+NPC AI commit e110942 and right-click activation commit b33023f were successfully pushed to origin/main after two initial GitHub internal server errors. A repeated save/commit/push request found no additional minigame code changes; this update records the completed push. Unrelated workspace changes remain uncommitted. Verification remains with the user; no application checks were run.
 
 ## NPC AI, chains and GM token actions saved - 2026-11-24
 
