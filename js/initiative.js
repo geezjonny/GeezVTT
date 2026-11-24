@@ -43,7 +43,7 @@ function render() {
       const image = document.createElement('img');
       image.alt = '';
       image.addEventListener('error', () => image.remove(), { once: true });
-      image.src = `token/${encodeURIComponent(token.name)}.png`;
+      image.src = `token/${encodeURIComponent(token.name.trim().toLowerCase().replace(/\s+/g, '_'))}.png`;
       tile.append(image);
     }
     list.append(tile);

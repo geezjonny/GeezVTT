@@ -2,6 +2,16 @@
 
 Updated: 2026-11-23
 
+## Token portraits, index updater, and TODO corrections saved - 2026-11-23
+
+- Adds the supplied token PNG images and existing filename catalog at `token/index.json`. Initiative portrait paths now lowercase character names and replace whitespace with underscores to match files such as `liora.png` and `adult_black_dragon.png`; missing portraits retain the letter fallback.
+- Adds `update_token_index.py`: run `python update_token_index.py` to rebuild the catalog as a sorted list of image filenames, including new files and removing deleted ones. Uses an atomic file replacement and ignores directories and non-image files. Adds an unrun regression case.
+- Corrects stale TODO entries for repository battlemap/scene catalogs, shared distance measurement, shared pings, and GM scene loading synchronized to players. Records remaining grid adjustment and token-art work separately.
+
+Verification is left to the user. No tests, browser checks, visual inspections, or application validation commands were run. Outstanding: run the index updater and its regression test, confirm portrait filename matching and fallback in Initiative, and reconcile the remaining older TODO sections against the implemented features. Token art is currently used by Initiative; a token image picker and map-token portrait rendering remain outstanding.
+
+Save, commit, and push requested to origin/main. Exclude the unrelated `scene/blackpearl-whole.geezvtt` change and the ZIP archive inside `token`.
+
 ## Traps and object triggers saved - 2026-11-23
 
 - Adds Tripwire, Pressure plate, Lever, and Button to the prop palettes, with SVG icons and code-built 3D models. Tripwires draw as segment chains like walls, finished with Enter; pressure plates stay one cell. Levers/buttons show toggle state and plates reflect PC occupancy.

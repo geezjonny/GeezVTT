@@ -49,12 +49,14 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 
 ## 3. Finish the playable tabletop milestone
 
-- [ ] Load repository asset catalogs, including the existing map catalog, instead of relying only on local file import.
-- [ ] Add token images and props with repository-relative asset references.
-- [ ] Add adjustable grid scale and offset, and distance measurement.
+- [x] Load repository battlemap and saved-scene catalogs through the Load library, with local file opening also available. Implementation awaits user verification.
+- [x] Add repository token PNG assets and `token/index.json`, with `update_token_index.py` to rebuild the filename catalog. Initiative portraits match lowercase names with underscores; missing images retain letters. Implementation awaits user verification.
+- [ ] Add a token image picker and render token portraits on the map; finish repository-relative prop asset support where missing.
+- [x] Add distance measurement, including shared measurement events and distance labels at 5 feet per square. Implementation awaits user verification.
+- [ ] Add adjustable grid scale and offset.
 - [ ] Add object resize controls, locking, hiding/revealing, and layer ordering where missing.
-- [ ] Add shared pings.
-- [ ] Add a shared saved-scene library and GM-controlled active scene selection for everyone.
+- [x] Add shared pings through tabletop session events. Implementation awaits user verification.
+- [x] Add a repository saved-scene library and GM-controlled active scene loading, published to player sessions. Scene files are saved locally and cataloged in the repository; this is not an in-app Firebase scene-library manager. Implementation awaits user verification.
 - [ ] Preserve map/grid configuration, objects, visibility, walls, doors, lights, fog, and audio across scene switches and reconnects.
 - [ ] Synchronize token movement, dice rolls, and shared dice history; add GM-private rolls and standard dice expressions.
 - [ ] Reach the first playable milestone: one GM and two players can join, move their respective tokens, roll, switch scenes, and reload without losing saved state.
@@ -106,6 +108,7 @@ Verification is left to the user. No tests, browser checks, visual inspections, 
 
 ## Repository housekeeping
 
-- Latest recorded implementation commit: `e829aa4`, pushed to `origin/main`.
-- This to-do document is saved locally; no additional commit or push was requested in this turn.
-- Leave the unrelated `README.md` deletion and untracked `battlemap/mistyoaks.dd2vtt` untouched.
+- Save, commit, and push requested for token portraits/assets, the index updater and its unrun regression case, and progress/TODO updates.
+- Verify the token index updater, Initiative portraits and letter fallback. Verification is left to the user; no checks were run.
+- Reconcile older foundation, character, and multiplayer checklist entries with newer implementation notes before treating them as missing features.
+- Leave the unrelated `scene/blackpearl-whole.geezvtt` modification and the ZIP archive inside `token` out of this commit.
