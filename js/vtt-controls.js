@@ -5,6 +5,7 @@ import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, f
 import { cameraStep } from './first-person-model.js';
 import { reachableCells } from './player-actions.js';
 import { pcTokenStatus } from './token-model.js';
+import { requestObjectInteraction } from './trigger-controls.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), map = $('map-view'), host = $('view-3d');
@@ -211,6 +212,15 @@ floor.addEventListener('pointerdown', event => {
     sendAction({ type: 'ping', x: p.x, y: p.y }); return;
   }
   const token = tool === 'select' ? floor.tabletopMap.tokens.find(item => item.id === hit?.tokenId) : null;
+  if(!isGM && tool==='select') {
+    const prop=floor.tabletopMap.props.find(prop=>prop.id===hit?.propId && ['lever','button'].includes(prop.kind));
+    const door=hit?.doorIndex!==undefined && floor.tabletopMap.doors[Number(hit.doorIndex)];
+    if(prop || door) {
+      const object=prop || door;
+      if(visible(p) && !object.hidden) requestObjectInteraction({layer:prop?'props':'doors',id:object.id});
+      return;
+    }
+  }
   if (tool === 'select' && floor.initiativeActive) {
     const destination = movementToken && [...movementCells.values()].find(cell => Math.abs(cell.x-p.x) <= .5 && Math.abs(cell.y-p.y) <= .5);
     if (destination && visible(destination) && (!token || token.id === movementToken.id)) {
@@ -225,7 +235,7 @@ floor.addEventListener('pointerdown', event => {
     (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
     return;
   }
-  if(isGM && tool==='select') selectToken(token);
+  if(isGM && tool==='select' && (token || hit?.doorIndex===undefined)) selectToken(token);
   const objectKind=tool==='select' && isGM && !token && (hit?.lightIndex!==undefined?'lights':hit?.portalId?'portals':hit?.propId?'props':null);
   const object=objectKind && (objectKind==='lights'?floor.tabletopMap.lights[Number(hit.lightIndex)]:floor.tabletopMap[objectKind].find(item=>item.id===(hit.portalId || hit.propId)));
   if (tool === 'select' && !token && !object) {

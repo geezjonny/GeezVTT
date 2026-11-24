@@ -44,6 +44,7 @@ export function reachableCells(map, token) {
           next.x > map.width - token.size / 2 || next.y > map.height - token.size / 2) continue;
       if (barriers.some(([a,b]) => crosses(from, next, a, b) ||
           Math.min(distance(next,a,b), distance(a,from,next), distance(b,from,next)) < token.size / 2 - 1e-9)) continue;
+      next.path = [...(from.path || []), { x: next.x, y: next.y }];
       visited.add(key); cells.set(key, next); queue.push(next);
     }
   }

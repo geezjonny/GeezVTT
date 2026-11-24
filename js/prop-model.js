@@ -1,5 +1,9 @@
 export const PROPS = {
   crate: { name: 'Crate', width: .9, depth: .9, color: '#a97848', path: 'M3 3h18v18H3Z M3 8h18M3 16h18M8 3v18M16 3v18M4 4l16 16M20 4 4 20' },
+  tripwire: { name: 'Tripwire', width: 1, depth: .12, color: '#c4c9cf', path: 'M2 6v12M22 6v12M2 12h20' },
+  pressurePlate: { name: 'Pressure plate', width: 1, depth: 1, color: '#a9adb3', path: 'M2 2h20v20H2Z M5 5h14v14H5Z M9 12h6m-3-3v6' },
+  lever: { name: 'Lever', width: .6, depth: .6, color: '#c19a64', path: 'M3 18h18v4H3Z M10 18 16 6M13 3l7 3-2 5-7-3Z' },
+  button: { name: 'Button', width: .5, depth: .5, color: '#d66d59', path: 'M2 2h20v20H2Z M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0' },
   stairs: { name: 'Stairs', width: 1, depth: 2, color: '#a9adb3', path: 'M3 2h18v20H3Z M3 6h18M3 10h18M3 14h18M3 18h18M12 19V4m-3 3 3-3 3 3' },
   ladder: { name: 'Ladder', width: .65, depth: .8, color: '#bb8b55', path: 'M5 2v20M19 2v20M5 5h14M5 10h14M5 15h14M5 20h14' },
   chest: { name: 'Chest', width: 1, depth: .65, color: '#b58347', path: 'M2 7q0-4 4-4h12q4 0 4 4v14H2Z M2 9h20M6 3v18M18 3v18M10 8h4v6h-4Z' },
@@ -20,7 +24,7 @@ export function propProperties(kind, size = 1, rotation = 0) {
   if (!Object.hasOwn(PROPS, kind)) throw new Error('Choose a prop from the palette.');
   if (!Number.isFinite(size) || size < .25 || size > 10) throw new Error('Prop size must be between 0.25 and 10.');
   if (!Number.isFinite(rotation)) throw new Error('Enter a rotation in degrees.');
-  return { kind, size, rotation: ((rotation % 360) + 360) % 360 };
+  return { kind, size: kind === 'pressurePlate' ? 1 : size, rotation: ((rotation % 360) + 360) % 360 };
 }
 
 export function importedProps(value) {
@@ -33,13 +37,14 @@ export function importedProps(value) {
       const id = typeof prop.id === 'string' && prop.id ? prop.id : crypto.randomUUID();
       if (ids.has(id)) return [];
       ids.add(id);
-      return [{ id, x: prop.x, y: prop.y, ...properties, hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
+      if (prop.kind === 'tripwire' && prop.length != null && (!Number.isFinite(prop.length) || prop.length < .01 || prop.length > 10000)) return [];
+      return [{ id, x: prop.x, y: prop.y, ...properties, ...(prop.kind === 'tripwire' ? { length: prop.length ?? 1 } : {}), hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
     } catch { return []; }
   });
 }
 
 export function propCorners(prop) {
-  const { width, depth } = PROPS[prop.kind], angle = prop.rotation * Math.PI / 180;
+  const { width, depth } = propDimensions(prop), angle = prop.rotation * Math.PI / 180;
   return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y]) => {
     x *= width * prop.size / 2; y *= depth * prop.size / 2;
     return { x: prop.x + x * Math.cos(angle) - y * Math.sin(angle), y: prop.y + x * Math.sin(angle) + y * Math.cos(angle) };
@@ -48,9 +53,13 @@ export function propCorners(prop) {
 
 export function propDistance(prop, point) {
   const angle = -prop.rotation * Math.PI / 180, dx = point.x - prop.x, dy = point.y - prop.y;
-  const { width, depth } = PROPS[prop.kind];
+  const { width, depth } = propDimensions(prop);
   return Math.hypot(Math.max(0, Math.abs(dx * Math.cos(angle) - dy * Math.sin(angle)) - width * prop.size / 2),
     Math.max(0, Math.abs(dx * Math.sin(angle) + dy * Math.cos(angle)) - depth * prop.size / 2));
+}
+
+export function propDimensions(prop) {
+  return prop.kind === 'tripwire' ? { width: prop.length ?? 1, depth: .12 } : PROPS[prop.kind];
 }
 
 export function importedItems(value) {

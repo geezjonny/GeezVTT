@@ -3,6 +3,7 @@ import { isGM, canControlPC } from './session-role.js';
 import { npcCatalog, tokenProperties, TOKEN_ICONS, tokenIcon } from './token-model.js';
 import { onMapRightClick } from './map-right-click.js';
 import { showMapMenu } from './map-object-menu.js';
+import { triggerMenuItem, interactionMenuItems } from './trigger-controls.js';
 import { SHEET_SECTIONS, sheetHTML, loadSheetReference } from './sheet-view.js';
 import { mountInventoryTools } from './inventory-tools.js';
 import { applyFirebaseEvent } from './firebase-events.js';
@@ -209,10 +210,12 @@ function editToken(token) {
   $('token-name').focus();
 }
 function tokenMenu(token, x, y, origin) {
-  if (!isGM && !pcId(token)) return;
+  if (!isGM && !pcId(token) && !interactionMenuItems({layer:'tokens',id:token.id}).length) return;
   showMapMenu(x, y, [
+    ...interactionMenuItems({layer:'tokens',id:token.id}),
     ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
     ...(isGM ? [
+      triggerMenuItem({layer:'tokens',id:token.id}),
       { label: 'Edit token...', action: () => editToken(token) },
       { label: 'Rotate 90°', action: () => floor.dispatchEvent(new CustomEvent('vtt-token-rotate', { detail: token.id })) },
       { label: 'Add to initiative', action: () => floor.dispatchEvent(new CustomEvent('initiative-add', { detail: token.id })) },

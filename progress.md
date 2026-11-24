@@ -2,6 +2,22 @@
 
 Updated: 2026-11-23
 
+## Traps and object triggers saved - 2026-11-23
+
+- Adds Tripwire, Pressure plate, Lever, and Button to the prop palettes, with SVG icons and code-built 3D models. Tripwires draw as segment chains like walls, finished with Enter; pressure plates stay one cell. Levers/buttons show toggle state and plates reflect PC occupancy.
+- Adds Object > Trigger > Connect to, map target picking, Connect, and a standard-width Trigger window. Supports collision (player enters/crosses) and interaction events, multiple connections, editing/deleting connections, explicit open/close/lock/unlock and toggle states, fixed/dice damage to the activating PC or connected token, and movement of a connected prop/token to a picked destination.
+- Runs player interactions and trigger effects through the existing GM session. Adds nearby player lever/button and door interaction, chest open/close hooks, and confirmed movement collision hooks. Initiative collision follows the reachable cell path. Chained movement retains the moved PC as the activating damage target and limits each connection to one firing per activation chain.
+- Preserves connections and stable object IDs through map/scene exports, shared live state, and editor history. Adds wall actions/picking and updates the renderer import version. Linked PC damage uses conditional character writes, spends temporary HP first, and reports failures; other token HP updates remain scene-local.
+- Updates to-do.md and adds unrun trigger regression cases for prop imports/geometry, connection validation, entry/crossing/path behavior, state changes, damage targets, temporary HP, and bounded chained movement.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run for this work.
+
+Outstanding work: exercise drawing and target/destination picking in 2D/3D/First Person; all connection settings and editing/deletion; GM/player interactions, proximity and ownership restrictions; collision entry, crossing, repeat entry, and initiative paths; state effects, fixed/dice damage, temporary HP and specific targets; movement chains; scene export/import, reload and live synchronization; Firebase conflicts, denied writes, timeouts, and scene changes during damage saves. Earlier verification items remain outstanding.
+
+Known limits: an online GM session resolves player triggers. Movement effects relocate directly without wall blocking. Each connection fires at most once per activation chain. Character damage and scene effects save separately; failed damage requires GM resolution and checking HP before retrying. Existing trusted-group roles and Firebase rules still govern access.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
 ## Consumable targets, compartments, tier loot, and carrying limits saved - 2026-11-23
 
 - Adds Item > Use > target PC > Confirm use for configured consuming effects in both the VTT and standalone sheet. Conditionally saves source item/charge spending and recipient effect state together. Target copies retain duration and modifiers without allowing free reactivation after ending. Existing ownership checks apply to the source character.

@@ -6,7 +6,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { PORTAL_ICONS } from './portal-model.js';
 import { createPropKit } from './prop-meshes.js';
-import { propCorners, propAppearance } from './prop-model.js';
+import { propCorners, propAppearance, propDistance } from './prop-model.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
 import { MATERIALS } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
@@ -146,6 +146,9 @@ export function createMapView3D(host) {
     else if (hit?.object.userData.lightIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('light-menu', {
       detail: { index: hit.object.userData.lightIndex, x: event.clientX, y: event.clientY }
     }));
+    else if (hit?.object.userData.wallIndex !== undefined) host.closest('#floor').dispatchEvent(new CustomEvent('wall-menu', {
+      detail: { index: hit.object.userData.wallIndex, x: event.clientX, y: event.clientY }
+    }));
   });
   const invalidate = () => { dirty = true; };
   function previewPlacement(lines = []) {
@@ -177,7 +180,7 @@ export function createMapView3D(host) {
   }
   function tabletopHit(event) {
     aim(event);
-    return raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
+    return raycaster.intersectObjects([...groups.tokens.children, ...groups.portals.children, ...groups.lightMarkers.children, ...groups.doors.children, ...groups.walls.children, ...groups.props.children, ...groups.floors.children, ...(isGM ? [] : fogGroup.children)], true)[0]?.object.userData;
   }
   function previewToken(id, point) {
     const mesh = groups.tokens.children.find(item => item.userData.tokenId === id);
@@ -356,7 +359,11 @@ export function createMapView3D(host) {
       mesh.userData.floorIndex=index;
       groups.floors.add(mesh);
     });
-    model.walls.forEach((points, i) => slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls));
+    model.walls.forEach((points, i) => {
+      const start = groups.walls.children.length;
+      slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls);
+      for (const mesh of groups.walls.children.slice(start)) mesh.traverse(child => { child.userData.wallIndex = i; });
+    });
     model.doors.forEach((door,index) => {
       if(door.hidden && !isGM) return;
       const window = door.type === 'window';
@@ -371,7 +378,7 @@ export function createMapView3D(host) {
       return mesh;
     };
     for (const prop of model.props || []) if(isGM || !prop.hidden) groups.props.add(propMesh({
-      ...prop,kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
+      ...prop,...(prop.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(prop,token)===0)}:{}),kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
     }));
     model.lights.forEach((light,index)=>{
       if(light.propId || (light.hidden && !isGM)) return;

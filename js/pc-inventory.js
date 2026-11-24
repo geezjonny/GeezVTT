@@ -8,6 +8,7 @@ import { isGM, canControlPC } from './session-role.js';
 import { encodeKey, encodeTree, decodeTree } from './firebase-codec.js';
 import { equipmentTurnCost } from './initiative-model.js';
 import { takeCompartmentItems } from './compartment-model.js';
+import { applyTrapDamage } from './trigger-model.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=(token,control=true)=>{
   if(control && !canControlPC(token)) throw new Error('Sign in as this PC to control it.');
@@ -33,6 +34,10 @@ export async function updatePCCombat(token, action) {
   if (action.type === 'base-stat' && !isGM) throw new Error('Only the GM can change ability scores.');
   if (!isGM && (action.type === 'ac-mode' || (action.type === 'set' && ['ac', 'speed', 'hp_max'].includes(action.field)))) throw new Error('Only the GM can change base AC, speed, or maximum HP.');
   return updatePCSheet(token, pc => changeCombat(pc, action));
+}
+export async function damagePCFromTrap(token, amount) {
+  if (!isGM) throw new Error('Trap damage must go through the GM session.');
+  return updatePCSheet(token, pc => applyTrapDamage(pc, amount));
 }
 export async function updatePCEffects(token, action) {
   return updatePCSheet(token, pc => changeEffects(pc, action));

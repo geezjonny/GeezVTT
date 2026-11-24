@@ -178,6 +178,9 @@
     .editor-panel fieldset > button, .editor-panel select, .editor-panel input[type="number"] { padding: .2rem .3rem; min-height: 24px; font-size: .75rem; }
     .editor-panel input[type="number"] { width: 4rem; }
     .editor-panel input[type="color"] { width: 2rem; height: 1.5rem; padding: 0; }
+    #trigger-panel :is(.editor-body, form, label) { display: grid; gap: .35rem; }
+    #trigger-panel :is(input, select) { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+    #trigger-panel :is(#trigger-source, #trigger-target, #trigger-status) { overflow-wrap: anywhere; font-size: .75rem; }
     #lights-panel label { gap: .25rem; }
     #lights-panel input[type="number"] { width: 3.25rem; }
     #editor-help { margin: .35rem 0 0; color: #b4c0ce; font-size: .7rem; line-height: 1.3; }
@@ -482,6 +485,24 @@
         <div id="chest-manage"><button type="button" id="chest-add-srd">Add SRD Item</button><button type="button" id="chest-add-custom">Add Custom Item</button></div>
         <form id="chest-add" hidden><strong id="chest-add-title">Add item</strong><label>Item <input id="chest-item-name" list="chest-srd-items" maxlength="100" required></label><datalist id="chest-srd-items"></datalist><label>Quantity<input id="chest-item-qty" type="number" min="1" max="9999" step="1" value="1" required></label><label>Weight each (lb; blank = reference)<input id="chest-item-weight" type="number" min="0" max="999999" step="any"></label><button type="submit">Add item</button><button type="button" id="chest-add-cancel">Cancel</button></form>
         <h3>Selected PC inventory</h3><div id="chest-inventory"></div>
+      </div>
+    </section>
+    <section id="trigger-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="trigger-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move trigger window."><h2 id="trigger-title">Trigger</h2><button class="editor-close" type="button" aria-label="Close trigger">&times;</button></div>
+      <div class="editor-body">
+        <div id="trigger-source"></div><div id="trigger-target"></div>
+        <button id="trigger-pick-target" type="button">Choose object</button>
+        <button id="trigger-connect" type="button" disabled>Connect</button>
+        <form id="trigger-form" hidden>
+          <label>Trigger <select id="trigger-event"><option value="collision">Collision — player steps on</option><option value="interact">Interact — player toggles</option></select></label>
+          <label>Effect <select id="trigger-effect"><option value="state">Toggle state</option><option value="damage">Damage</option><option value="move">Move</option></select></label>
+          <label id="trigger-state-label">State <select id="trigger-state"><option value="toggle">Toggle open / closed</option><option value="open">Open / on</option><option value="close">Close / off</option><option value="lock">Lock</option><option value="unlock">Unlock</option><option value="toggle-lock">Toggle locked / unlocked</option></select></label>
+          <div id="trigger-damage-fields" hidden><label>Target <select id="trigger-damage-target"><option value="self">Self — activating player</option><option value="target">Specific — connected token</option></select></label><label>Damage <input id="trigger-damage" value="1d6" maxlength="200"></label></div>
+          <div id="trigger-move-fields" hidden><button id="trigger-pick-destination" type="button">Pick destination</button><label>X <input id="trigger-x" type="number" step="any" min="-10000" max="10000"></label><label>Y <input id="trigger-y" type="number" step="any" min="-10000" max="10000"></label></div>
+          <button type="submit">Save trigger</button><button id="trigger-delete" type="button" hidden>Delete connection</button>
+        </form>
+        <div id="trigger-status" role="status" aria-live="polite"></div>
+        <button id="trigger-cancel" type="button">Cancel</button>
       </div>
     </section>
     <section id="object-light-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="object-light-title" hidden>

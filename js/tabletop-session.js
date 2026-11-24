@@ -145,7 +145,7 @@ if (isGM) {
 floor.addEventListener('session-action', event => {
   if (!sceneId) { status.textContent = 'Waiting for a shared map'; return; }
   if (!isGM && !playerIdentity) { status.textContent = 'Sign in first.'; return; }
-  if (!isGM && ['move', 'door', 'chest', 'turn', 'equip'].includes(event.detail.type) &&
+  if (!isGM && ['move', 'door', 'chest', 'turn', 'equip', 'interact'].includes(event.detail.type) &&
       !canControlPC(floor.tabletopMap?.tokens.find(token => token.id === event.detail.tokenId))) return;
   const action = { ...event.detail, client, sceneId, floorIndex: floor.activeFloorIndex, actor: isGM ? { character: 'GM' } : playerIdentity, time: Date.now() };
   if (action.type === 'move' && !floor.initiativeActive) sendMovement(action);
@@ -172,7 +172,11 @@ listen('actions', actions => {
       floor.dispatchEvent(new CustomEvent('session-chest-result', { detail: action }));
       continue;
     }
-    if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
+    if (action.type === 'interact-result' && action.actor.character === 'GM' && action.target === client) {
+      status.textContent = typeof action.text === 'string' ? action.text : 'Interaction complete.';
+      continue;
+    }
+    if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip', 'interact'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;
     const by = action.actor.character;
     if (action.type === 'ping' && Number.isFinite(action.x) && Number.isFinite(action.y)) {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-ping', { detail: { x: action.x, y: action.y, by, client: action.client } }));
@@ -185,7 +189,7 @@ listen('actions', actions => {
       if (action.client !== client) floor.dispatchEvent(new CustomEvent('session-dice', { detail: action.text }));
     } else if (isGM && floor.tabletopMap && floor.getAttribute('aria-busy') !== 'true') {
       const map = floor.tabletopMap, token = map.tokens.find(token => token.id === action.tokenId && (token.kind === 'pc' || action.client === client));
-      if (['move', 'chest', 'door', 'turn', 'equip'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
+      if (['move', 'chest', 'door', 'turn', 'equip', 'interact'].includes(action.type) && action.client !== client && !ownsPC(playerPresence(action.client), token)) {
         write(`actions/${id}`, null, 'DELETE').catch(report);
         continue;
       }
@@ -207,9 +211,14 @@ listen('actions', actions => {
         }
       } else if (action.type === 'chest') {
         floor.dispatchEvent(new CustomEvent('vtt-chest-action',{detail:action}));
+      } else if (action.type === 'interact') {
+        const detail={ref:action.ref,tokenId:token?.id,remote:action.client!==client};
+        floor.dispatchEvent(new CustomEvent('vtt-object-interact',{detail}));
+        if(action.client!==client) write('actions',{type:'interact-result',target:action.client,text:detail.error || 'Interaction complete.',
+          client,sceneId,actor:{character:'GM'},time:Date.now()},'POST').catch(report);
       } else if (action.type === 'door') {
         const index = nearbyDoor(map, token);
-        if (index >= 0) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: index }));
+        if (index >= 0) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: {index,tokenId:token.id} }));
       }
     }
   }

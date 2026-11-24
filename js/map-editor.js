@@ -1,8 +1,8 @@
-import { readPC, pcInventory, takeChestItems } from './pc-inventory.js';
+import { readPC, pcInventory, takeChestItems, damagePCFromTrap } from './pc-inventory.js';
 import { loadSheetReference } from './sheet-view.js';
 import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
 import { COIN_TYPES } from './inventory-model.js';
-import { buildRoll } from './dice-roll.js';
+import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
 import { MATERIALS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
 import { isGM, canControlPC } from './session-role.js';
@@ -17,6 +17,8 @@ import { installMaterialPatterns, materialURL } from './material-textures.js';
 import { PROPS, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
 import { tabletopPoint, previewPlacement } from './map-view-toggle.js';
+import { importedTriggers, activateTriggers, collisionSources, objectRef, triggerObject } from './trigger-model.js';
+import { mountTriggers, triggerMenuItem, requestObjectInteraction, interactionMenuItems } from './trigger-controls.js';
 
 const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
@@ -33,6 +35,7 @@ window.addEventListener('keyup',event=>{if(event.code==='ShiftLeft') leftShift=f
 window.addEventListener('blur',()=>{leftShift=false;});
 const layer=()=>layerInput.value, tool=()=>toolInput.value;
 const pointLayer=()=>['lights','tokens','floors','portals','props'].includes(layer());
+const drawingWire=()=>layer()==='props' && $('prop-kind').value==='tripwire';
 const materialInput=(name=layer())=>$(name==='floors'?'edit-floor-material':name==='doors'?'edit-door-material':'edit-material');
 const message=text=>{ $('editor-help').textContent=text; if(floor.buildLayer) $('session-status').textContent=text; };
 const node=(tag,attrs={})=>{
@@ -40,7 +43,7 @@ const node=(tag,attrs={})=>{
   for(const [key,value] of Object.entries(attrs)) el.setAttribute(key,value);
   return el;
 };
-const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props});
+const geometry=()=>clone({floors:model.floors,walls:model.walls,doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers});
 function portalEntries() {
   return (floor.sceneDocument?.floors || []).flatMap((entry,index)=>
     (index===floor.activeFloorIndex?model.portals:importedPortals(entry.map.geezvtt_editor?.portals)).map(portal=>({portal,index,entry})));
@@ -50,6 +53,36 @@ function pendingNode() {
   return matches.length===1?matches[0]:null;
 }
 function remember() { undo.push(geometry()); if(undo.length>50) undo.shift(); redo=[]; }
+let trapDamage = Promise.resolve();
+const activatingPC=()=>model?.tokens.find(token=>token.id===floor.selectedTokenId && token.kind==='pc');
+function fireTriggers(event,sources,actor) {
+  if(!isGM || !model || !sources.length) return;
+  const activeMap=model;
+  for(const hit of activateTriggers(model,event,sources,actor)) {
+    if(!hit.token) { $('session-status').textContent='Trap damage needs an activating PC. Select a PC before interacting.'; continue; }
+    const roll=buildExpressionRoll(hit.formula), amount=Math.max(0,roll.total);
+    trapDamage=trapDamage.then(async()=>{
+      const linkedPC=hit.token.kind==='pc' && hit.token.npcId?.startsWith('v2:');
+      const token=(model===activeMap && model.tokens.find(token=>token.id===hit.token.id)) || (linkedPC?hit.token:null);
+      if(!token) throw new Error('Trap target changed scenes; damage was not applied.');
+      if(token.kind==='pc' && token.npcId?.startsWith('v2:')) {
+        const pc=await damagePCFromTrap(token,amount);
+        if(model) for(const copy of model.tokens.filter(copy=>copy.npcId===token.npcId)) copy.hp=pc.combat.hp_current;
+      } else token.hp=Math.max(0,token.hp-amount);
+      if(model===activeMap || linkedPC && model) render();
+      const text=`Trap → ${token.name}: ${roll.label} = ${amount} damage`;
+      $('session-status').textContent=text;
+      floor.dispatchEvent(new CustomEvent('session-dice',{detail:text}));
+      floor.dispatchEvent(new CustomEvent('session-action',{detail:{type:'dice',text}}));
+    }).catch(error=>{$('session-status').textContent=`Trap damage: ${error.message} Check HP before retrying.`;});
+  }
+}
+function fireInteraction(layer,object,actor=activatingPC()) { fireTriggers('interact',[objectRef(layer,object)],actor); }
+function fireCollision(token,before,path=[token]) { fireTriggers('collision',collisionSources(model,token,before,path),token); }
+mountTriggers(()=>model, update=>{
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
+  remember(); update(); render();
+},()=>{stopBuild(); cancelGesture(); panel.hidden=true; $('fog-tool').value='off';});
 function buttons() {
   $('edit-apply').disabled=$('edit-delete').disabled=!selected.size;
   if(layer()==='portals') $('edit-apply').disabled=true;
@@ -88,12 +121,15 @@ function render(notify=true) {
   }
   for(const name of ['floors','walls','doors','lights','props','portals','tokens']) {
     const group=$(name); group.replaceChildren();
+    const ids=new Set();
     model[name].forEach((obj,index)=>{
+      if(typeof obj.id!=='string' || !obj.id || obj.id.length>100 || ids.has(obj.id)) obj.id=crypto.randomUUID();
+      ids.add(obj.id);
       if(obj.hidden && !isGM) return;
       let el;
       if(name==='props') {
         if(obj.hidden && !showHiddenProps()) return;
-        el=propMarker({...obj,lightColor:model.lights.find(light=>light.propId===obj.id)?.color});
+        el=propMarker({...obj,...(obj.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(obj,token)===0)}:{}),lightColor:model.lights.find(light=>light.propId===obj.id)?.color});
         el.setAttribute('opacity',obj.hidden?.3:1);
         el.setAttribute('tabindex','0'); el.setAttribute('role','button');
         el.setAttribute('aria-label',`${obj.hidden?'Hidden ':''}${PROPS[obj.kind].name}. ${isGM?'Left-drag to move. ':''}Right-click for actions.`);
@@ -155,6 +191,8 @@ function render(notify=true) {
         if(obj.type!=='window') el.style.stroke=`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
       }
       if(obj.hidden) el.setAttribute('opacity','.3');
+      el.dataset.triggerLayer=name; el.dataset.triggerId=obj.id;
+      if(name==='walls') { el.setAttribute('tabindex','0'); el.setAttribute('role','button'); el.setAttribute('aria-label','Wall. Right-click for actions.'); }
       const title=node('title'); title.textContent=name==='tokens'?`${obj.name} · HP ${obj.hp} · ${obj.size} squares`:name==='lights'?`Light · range ${obj.range} · intensity ${obj.intensity ?? 1}`:`${name==='floors'?'Floor':name==='walls'?'Wall':obj.type==='window'?'Window':'Door'} · ${obj.material || 'imported'}${name==='doors' && obj.type!=='window'?obj.open?' · open':' · closed':''}`;
       el.append(title);
       if(name==='props') title.textContent=`${obj.hidden?'Hidden · ':''}${PROPS[obj.kind].name}`;
@@ -168,7 +206,7 @@ function render(notify=true) {
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -206,9 +244,9 @@ function point(event,snap=false) {
   const p=svg.hidden?tabletopPoint(event):new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!p) return null;
   if(!snap) return {x:p.x,y:p.y};
-  if(['floors','portals','props'].includes(layer())) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
+  if(['floors','portals','props'].includes(layer()) && !drawingWire()) return $('edit-snap').checked?{x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5}:{x:p.x,y:p.y};
   const clamp=(v,max)=>Math.max(0,Math.min(max,v));
-  if(snap && layer()==='walls') {
+  if(snap && (layer()==='walls' || drawingWire())) {
     const round=(v,max,step=1)=>clamp(Math.round(v/step),Math.floor(max/step))*step;
     const x=round(p.x,model.width), y=round(p.y,model.height);
     if(!event.shiftKey) return {x,y};
@@ -226,7 +264,7 @@ function drawPreview() {
     if(!floor.buildLayer || !hover) return;
     const lines=[];
     if(chain.length) lines.push([...chain,hover]);
-    if(layer()==='props') attempt(()=>{
+    if(layer()==='props' && !drawingWire()) attempt(()=>{
       const corners=propCorners({...hover,...settings()});
       lines.push([...corners,corners[0]]);
     });
@@ -242,7 +280,7 @@ function drawPreview() {
     previewPlacement(lines);
     return;
   }
-  if(layer()==='props' && tool()==='paint' && hover) {
+  if(layer()==='props' && !drawingWire() && tool()==='paint' && hover) {
     attempt(()=>{ const marker=propMarker({...hover,...settings()}); marker.setAttribute('opacity','.55'); preview.append(marker); });
   }
   if(layer()==='portals' && tool()==='paint' && hover) {
@@ -275,7 +313,11 @@ function addSegment(points,props) {
 function placeChain() {
   if(chain.length<2) { message('Choose at least two distinct points, then press Enter.'); return; }
   const props=settings(); remember();
-  for(const pair of segments(chain)) addSegment(pair,props);
+  for(const [a,b] of segments(chain)) {
+    if(drawingWire()) model.props.push({id:crypto.randomUUID(),kind:'tripwire',size:1,x:(a.x+b.x)/2,y:(a.y+b.y)/2,
+      length:Math.hypot(b.x-a.x,b.y-a.y),rotation:Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI});
+    else addSegment([a,b],props);
+  }
   chain=[]; hover=null; clearPreview(); render(); message('Placed segments. Click to begin another chain.');
 }
 function paint(p) {
@@ -292,7 +334,7 @@ function paint(p) {
   }
   const props=settings();
   if(layer()==='floors' && model.floors.some(o=>Math.hypot(o.x-p.x,o.y-p.y)<.01)) return;
-  if(pointLayer()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
+  if(pointLayer() && !drawingWire()) { remember(); model[layer()].push(addPoint(p,props)); render(); }
   else if(!chain.length || Math.hypot(chain.at(-1).x-p.x,chain.at(-1).y-p.y)>.00001) { chain.push(p); if(floor.buildLayer==='doors' && chain.length===2) placeChain(); else drawPreview(); }
 }
 function bucket(p,room=false) {
@@ -395,7 +437,14 @@ svg.addEventListener('pointerup',event=>{
   if(!gesture) return;
   const g=gesture; gesture=null; preview.replaceChildren();
   if(svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
-  if(g.before) { undo.push(g.before); if(undo.length>50) undo.shift(); redo=[]; render(); return; }
+  if(g.before) {
+    undo.push(g.before); if(undo.length>50) undo.shift(); redo=[];
+    if(layer()==='tokens') for(const token of model.tokens) {
+      const before=g.before.tokens.find(item=>item.id===token.id);
+      if(before && (before.x!==token.x || before.y!==token.y)) fireCollision(token,before);
+    }
+    render(); return;
+  }
   const indices=g.moved?model[layer()].flatMap((o,i)=>inBox(o,g.start,point(event),layer())?[i]:[]):g.index<0?[]:[g.index];
   if(tool()==='select') {
     if(!g.shift) selected.clear();
@@ -579,7 +628,10 @@ async function chestAction(action) {
     return;
   }
   if(chest.locked) throw new Error('Compartment is locked.');
-  if(command==='open' || command==='close') { remember(); chest.open=command==='open'; render(); }
+  if(command==='open' || command==='close') {
+    if(chest.open===(command==='open')) return;
+    remember(); chest.open=command==='open'; fireInteraction('props',chest,token); render();
+  }
   else if(chest.open && ['take','take-all'].includes(command)) {
     if(command==='take' && typeof itemId!=='string') throw new Error('Choose an item.');
     await transferChest(chest,token,command==='take-all'?null:itemId,requestId);
@@ -611,15 +663,18 @@ function iconMenu(x,y,change,origin,portal=false) {
   }))],origin);
 }
 function portalMenu(id,x,y,origin) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const portal=model.portals.find(item=>item.id===id);
   if(!portal) return;
+  if(!isGM) { const actions=!portal.hidden && interactionMenuItems(objectRef('portals',portal)); if(actions?.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{
     if(!model.portals.includes(portal)) return;
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
+    triggerMenuItem(objectRef('portals',portal)),
+    ...interactionMenuItems(objectRef('portals',portal)),
     {label:'Use',disabled:!portalDestination(portalEntries(),portal),action:()=>usePortal(portal)},
     {label:'Add light',action:()=>change(()=>addObjectLight(portal))},
     {label:portal.hidden?'Show':'Hide',action:()=>change(()=>{portal.hidden=!portal.hidden;})},
@@ -628,13 +683,16 @@ function portalMenu(id,x,y,origin) {
   ],origin);
 }
 function lightMenu(index,x,y,origin) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const light=model.lights[index];
   if(!light) return;
+  if(!isGM) { const actions=!light.hidden && interactionMenuItems(objectRef('lights',light)); if(actions?.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{ if(!model.lights.includes(light)) return; remember(); update(); render(); };
   showMapMenu(x,y,[
-    {label:light.off?'Turn on':'Turn off',action:()=>change(()=>{light.off=!light.off;})},
+    triggerMenuItem(objectRef('lights',light)),
+    ...interactionMenuItems(objectRef('lights',light)),
+    {label:light.off?'Turn on':'Turn off',action:()=>change(()=>{light.off=!light.off; fireInteraction('lights',light);})},
     {label:light.hidden?'Show':'Hide',action:()=>change(()=>{light.hidden=!light.hidden;})},
     {label:'Light settings...',action:()=>editLight(light)},
     {label:'Change icon…',action:()=>iconMenu(x,y,icon=>{
@@ -648,16 +706,20 @@ function lightMenu(index,x,y,origin) {
   ],origin);
 }
 function doorMenu(index,x,y,origin) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   const door=model.doors[index];
-  if(!door || door.type==='window') return;
+  if(!door || door.type==='window' || door.hidden && !isGM) return;
+  if(!isGM) {
+    showMapMenu(x,y,[{label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))}],origin); return;
+  }
   cancelGesture();
   const change=update=>{
     if(!model.doors.includes(door)) return;
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
-    {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>change(()=>{door.open=!door.open;})},
+    triggerMenuItem(objectRef('doors',door)),
+    {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))},
     {label:door.locked?'Unlock':'Lock',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
     {label:door.hidden?'Show':'Hide',action:()=>change(()=>{door.hidden=!door.hidden;})},
     {label:'Add light',action:()=>change(()=>addObjectLight({x:(door.points[0].x+door.points[1].x)/2,y:(door.points[0].y+door.points[1].y)/2}))},
@@ -665,20 +727,29 @@ function doorMenu(index,x,y,origin) {
   ],origin);
 }
 function floorMenu(index,x,y,origin) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const tile=model.floors[index];
   if(!tile) return;
+  if(!isGM) { const actions=interactionMenuItems(objectRef('floors',tile)); if(actions.length) showMapMenu(x,y,actions,origin); return; }
   const change=update=>{
     if(!model.floors.includes(tile)) return;
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
+    triggerMenuItem(objectRef('floors',tile)),
     {label:'Change material...',action:()=>showMapMenu(x,y,Object.keys(MATERIALS).map(material=>({
       label:material,action:()=>change(()=>{tile.material=material;})
     })),origin)},
     {label:'Delete',action:()=>change(()=>{model.floors=model.floors.filter(item=>item!==tile);})}
   ],origin);
+}
+function wallMenu(index,x,y,origin) {
+  if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
+  const wall=model.walls[index];
+  if(!wall) return;
+  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall))]:[]),...interactionMenuItems(objectRef('walls',wall))];
+  if(actions.length) showMapMenu(x,y,actions,origin);
 }
 async function fillCompartment(prop,tier) {
   if(!isGM || chestBusy || pendingTake) return;
@@ -696,7 +767,7 @@ async function fillCompartment(prop,tier) {
 function compartmentMenu(prop,x,y,origin) {
   const open=()=>{
     if(!model.props.includes(prop) || chestBusy) return;
-    if(isGM) { if(!prop.open) {remember(); prop.open=true; render();} openChest(prop.id); }
+    if(isGM) { if(!prop.open) {remember(); prop.open=true; fireInteraction('props',prop); render();} openChest(prop.id); }
     else if(prop.open) openChest(prop.id);
     else requestChest(prop,'open');
   };
@@ -709,7 +780,19 @@ function propMenu(id,x,y,origin) {
   if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
   const prop=model.props.find(item=>item.id===id);
-  if(!prop || (!isGM && (prop.hidden || !['chest','crate'].includes(prop.kind)))) return;
+  if(!prop || (!isGM && prop.hidden)) return;
+  if(['lever','button'].includes(prop.kind)) {
+    showMapMenu(x,y,[{label:prop.open?'Toggle off':'Toggle on',action:()=>requestObjectInteraction(objectRef('props',prop))},
+      ...(isGM?[triggerMenuItem(objectRef('props',prop)),
+        {label:prop.hidden?'Show':'Hide',action:()=>{remember(); prop.hidden=!prop.hidden; render();}},
+        {label:'Rotate 90°',action:()=>{remember(); prop.rotation=(prop.rotation+90)%360; render();}},
+        {label:'Delete',action:()=>{remember(); model.props=model.props.filter(item=>item!==prop); render();}}]:[])],origin); return;
+  }
+  if(!isGM && !['chest','crate'].includes(prop.kind)) {
+    const actions=interactionMenuItems(objectRef('props',prop));
+    if(actions.length) showMapMenu(x,y,actions,origin);
+    return;
+  }
   if(!isGM) {
     showMapMenu(x,y,[
       {label:`Inspect: ${prop.locked?'Locked':'Unlocked'}`,action:()=>{ $('session-status').textContent=prop.locked?'Chest is locked.':'Chest is unlocked.'; }},
@@ -723,6 +806,8 @@ function propMenu(id,x,y,origin) {
     remember(); update(); selected.clear(); render();
   };
   showMapMenu(x,y,[
+    triggerMenuItem(objectRef('props',prop)),
+    ...(!['chest','crate'].includes(prop.kind)?interactionMenuItems(objectRef('props',prop)):[]),
     {label:'Delete',action:()=>change(()=>{model.props=model.props.filter(item=>item!==prop);})},
     {label:prop.hidden?'Show':'Hide',action:()=>change(()=>{prop.hidden=!prop.hidden;})},
     {label:'Change icon...',action:()=>showMapMenu(x,y,Object.entries(PROPS).map(([kind,entry])=>({
@@ -737,7 +822,7 @@ function propMenu(id,x,y,origin) {
     ]:[{label:'Add light',action:()=>change(()=>addObjectLight(prop))}]),
     ...(['chest','crate'].includes(prop.kind)?[
       {label:prop.locked?'Unlock':'Lock',action:()=>change(()=>{prop.locked=!prop.locked; if(prop.locked) prop.open=false;})},
-      {label:prop.open?'Close':'Open',disabled:!prop.open && prop.locked,action:()=>{change(()=>{prop.open=!prop.open;}); if(prop.open) openChest(prop.id);}},
+      {label:prop.open?'Close':'Open',disabled:!prop.open && prop.locked,action:()=>{requestObjectInteraction(objectRef('props',prop)); if(prop.open) openChest(prop.id);}},
       {label:'Compartment',action:()=>compartmentMenu(prop,x,y,origin)}
     ]:[]),
     ...(['ladder','stairs'].includes(prop.kind)?[{label:'Use',action:()=>{
@@ -774,6 +859,8 @@ onMapRightClick(svg,event=>{
     return appearance?propDistance(appearance,p)===0:Math.hypot(p.x-item.x,p.y-item.y)<=Math.max(.12,best);
   });
   if(lightIndex>=0) { lightMenu(lightIndex,event.clientX,event.clientY,svg); return; }
+  const wallIndex=model.walls.findLastIndex(wall=>segments(wall.points).some(([a,b])=>distance(p,a,b)<=best));
+  if(wallIndex>=0) { wallMenu(wallIndex,event.clientX,event.clientY,svg); return; }
   const floorIndex=model.floors.findLastIndex(tile=>Math.abs(p.x-tile.x)<=.5 && Math.abs(p.y-tile.y)<=.5);
   if(floorIndex>=0) floorMenu(floorIndex,event.clientX,event.clientY,svg);
 });
@@ -788,6 +875,14 @@ $('floors').addEventListener('keydown',event=>{
 floor.addEventListener('floor-menu',event=>{
   const {index,x,y}=event.detail;
   floorMenu(index,x,y,document.activeElement);
+});
+floor.addEventListener('wall-menu',event=>{const {index,x,y}=event.detail; wallMenu(index,x,y,document.activeElement);});
+$('walls').addEventListener('keydown',event=>{
+  const target=event.target.closest('[data-trigger-id]');
+  if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
+  event.preventDefault(); event.stopPropagation();
+  const index=model.walls.findIndex(wall=>wall.id===target.dataset.triggerId), rect=target.getBoundingClientRect();
+  wallMenu(index,rect.right,rect.top,svg);
 });
 $('lights').addEventListener('keydown',event=>{
   if(!isGM) return;
@@ -816,7 +911,6 @@ floor.addEventListener('portal-menu',event=>{
   portalMenu(id,x,y,document.activeElement);
 });
 $('doors').addEventListener('keydown',event=>{
-  if(!isGM) return;
   const target=event.target.closest('[data-door-index]');
   if(!target || !['Enter',' ','ContextMenu'].includes(event.key)) return;
   event.preventDefault(); event.stopPropagation();
@@ -864,9 +958,30 @@ floor.addEventListener('token-update',event=>{
 floor.addEventListener('vtt-door-toggle',event=>{
   if(!isGM) return;
   if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
-  const door=model.doors[event.detail];
+  const index=typeof event.detail==='number'?event.detail:event.detail.index;
+  const actor=typeof event.detail==='number'?activatingPC():model.tokens.find(token=>token.id===event.detail.tokenId);
+  const door=model.doors[index];
   if(!door || door.type==='window' || (!door.open && door.locked)) return;
-  cancelGesture(); remember(); door.open=!door.open; render();
+  cancelGesture(); remember(); door.open=!door.open; fireInteraction('doors',door,actor); render();
+});
+floor.addEventListener('vtt-object-interact',event=>{
+  const fail=text=>{event.detail.error=text; $('session-status').textContent=text;};
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') {fail('Table is busy; try again.'); return;}
+  const {ref,tokenId,remote}=event.detail, object=triggerObject(model,ref);
+  const token=model.tokens.find(token=>token.id===tokenId && token.kind==='pc');
+  if(!object || remote && (!token || object.hidden)) {fail('Object is unavailable.'); return;}
+  if(remote && !(ref.layer==='doors' || ref.layer==='props' && ['chest','crate','lever','button'].includes(object.kind) ||
+      model.triggers.some(rule=>rule.event==='interact' && rule.source.layer===ref.layer && rule.source.id===ref.id))) {fail('This object has no interaction.'); return;}
+  if(remote) {
+    const range=ref.layer==='props'?propDistance(object,token):object.points?Math.min(...segments(object.points).map(([a,b])=>distance(token,a,b))):Math.hypot(object.x-token.x,object.y-token.y);
+    if(range>token.size/2+1) { fail('Move next to the object to interact.'); return; }
+  }
+  if((ref.layer==='doors' || ref.layer==='props') && object.locked && !object.open) {fail('Object is locked.'); return;}
+  if(ref.layer==='doors' && object.type==='window') {fail('Windows cannot be toggled.'); return;}
+  cancelGesture(); remember();
+  if(ref.layer==='doors' || ref.layer==='props') object.open=!object.open;
+  else if(ref.layer==='lights') object.off=!object.off;
+  fireInteraction(ref.layer,object,token); render();
 });
 floor.addEventListener('vtt-object-move',event=>{
   if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
@@ -897,8 +1012,9 @@ floor.addEventListener('vtt-token-move',event=>{
   if(!floor.initiativeActive && crossesWindow(token,destination,model.doors)) return;
   if(token.x===destination.x && token.y===destination.y) return;
   cancelGesture(); remember();
+  const before={x:token.x,y:token.y};
   if(floor.initiativeActive) floor.tabletopMap.initiative.turn.movementSpent+=destination.cost;
-  Object.assign(token,{x:destination.x,y:destination.y}); render();
+  Object.assign(token,{x:destination.x,y:destination.y}); fireCollision(token,before,destination.path || [token]); render();
 });
 svg.addEventListener('pointercancel',cancelGesture);
 svg.addEventListener('wheel',cancelGesture,{passive:true});
@@ -939,7 +1055,7 @@ for(const [kind,entry] of Object.entries(PROPS)) {
   });
   $('prop-palette').append(button);
 }
-for(const input of [$('prop-kind'),$('prop-size'),$('prop-rotation')]) input.addEventListener('input',()=>{buttons();drawPreview();});
+for(const input of [$('prop-kind'),$('prop-size'),$('prop-rotation')]) input.addEventListener('input',()=>{if(input.id==='prop-kind') cancelGesture(); buttons();drawPreview();});
 const toolIcons={
   select:'M4 3 19 13l-7 1-3 7Z',
   erase:'m4 13 9-9a2 2 0 0 1 3 0l4 4a2 2 0 0 1 0 3l-9 9H8l-4-4a2 2 0 0 1 0-3Zm5-5 8 8M11 20h10',
@@ -1063,7 +1179,7 @@ document.addEventListener('keydown',event=>{
   }
   if(!model || (panel.hidden && !floor.buildLayer) || (svg.hidden && !floor.buildLayer) || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
   if(event.key==='Escape') { cancelGesture(); selected.clear(); render(false); }
-  else if(event.key==='Enter' && tool()==='paint' && !pointLayer()) { event.preventDefault(); attempt(placeChain); }
+  else if(event.key==='Enter' && tool()==='paint' && (!pointLayer() || drawingWire())) { event.preventDefault(); attempt(placeChain); }
   else if(event.key==='Backspace' && chain.length) { event.preventDefault(); chain.pop(); drawPreview(); }
   else if(event.key==='Delete' && selected.size) { event.preventDefault(); apply([...selected],'erase'); }
 });
@@ -1077,6 +1193,7 @@ floor.addEventListener('map-ready',()=>{
   floor.sceneDocument.environment={time:sceneEnvironment.time,weather:sceneEnvironment.weather};
   Object.assign(imported.environment,floor.sceneDocument.environment);
   model={width:imported.width,height:imported.height,
+    triggers:importedTriggers(saved?.triggers),
     portals:importedPortals(saved?.portals),
     props:importedProps(saved?.props),
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
@@ -1085,6 +1202,10 @@ floor.addEventListener('map-ready',()=>{
     lights:imported.lights.map(l=>({...l,propId:typeof l.source?.geezvtt_prop_id==='string'?l.source.geezvtt_prop_id:null,hidden:l.source?.geezvtt_hidden===true,off:l.source?.geezvtt_off===true,icon:propAppearance({icon:l.source?.geezvtt_icon})?l.source.geezvtt_icon:''})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
+  for(const name of ['floors','walls','doors','lights','props','portals','tokens']) model[name].forEach((object,index)=>{
+    const id=saved?.objectIds?.[name]?.[index];
+    if(typeof id==='string' && id && id.length<=100) object.id=id;
+  });
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=controls.disabled && !fieldset.closest('#tokens-panel'); });
   imported.initiative=initiativeState(saved?.initiative,model.tokens);
@@ -1108,6 +1229,8 @@ export function serializeMap() {
   raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_hidden:!!d.hidden,geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',geezvtt_prop_id:l.propId || null,geezvtt_hidden:!!l.hidden,geezvtt_off:!!l.off,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
+  raw.geezvtt_editor.triggers=clone(model.triggers);
+  raw.geezvtt_editor.objectIds=Object.fromEntries(['floors','walls','doors','lights','props','portals','tokens'].map(name=>[name,model[name].map(object=>object.id)]));
   raw.geezvtt_editor.initiative=initiativeState(floor.tabletopMap.initiative,model.tokens);
   return raw;
 }
@@ -1121,6 +1244,7 @@ export function applySharedMap(state) {
     if(state[key] != null && !Array.isArray(state[key])) return;
   }
   for(const key of ['floors','walls','doors','lights','tokens','portals','props']) model[key]=clone(state[key] || []);
+  model.triggers=importedTriggers(state.triggers);
   floor.tabletopMap.environment=environmentSettings(state.environment,model);
   floor.tabletopMap.initiative=initiativeState(state.initiative,model.tokens);
   render();

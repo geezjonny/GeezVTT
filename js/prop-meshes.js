@@ -46,6 +46,32 @@ export function createPropKit() {
       tip.rotation.z=-.16;
     };
     switch(prop.kind) {
+      case 'tripwire': {
+        const half = (prop.length ?? 1) / 2;
+        for (const x of [-half, half]) {
+          box('metal',x,.14,0,.07,.28,.09);
+          box('stone',x,.025,0,.15,.05,.16);
+        }
+        rod('metal',[-half,.13,0],[half,.13,0],.012);
+        break;
+      }
+      case 'pressurePlate':
+        box('stone',0,.035,0,1,.07,1);
+        box('metal',0,prop.open ? .065 : .095,0,.88,.06,.88);
+        for (const x of [-.36,.36]) for (const z of [-.36,.36]) part('sphere','trim',x,.13,z,.025,.012,.025);
+        break;
+      case 'lever': {
+        box('stone',0,.07,0,.6,.14,.6);
+        box('metal',0,.19,0,.22,.24,.2);
+        const end = [prop.open ? .2 : -.2,.68,0];
+        rod('metal',[0,.24,0],end,.04);
+        part('sphere','trim',...end,.09,.09,.09);
+        break;
+      }
+      case 'button':
+        box('stone',0,.06,0,.5,.12,.5);
+        part('cylinder',prop.open ? 'trim' : 'wood',0,prop.open ? .13 : .19,0,.17,.12,.17);
+        break;
       case 'crate':
         box('wood',0,.42,0,.86,.84,.86);
         for(const z of [-.44,.44]) {
