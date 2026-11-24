@@ -1,0 +1,28 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #15191f; color: #e6ebf1; }
+[hidden], html[data-role="gm"] #player-sign-in { display: none !important; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .75rem 1rem; border-bottom: 1px solid #61758f; }
+h1, h2 { margin: 0; font-size: 1rem; }
+a { color: #a2cbff; }
+button, select, input { font: inherit; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .35rem; padding: .45rem .6rem; max-width: 100%; }
+button { cursor: pointer; }
+button:hover { background: #3a4d65; }
+button:disabled { opacity: .55; cursor: default; }
+:is(button, select, input, a):focus-visible { outline: 2px solid #a2cbff; outline-offset: 3px; }
+label { display: grid; gap: .25rem; min-width: 0; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 22rem); align-items: start; gap: 1rem; max-width: 64rem; padding: 1rem; margin: auto; }
+aside, .game-card, #minigame-session, #minigame-dice-form, #player-login-form { display: grid; gap: .75rem; }
+.game-card { background: #202731; border: 1px solid #61758f; border-radius: .4rem; padding: 1rem; min-width: 0; }
+.game-controls { display: flex; flex-wrap: wrap; align-items: end; gap: .5rem; }
+#minigame-arena { display: block; width: 100%; max-width: 28rem; max-height: 62dvh; margin: auto; background: #111b21; border: 1px solid #61758f; border-radius: .25rem; }
+#minigame-arena .typing-word { font: bold 16px monospace; paint-order: stroke; stroke: #111b21; stroke-width: 4px; }
+#minigame-input { width: 100%; font-family: monospace; font-size: 1.2rem; }
+#minigame-results, #minigame-dice-history { display: grid; gap: .6rem; padding-left: 1.4rem; margin: 0; overflow-wrap: anywhere; }
+#minigame-results strong, #minigame-results span { display: block; }
+#minigame-results span, #presence-online, #presence-status { color: #bac8d8; font-size: .85rem; }
+#minigame-dice-history { max-height: 17rem; overflow: auto; font-size: .85rem; }
+#minigame-status:empty { display: none; }
+#player-login { width: min(20rem, calc(100vw - 2rem)); color: inherit; background: #202731; border: 1px solid #61758f; border-radius: .35rem; }
+#player-login::backdrop { background: #000b; }
+@media (max-width: 42rem) { main { grid-template-columns: minmax(0, 1fr); } }

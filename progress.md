@@ -2,6 +2,20 @@
 
 Updated: 2026-11-23
 
+## Separate minigame page and shared team results saved - 2026-11-23
+
+- Moves Zombie Typing gameplay out of the tabletop window into minigame.html with its own stylesheet and page controller. Reuses PC sign-in, sheet-based Dexterity rolls, dice formulas and local typing simulation. Selected PCs can play simultaneous attempts while everyone watches individual progress and the team total.
+- Keeps Scene Controls > Minigame as the GM setup and session control. Push game shares an Open minigame link with participants and spectators; the link opens a separate tab, preserves GM mode or prefills the existing PC sign-in form, and identifies the current session. View > Minigame reopens the tabletop results window for players and GM.
+- Adds shared dice formulas, advantage/disadvantage and the latest twenty roll entries on the minigame page. Dexterity game rolls also appear in this shared history. Gameplay retains its twenty-zombie wave, three lives, difficulty thresholds, natural-20 single letters and conditional one-attempt-per-PC reservation. Pause/Resume, hiding the tab and watching another PC pause the local attempt.
+- Shares validated individual Dexterity results, kills, lives, outcomes and aggregate team results back to index.html. Ending a session retains completed wins/losses and partial scores. The GM applies battlefield outcomes manually, as requested; no automatic character HP changes or token removal are included.
+- Extracts shared session writes and results rendering, and adds unrun regression cases for session validation, selected-PC score aggregation, partial/stopped sessions, final-result persistence and invalid-score rejection. Updates to-do.md with the new page and remaining work.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, benchmarks or application validation commands were run.
+
+Outstanding: user verification of separate-tab links and PC sign-in, GM mode, simultaneous attempts, shared dice/history, spectator switching, pause/resume, tabletop result updates and reopening, conditional reservations, failed writes/reconnects, replaced/ended sessions and final outcomes. Refreshing an active attempt still returns to spectator mode; push a new session to restart. Snapshot/dice history retention limits, additional games and puzzles remain deferred. Earlier verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Include only the separate minigame page, supporting controllers/styles/models, tabletop integration, regression cases and related documentation. Exclude unrelated battlemap assets/catalog edits, token index formatting, scene edits/new scene files and the pre-existing js/tokens.js change.
+
 ## Minigame window close button saved - 2026-11-23
 
 - Replaces the minigame window's minimize-only button with the standard Close button. Reuses the existing floating-window close handler; hiding the window pauses its local attempt.

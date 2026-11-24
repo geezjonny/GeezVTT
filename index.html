@@ -92,10 +92,10 @@
     #minigame-recipients { display: grid; margin: 0; }
     #minigame-body label { display: grid; gap: .2rem; }
     #minigame-recipients label { display: flex; align-items: center; }
-    #minigame-input, #minigame-player { width: 100%; box-sizing: border-box; min-width: 0; }
-    #minigame-arena { display: block; width: 100%; background: #111b21; border: 1px solid #61758f; border-radius: .25rem; }
-    #minigame-arena .typing-word { font: bold 16px monospace; paint-order: stroke; stroke: #111b21; stroke-width: 4px; }
-    #minigame-score, #minigame-roll-result, #minigame-status { font-size: .7rem; overflow-wrap: anywhere; }
+    #minigame-results { display: grid; gap: .4rem; margin: 0; padding-left: 1rem; font-size: .7rem; overflow-wrap: anywhere; }
+    #minigame-results strong, #minigame-results span { display: block; }
+    #minigame-team, #minigame-status { font-size: .7rem; overflow-wrap: anywhere; }
+    #minigame-open { color: #a2cbff; }
     .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
     #vtt-panel, #build-panel, #scene-panel, #initiative-panel { min-width: 2.5rem; }
     #dice-panel { min-width: 4rem; }
@@ -302,6 +302,7 @@
             <button id="open-scene-controls" type="button" aria-controls="scene-panel" data-gm-only>Scene Controls</button>
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
             <button id="open-initiative" type="button" aria-controls="initiative-panel">Initiative</button>
+            <button id="open-minigame" type="button" aria-controls="minigame-panel">Minigame</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -407,27 +408,9 @@
           <button id="minigame-push" type="submit">Push game</button>
         </form>
         <div id="minigame-session" hidden>
-          <label>Watching<select id="minigame-player" aria-label="Watch a PC"></select></label>
-          <button id="minigame-roll" type="button" hidden>Roll DEX &amp; Play</button>
-          <output id="minigame-roll-result"></output>
-          <output id="minigame-score" role="status" aria-live="polite"></output>
-          <svg id="minigame-arena" viewBox="0 0 300 400" role="img" aria-label="Zombies approach from above. Type a zombie's word to defeat it.">
-            <defs>
-              <g id="typing-zombie" stroke="#17251b" stroke-width="3" stroke-linecap="round">
-                <path d="m-8 6-5 18m21-18 5 18M-8-9-22-4m30-5 14 5" stroke="#67865a" stroke-width="8"/>
-                <path d="M-9-13h18L12 7h-24Z" fill="#735b53"/>
-                <circle cy="-23" r="10" fill="#9cb778"/>
-                <path d="M-5-25h1m8 0h1m-9 7h8" stroke="#263626"/>
-              </g>
-            </defs>
-            <path d="M15 340h270" stroke="#b65d60" stroke-width="2" stroke-dasharray="7 5"/>
-            <g id="typing-zombies"></g>
-            <g transform="translate(150 371)" fill="#9bc8ee" stroke="#385777" stroke-width="3">
-              <path d="m-9 0-5 17m23-17 5 17M-9-9-20 1m29-10 11 10M-9-14H9V4H-9Z"/>
-              <circle cy="-23" r="9"/>
-            </g>
-          </svg>
-          <form id="minigame-entry" hidden><label>Type a word<input id="minigame-input" type="text" maxlength="12" autocomplete="off" autocapitalize="off" spellcheck="false" autocorrect="off" disabled></label></form>
+          <a id="minigame-open" href="minigame.html" target="_blank" rel="noopener">Open minigame ↗</a>
+          <output id="minigame-team" role="status" aria-live="polite"></output>
+          <ol id="minigame-results" aria-label="PC results"></ol>
           <button id="minigame-end" type="button" data-gm-only>End game</button>
         </div>
         <output id="minigame-status" role="status" aria-live="polite"></output>

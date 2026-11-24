@@ -64,3 +64,23 @@ export function validTypingSnapshot(value) {
       Number.isInteger(zombie?.id) && zombie.id >= 0 && zombie.id < game.spawned &&
       WORDS[game.tier].includes(zombie.word) && Number.isFinite(zombie.born) && zombie.born >= 0 && zombie.born <= game.elapsed));
 }
+
+export function validMinigameSession(value) {
+  return !!value && typeof value.id === 'string' && /^[a-f0-9-]{36}$/.test(value.id) && value.type === 'typing' &&
+    typeof value.stopped === 'boolean' && Array.isArray(value.participants) && value.participants.length > 0 && value.participants.length <= 32 &&
+    value.participants.every(pc => typeof pc?.pcId === 'string' && /^[^.#$\[\]/\s]{1,200}$/.test(pc.pcId) && typeof pc.name === 'string' && pc.name.length <= 120) &&
+    new Set(value.participants.map(pc => pc.pcId)).size === value.participants.length;
+}
+
+export function minigameResults(session, runs = {}) {
+  if (!validMinigameSession(session)) return { players: [], kills: 0, finished: 0, complete: false };
+  const players = session.participants.map(pc => {
+    const snapshot = runs[pc.pcId];
+    const value = validTypingSnapshot(snapshot) && snapshot.pcId === pc.pcId ? snapshot : null;
+    return { ...pc, kills: value?.game.kills || 0, lives: value?.game.lives ?? null,
+      natural: value?.natural ?? null, total: value?.total ?? null,
+      status: ['won', 'lost'].includes(value?.game.status) ? value.game.status : session.stopped ? 'stopped' : value?.game.status || 'waiting', paused: value?.paused || false };
+  });
+  const finished = players.filter(pc => ['won', 'lost', 'stopped'].includes(pc.status)).length;
+  return { players, kills: players.reduce((sum, pc) => sum + pc.kills, 0), finished, complete: finished === players.length };
+}
