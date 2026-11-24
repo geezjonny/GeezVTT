@@ -5,14 +5,15 @@ import { tokenIcon } from './token-model.js';
 // One kit per map build; the map renderer disposes the shared meshes and materials.
 export function createTokenMiniKit() {
   const templates = new Map();
-  return icon => {
+  return (icon,baseColor) => {
     icon = tokenIcon(icon);
-    if (!templates.has(icon)) templates.set(icon, buildMini(icon));
-    return templates.get(icon).clone(true);
+    const key=`${icon}:${baseColor || ''}`;
+    if (!templates.has(key)) templates.set(key, buildMini(icon,baseColor));
+    return templates.get(key).clone(true);
   };
 }
 
-function buildMini(icon) {
+function buildMini(icon,baseColor) {
   const pc = icon;
   icon = { lark: 'bard', liora: 'ranger', ashara: 'cleric', rurik: 'bard', seris: 'fighter' }[pc] || icon;
   const shapes = {
@@ -30,6 +31,7 @@ function buildMini(icon) {
   };
   const robes = { generic: '#60758c', fighter: '#7e8995', hunter: '#6b7540', druid: '#527846', wizard: '#385bb0', sorcerer: '#a63854', monk: '#d39547', rogue: '#424354', barbarian: '#956b4b', cleric: '#d4cbb1', paladin: '#bcc6d0', ranger: '#3f6850', warlock: '#563768', artificer: '#997347' };
   colors.cloth = robes[icon] || colors.cloth;
+  if(baseColor) colors.base=baseColor;
   if (pc === 'lark') Object.assign(colors, { cloth: '#74243c', cape: '#74243c', hair: '#663c28' });
   if (pc === 'liora') Object.assign(colors, { cape: '#315c38', leather: '#315c38', hair: '#633c28' });
   if (pc === 'ashara') Object.assign(colors, { hair: '#ff641b', feather: '#ffc340', skin: '#d58a5a', cloth: '#eee2c7', cape: '#a14926' });

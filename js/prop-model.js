@@ -1,4 +1,7 @@
+import { objectColors, visualEffects } from './object-appearance.js';
+
 export const PROPS = {
+  crystalObelisk: {name:'Crystal obelisk',width:1,depth:1,color:'#aa83f5',path:'M12 1l6 6v13l-6 3-6-3V7Z M12 1v22M6 7l6 4 6-4M3 20v3h18v-3'},
   tree: {"name":"Tree","width":2,"depth":2,"color":"#648448","path":"M12 2C5 0 1 6 4 10c-5 5 0 12 6 10 5 5 14-1 10-6 5-6-1-14-8-12Z M12 7v15"},
   pine: {"name":"Pine tree","width":1.6,"depth":1.6,"color":"#486239","path":"m12 1-7 8h3l-5 6h4l-5 6h20l-5-6h4l-5-6h3Z"},
   bush: {"name":"Bush","width":1,"depth":0.9,"color":"#648448","path":"M4 19C-2 14 2 7 7 8c0-8 11-8 12 0 7 0 6 12-1 12Z"},
@@ -40,7 +43,7 @@ export const PROP_CATEGORIES = {
   'Storage & Supplies': ['crate','chest','barrel','sack'],
   'Travel & Camp': ['cart','tent','stairs','ladder'],
   'Lights & Fire': ['campfire','brazier','torch','candle','fairyLights','fireflies'],
-  'Decor & Landmarks': ['signpost','gravestone'],
+  'Decor & Landmarks': ['signpost','gravestone','crystalObelisk'],
   'Dungeon & Ruins': ['bones','cobweb','tripwire','pressurePlate','lever','button']
 };
 
@@ -67,7 +70,7 @@ export function importedProps(value) {
       if (ids.has(id)) return [];
       ids.add(id);
       if (prop.kind === 'tripwire' && prop.length != null && (!Number.isFinite(prop.length) || prop.length < .01 || prop.length > 10000)) return [];
-      return [{ id, x: prop.x, y: prop.y, ...properties, ...(typeof prop.name==='string'?{name:prop.name.slice(0,100)}:{}), ...(prop.kind === 'tripwire' ? { length: prop.length ?? 1 } : {}), hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
+      return [{ id, x: prop.x, y: prop.y, ...properties,...(prop.colors!==undefined?{colors:objectColors(prop.colors)}:{}),...(prop.visualEffects!==undefined?{visualEffects:visualEffects(prop.visualEffects)}:{}), ...(typeof prop.name==='string'?{name:prop.name.slice(0,100)}:{}), ...(prop.kind === 'tripwire' ? { length: prop.length ?? 1 } : {}), hidden: prop.hidden === true, locked: prop.locked === true, open: prop.locked !== true && prop.open === true, contents: importedItems(prop.contents), ...(propAppearance(prop)?{icon:prop.icon}:{}) }];
     } catch { return []; }
   });
 }

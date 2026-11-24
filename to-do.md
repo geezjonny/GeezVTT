@@ -1,5 +1,15 @@
 # GeezVTT to-do
 
+## Object editing, obelisks and windows - 2026-11-23
+
+- [x] Right-click Wall > Delete and Eraser swatches for walls, floors and doors, with stroke Undo/Redo and cancellation.
+- [x] Object > Add effect: Fairy particles, Glow and Ablaze, plus Remove effects. Visual effects support reduced motion, visibility, scene persistence and shared state.
+- [x] Object > Edit colors with Reset colors, including separate tree foliage/trunk and crystal/base parts.
+- [x] Crystal obelisk prop under Decor & Landmarks.
+- [x] Windows use surrounding wall material around a rectangular glass pane or opening. Inherit adjoining aligned wall material where available, and retain existing window movement/sight rules.
+- [ ] User verification of erasers, wall deletion, effects, colors, obelisks, windows, Undo/Redo, all views, imports/reloads, floor travel and shared updates. New regression cases are unrun.
+- [ ] Minigames and puzzles.
+
 ## Floor painting - 2026-11-23
 
 - [x] Single-click floor painting, hold/drag painting with interpolated cells, repainting existing floor materials, one Undo/Redo entry per stroke and cancelled-stroke rollback.

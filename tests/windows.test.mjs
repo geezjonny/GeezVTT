@@ -1,8 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { portalType, bucketCells } from '../js/map-editor-model.js';
+import { portalType, bucketCells, adjoiningWallIndex, windowFrameParts } from '../js/map-editor-model.js';
 import { crossesWindow } from '../js/token-model.js';
 import { fogRectangles } from '../js/environment-model.js';
+
+test('window frames use adjoining aligned walls rather than crossing walls',()=>{
+  const door={points:[{x:1,y:0},{x:3,y:0}]};
+  const crossing={points:[{x:1,y:0},{x:1,y:2}],material:'wood'};
+  const adjacent={points:[{x:0,y:0},{x:1,y:0}],material:'brick'};
+  assert.equal(adjoiningWallIndex(door,[crossing,adjacent]),1);
+  assert.equal(adjoiningWallIndex(door,[crossing]),-1);
+  assert.equal(adjoiningWallIndex(door,[adjacent.points]),0);
+});
+
+test('window frames leave a rectangular central opening even for short windows',()=>{
+  for(const length of [.1,1,3]) {
+    const parts=windowFrameParts(length);
+    assert.equal(parts.length,4);
+    assert.ok(parts.every(part=>part.width>0 && part.height>0));
+    assert.equal(parts.some(part=>length/2>part.x-part.width/2 && length/2<part.x+part.width/2 && 1.1>part.y-part.height/2 && 1.1<part.y+part.height/2),false);
+  }
+});
 
 test('unmarked open portals become windows and explicit types preserve opened doors', () => {
   assert.equal(portalType({ closed: false }), 'window');

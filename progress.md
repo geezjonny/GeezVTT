@@ -2,6 +2,23 @@
 
 Updated: 2026-11-23
 
+## Erasers, object appearance, crystal obelisks and window frames saved - 2026-11-23
+
+- Adds GM right-click Wall > Delete, using existing history and shared scene updates. Adds an Eraser swatch to Walls, Floors and Doors. Click/drag erasing stays on the selected layer, uses continuous stroke intersection in 2D and floor erasing, and raycasts wall/door surfaces in 3D/First Person. Each stroke is one Undo/Redo action; cancellation restores the prior geometry. Choosing a material returns to painting.
+- Adds Object > Add effect with Fairy particles, Glow and Ablaze, plus Remove effects. Effects can be combined, attach to object position/scale, remain non-interactive decoration, follow hide/reveal, respect reduced motion, and render in 2D/3D. Effects are visual: no automatic damage, conditions or illumination sources are created.
+- Adds Object > Edit colors in a standard-width floating window with Reset colors. Props expose existing material parts, including separate tree foliage/trunk and crystal/base colors. Floors, walls and door frames support a base color, tokens support a marker/miniature-base color, and light color overrides affect emitted light. 3D keeps independent material caches for differing colors. Tree and obelisk 2D icons show separate parts; other 2D prop icons use a simplified primary color.
+- Adds the faceted Crystal obelisk prop to Decor & Landmarks, with a stone plinth, configurable crystal/base colors and support for object effects.
+- Replaces full-height glass window slabs and door handles with rectangular openings surrounded by wall material. Frames inherit adjoining aligned wall material/color where available, with the selected material as fallback. Glass/Opening is selectable in the door palette and Add/Remove glass pane is available on the window context menu. Windows retain existing sight transparency and movement blocking.
+- Persists colors/effects through scene/map exports, imports, Undo/Redo and shared state. Props, tokens and portals retain appearance fields directly so floor travel preserves them; structural layers use aligned export metadata. Validates supported effect names and six-digit hex color fields.
+- Adds unrun regression cases for wall/door/floor eraser paths, resized/exterior floors, color/effect sanitization and import preservation, crystal catalog/footprint coverage, adjoining-wall selection and rectangular window openings. Updates prop catalog expectations for the expanded set.
+- Adds Minigames and puzzles to to-do.md as future work; no minigame or puzzle implementation is included.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or application validation commands were run.
+
+Outstanding: user verification of wall deletion and all erasers in 2D/3D/First Person; stroke completion/cancellation and Undo/Redo; per-part colors and Reset colors; stacked/removed effects, dragging/rotation/resizing, hide/reveal and reduced motion; crystal obelisk placement/picking; glass/open window frames, adjacent material inheritance, sight and movement behavior; map/scene exports/reloads, floor travel and GM/player synchronization. Effects use a small fixed particle count per object; performance with many decorated objects is unmeasured. Earlier verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Exclude unrelated battlemap assets/catalog edits, token index formatting, scene edits/new scene files, and the pre-existing player Effects-menu change in js/tokens.js.
+
 ## Floor brush and 3D material selection saved - 2026-11-23
 
 - Makes a floor-paint click apply the selected material to one grid cell, and holding/dragging paint continuously in 2D and 3D. Interpolates cells between pointer events, including negative coordinates, so fast drags do not leave gaps. Floor painting aligns to grid cells; other placement tools retain their existing snap behavior.

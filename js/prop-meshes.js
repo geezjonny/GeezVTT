@@ -1,30 +1,35 @@
 import * as THREE from 'three';
+import { PROP_COLORS, objectColors } from './object-appearance.js';
 
 // One kit per map build; the renderer owns disposal of the shared resources.
 export function createPropKit() {
   const materials = new Map(), geometries = new Map();
-  const colors = { leaves: '#486b37', cloth: '#c1a578', wax: '#eee0b4', wood: '#90613c', trim: '#c19a64', metal: '#4c535d', stone: '#888b91', bone: '#dfd3ad', coal: '#29252a', flame: '#ff8a25', core: '#ffe29a' };
-  function material(role, lightColor) {
+  const colors = PROP_COLORS;
+  function material(role, lightColor, overrides={}) {
     const fire = role === 'flame' || role === 'core';
-    const key = fire && lightColor ? `${role}:${lightColor}` : role;
-    const color = new THREE.Color(fire && lightColor ? lightColor : colors[role]);
-    if (role === 'core' && lightColor) color.lerp(new THREE.Color('#ffffff'), .4);
+    const value=overrides[role] || (fire && lightColor ? lightColor : colors[role]);
+    const color = new THREE.Color(value);
+    if (role === 'core' && lightColor && !overrides[role]) color.lerp(new THREE.Color('#ffffff'), .4);
+    const key=`${role}:${color.getHexString()}`;
     if (!materials.has(key)) materials.set(key, new THREE.MeshStandardMaterial({
       color, roughness: role === 'metal' ? .55 : .9, metalness: role === 'metal' ? .65 : 0,
-      ...(fire ? { emissive: color, emissiveIntensity: 1.5 } : {})
+      ...(fire ? { emissive: color, emissiveIntensity: 1.5 } : {}),
+      ...(role==='crystal'?{roughness:.15,metalness:.1,transparent:true,opacity:.8,emissive:color,emissiveIntensity:.3}:{})
     }));
     return materials.get(key);
   }
   function geometry(shape) {
     if (!geometries.has(shape)) geometries.set(shape, shape === 'box' ? new THREE.BoxGeometry(1,1,1) :
       shape === 'sphere' ? new THREE.SphereGeometry(1,8,6) : shape === 'cone' ? new THREE.ConeGeometry(1,1,7) :
+      shape === 'crystal' ? new THREE.CylinderGeometry(1,1,1,6) : shape === 'crystalTip' ? new THREE.ConeGeometry(1,1,6) :
       new THREE.CylinderGeometry(1,1,1,10));
     return geometries.get(shape);
   }
   return function propMesh(prop) {
     const group = new THREE.Group();
+    const overrides=objectColors(prop.colors);
     const part = (shape, role, x,y,z, sx,sy,sz) => {
-      const mesh = new THREE.Mesh(geometry(shape), material(role, prop.lightColor));
+      const mesh = new THREE.Mesh(geometry(shape), material(role, prop.lightColor, overrides));
       mesh.position.set(x,y,z); mesh.scale.set(sx,sy,sz);
       mesh.castShadow = !['flame','core'].includes(role); mesh.receiveShadow = mesh.castShadow;
       group.add(mesh);
@@ -46,6 +51,12 @@ export function createPropKit() {
       tip.rotation.z=-.16;
     };
     switch(prop.kind) {
+      case 'crystalObelisk':
+        box('stone',0,.12,0,.85,.24,.85);
+        box('stone',0,.29,0,.64,.1,.64);
+        part('crystal','crystal',0,1.1,0,.3,1.65,.3);
+        part('crystalTip','crystal',0,2.125,0,.3,.4,.3);
+        break;
       case 'tree':
       case 'pine':
         rod('wood',[0,0,0],[0,1.8,0],.16);
@@ -200,7 +211,7 @@ export function createPropKit() {
           lidGeometry.translate(0,0,-.48);
           geometries.set('lid',lidGeometry);
         }
-        const lid=new THREE.Mesh(geometries.get('lid'),material('trim'));
+        const lid=new THREE.Mesh(geometries.get('lid'),material('trim',undefined,overrides));
         lid.rotation.y=Math.PI/2; lid.position.y=.46; lid.castShadow=lid.receiveShadow=true; group.add(lid);
         for(const x of [-.34,.34]) {
           box('metal',x,.24,.318,.055,.48,.025);
@@ -258,8 +269,9 @@ export function createPropKit() {
               new THREE.Vector3(Math.cos(next)*radius,.035,Math.sin(next)*radius));
           }
         }
-        if(!materials.has('web')) materials.set('web',new THREE.LineBasicMaterial({color:'#d6d9db',transparent:true,opacity:.75}));
-        group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),materials.get('web')));
+        const webKey=`web:${overrides.web || colors.web}`;
+        if(!materials.has(webKey)) materials.set(webKey,new THREE.LineBasicMaterial({color:overrides.web || colors.web,transparent:true,opacity:.75}));
+        group.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(points),materials.get(webKey)));
         break;
       }
     }

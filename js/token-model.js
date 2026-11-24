@@ -1,4 +1,5 @@
 import { characterVision } from './vision-model.js';
+import { objectColors, visualEffects } from './object-appearance.js';
 import { crosses, distance, segments } from './map-editor-model.js';
 import { applyModifiers } from './effects-model.js';
 import { characterStats } from './equipment-modifiers.js';
@@ -107,7 +108,7 @@ export function importedTokens(value, width, height) {
       if (!Number.isFinite(token.x) || !Number.isFinite(token.y) || token.x < 0 || token.y < 0 || token.x > width || token.y > height) return [];
       const id = typeof token.id === 'string' && token.id.length > 0 && token.id.length <= 100 && !ids.has(token.id) ? token.id : crypto.randomUUID();
       ids.add(id);
-      return [{ id, ...props, x: token.x, y: token.y, ...(tokenSpeed(token.speed) !== null ? { speed: tokenSpeed(token.speed) } : {}),
+      return [{ id, ...props, x: token.x, y: token.y, ...(token.colors!==undefined?{colors:objectColors(token.colors)}:{}),...(token.visualEffects!==undefined?{visualEffects:visualEffects(token.visualEffects)}:{}), ...(tokenSpeed(token.speed) !== null ? { speed: tokenSpeed(token.speed) } : {}),
         ...(importedTurnFeatures(token.turnFeatures) ? { turnFeatures: importedTurnFeatures(token.turnFeatures) } : {}),
         ...(token.overCapacity === true ? {overCapacity:true} : {}),
         ...(typeof token.imageName === 'string' && token.imageName.length <= 150 && !/[/\\?#]/.test(token.imageName) && !token.imageName.includes('..') ? { imageName: token.imageName } : {}),

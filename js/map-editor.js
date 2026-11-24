@@ -7,11 +7,13 @@ import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
 import { COIN_TYPES } from './inventory-model.js';
 import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
-import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType, floorBrushCells, paintFloorTiles } from './map-editor-model.js';
+import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType, floorBrushCells, paintFloorTiles, eraseStrokeIndices, adjoiningWallIndex } from './map-editor-model.js';
 import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { sceneAudio } from './scene-audio-model.js';
+import { visualEffects, objectEffectBounds, svgObjectEffects } from './object-effects.js';
+import { PROP_COLORS, PROP_COLOR_PARTS, COLOR_LABELS, objectColors, objectLightColor } from './object-appearance.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
 import { playerDestination } from './player-actions.js';
 import { initiativeState } from './initiative-model.js';
@@ -20,7 +22,7 @@ import { showMapMenu, closeMapMenu, objectDisplayItems } from './map-object-menu
 import { installMaterialPatterns, materialURL } from './material-textures.js';
 import { PROPS, PROP_CATEGORIES, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
-import { tabletopPoint, previewPlacement } from './map-view-toggle.js';
+import { tabletopPoint, tabletopHit, previewPlacement } from './map-view-toggle.js';
 import { importedTriggers, activateTriggers, collisionSources, objectRef, triggerObject } from './trigger-model.js';
 import { mountTriggers, triggerMenuItem, requestObjectInteraction, interactionMenuItems } from './trigger-controls.js';
 
@@ -32,7 +34,7 @@ const host=$('view-3d');
 const showHiddenPortals=()=>isGM || !panel.hidden && !$('portals-panel').hidden && layer()==='portals';
 const showHiddenProps=()=>isGM || !panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
-let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture, floorStroke;
+let model, selected=new Set(), undo=[], redo=[], chain=[], hover, gesture, brushStroke;
 let pendingPortal, travelling=false, leftShift=false;
 window.addEventListener('keydown',event=>{if(event.code==='ShiftLeft') leftShift=true;});
 window.addEventListener('keyup',event=>{if(event.code==='ShiftLeft') leftShift=false;});
@@ -107,8 +109,10 @@ function buttons() {
     button.disabled=toolInput.querySelector(`[value="${button.dataset.tool}"]`).disabled;
   });
   document.querySelectorAll('[data-material]').forEach(button=>{
-    button.setAttribute('aria-pressed',String(button.dataset.material===materialInput(button.closest('[data-material-layer]').dataset.materialLayer).value));
+    const name=button.closest('[data-material-layer]').dataset.materialLayer;
+    button.setAttribute('aria-pressed',String(button.dataset.material===materialInput(name).value && !(name===layer() && tool()==='erase')));
   });
+  document.querySelectorAll('[data-eraser-layer]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.eraserLayer===layer() && tool()==='erase')));
 }
 function settings() {
   if(layer()==='props') return propProperties($('prop-kind').value,Number($('prop-size').value),Number($('prop-rotation').value));
@@ -119,7 +123,7 @@ function settings() {
     if(!Number.isFinite(range) || range<.25 || range>100 || !Number.isFinite(intensity) || intensity<0 || intensity>10) throw new Error('Use a light range of 0.25–100 and intensity of 0–10.');
     return {color:$('edit-color').value, range, intensity, opacity:1};
   }
-  return {material:materialInput().value, ...(layer()==='doors'?{type:$('edit-door-type').value,open:$('edit-door-type').value==='door' && $('edit-door').value==='open'}:{})};
+  return {material:materialInput().value, ...(layer()==='doors'?{type:$('edit-door-type').value,pane:$('edit-window-pane').value,open:$('edit-door-type').value==='door' && $('edit-door').value==='open'}:{})};
 }
 function attempt(fn) { try { fn(); } catch(error) { message(error.message); } }
 function render(notify=true) {
@@ -139,7 +143,7 @@ function render(notify=true) {
       let el;
       if(name==='props') {
         if(obj.hidden && !showHiddenProps()) return;
-        el=propMarker({...obj,...(obj.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(obj,token)===0)}:{}),lightColor:model.lights.find(light=>light.propId===obj.id)?.color});
+        el=propMarker({...obj,...(obj.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(obj,token)===0)}:{}),lightColor:objectLightColor(model.lights.find(light=>light.propId===obj.id))});
         el.setAttribute('opacity',obj.hidden?.3:1);
         el.setAttribute('tabindex','0'); el.setAttribute('role','button');
         el.setAttribute('aria-label',`${obj.hidden?'Hidden ':''}${PROPS[obj.kind].name}. ${isGM?'Left-drag to move. ':''}Right-click for actions.`);
@@ -149,15 +153,15 @@ function render(notify=true) {
         const destination=portalDestination(portalEntries(),obj);
         el=node('g',{transform:`translate(${obj.x} ${obj.y}) scale(${obj.size || 1})`,opacity:obj.hidden?.3:1,tabindex:0,role:'button','aria-label':`${obj.hidden?'Hidden portal':'Portal'}. Right-click for actions.`});
         el.dataset.portalId=obj.id;
-        el.append(node('circle',{r:.42,fill:'#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
+        el.append(node('circle',{r:.42,fill:objectColors(obj.colors).base || '#502e73','fill-opacity':.75,stroke:destination?'#d4a0ff':'#ffce73','stroke-width':3,'stroke-dasharray':destination?'none':'4 3','vector-effect':'non-scaling-stroke'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':.3,fill:'#fff','pointer-events':'none'});
         const appearance=propAppearance(obj);
-        if(appearance) el.append(propMarker({...appearance,x:0,y:0,size:1}));
+        if(appearance) el.append(propMarker({...appearance,x:0,y:0,size:1,colors:obj.colors}));
         else { text.textContent=PORTAL_ICONS[obj.icon] || PORTAL_ICONS.portal; el.append(text); }
       } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`});
         el.dataset.tokenId=obj.id;
-        el.append(node('circle',{r:obj.size/2,fill:'#344f70',stroke:'#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
+        el.append(node('circle',{r:obj.size/2,fill:objectColors(obj.colors).base || '#344f70',stroke:objectColors(obj.colors).base || '#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
         el.append(node('path',{d:`M ${-obj.size*.08} ${obj.size*.39} L 0 ${obj.size*.49} L ${obj.size*.08} ${obj.size*.39} Z`,fill:'#a2cbff',transform:`rotate(${obj.rotation || 0})`,'pointer-events':'none'}));
         const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
@@ -182,28 +186,50 @@ function render(notify=true) {
           el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`);
         }
       } else if(name==='floors') {
-        el=node('rect',{x:obj.x-(obj.size || 1)/2,y:obj.y-(obj.size || 1)/2,width:obj.size || 1,height:obj.size || 1,fill:`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
+        el=node('rect',{x:obj.x-(obj.size || 1)/2,y:obj.y-(obj.size || 1)/2,width:obj.size || 1,height:obj.size || 1,fill:objectColors(obj.colors).base || `url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:'stone'})`,'stroke-width':2,'vector-effect':'non-scaling-stroke'});
         el.dataset.floorIndex=index;
         el.setAttribute('tabindex','0'); el.setAttribute('role','button');
         el.setAttribute('aria-label',`Floor, ${obj.material}. Right-click for actions.`);
       } else if(name==='lights') {
+        const color=objectLightColor(obj);
         el=node('g',{tabindex:0,role:'button',opacity:obj.hidden?.3:1,'aria-label':'Light. Right-click for actions.'});
         el.dataset.lightIndex=index;
-        el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:obj.color,stroke:obj.color,opacity:obj.off?0:Math.min(1,(obj.opacity ?? 1)*(obj.intensity ?? 1)),class:'light-range'}));
+        el.append(node('circle',{cx:obj.x,cy:obj.y,r:obj.range,fill:color,stroke:color,opacity:obj.off?0:Math.min(1,(obj.opacity ?? 1)*(obj.intensity ?? 1)),class:'light-range'}));
         const appearance=propAppearance(obj);
-        const marker=appearance?propMarker({...appearance,lightColor:obj.color}):node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:obj.color});
+        const marker=appearance?propMarker({...appearance,lightColor:color,colors:obj.colors}):node('circle',{cx:obj.x,cy:obj.y,r:.12,fill:color});
         if(obj.propId) { marker.setAttribute('visibility','hidden'); el.setAttribute('pointer-events','none'); }
         marker.classList.add('light-source'); el.append(marker);
       } else {
         el=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),class:`map-line${name==='doors'?` door${obj.type==='window'?' window':obj.open?' open':''}`:''}`});
+        if(obj.type==='window') {
+          const adjacent=model.walls[adjoiningWallIndex(obj,model.walls)];
+          const color=objectColors(obj.colors).base || objectColors(adjacent?.colors).base;
+          const material=adjacent?.material || obj.material || 'stone';
+          const frame=node('polyline',{points:obj.points.map(p=>`${p.x},${p.y}`).join(' '),fill:'none','vector-effect':'non-scaling-stroke'});
+          frame.style.stroke=color || `url(#material-${Object.hasOwn(MATERIALS,material)?material:'stone'})`; frame.style.strokeWidth='7px';
+          const a=obj.points[0], b=obj.points.at(-1), length=Math.hypot(b.x-a.x,b.y-a.y) || 1, inset=Math.min(.12,length*.2)/length;
+          const pane=node('line',{x1:a.x+(b.x-a.x)*inset,y1:a.y+(b.y-a.y)*inset,x2:b.x-(b.x-a.x)*inset,y2:b.y-(b.y-a.y)*inset,stroke:obj.pane==='open'?'#15191f':'#8bd9f2','stroke-width':3,'vector-effect':'non-scaling-stroke'});
+          el=node('g'); el.append(frame,pane);
+        }
         if(name==='doors') {
           el.dataset.doorIndex=index;
           el.setAttribute('tabindex','0');
           el.setAttribute('role','button');
-          el.setAttribute('aria-label',`Door, ${obj.open?'open':'closed'}, ${obj.locked?'locked':'unlocked'}. Right-click for actions.`);
+          el.setAttribute('aria-label',obj.type==='window'?`Window, ${obj.pane==='open'?'opening':'glass pane'}. Right-click for actions.`:`Door, ${obj.open?'open':'closed'}, ${obj.locked?'locked':'unlocked'}. Right-click for actions.`);
         }
         if(name==='walls' && ['wooden fence','iron fence','barricade','broken wall'].includes(obj.material)) el.setAttribute('stroke-dasharray',obj.material==='broken wall'?'9 3 4 2':'3 2');
-        if(obj.type!=='window') el.style.stroke=`url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
+        if(obj.type!=='window') el.style.stroke=objectColors(obj.colors).base || `url(#material-${Object.hasOwn(MATERIALS,obj.material)?obj.material:name==='doors'?'wood':'stone'})`;
+      }
+      const effects=visualEffects(obj.visualEffects);
+      if(effects.length) {
+        const bounds=objectEffectBounds(obj,name);
+        if(['tokens','props','portals'].includes(name)) {
+          bounds.x=0; bounds.y=0;
+          if(name!=='tokens') { bounds.width/=obj.size || 1; bounds.depth/=obj.size || 1; }
+        }
+        const effect=svgObjectEffects(bounds,effects);
+        if(el.tagName.toLowerCase()==='g') el.append(effect);
+        else { const wrapper=node('g'); wrapper.append(el,effect); el=wrapper; }
       }
       if(obj.hidden) el.setAttribute('opacity','.3');
       el.dataset.triggerLayer=name; el.dataset.triggerId=obj.id;
@@ -221,7 +247,7 @@ function render(notify=true) {
     });
   }
   // Retain the current renderer contract, with material metadata alongside walls.
-  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),wallHidden:model.walls.map(w=>w.hidden===true),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers};
+  floor.tabletopMap={...floor.tabletopMap,floors:model.floors,walls:model.walls.map(w=>w.points),wallMaterials:model.walls.map(w=>w.material),wallHidden:model.walls.map(w=>w.hidden===true),wallEffects:model.walls.map(w=>w.visualEffects),wallColors:model.walls.map(w=>w.colors),doors:model.doors,lights:model.lights,tokens:model.tokens,portals:model.portals,props:model.props,triggers:model.triggers};
   buttons();
   if(notify) floor.dispatchEvent(new Event('map-changed'));
 }
@@ -395,37 +421,55 @@ function bucket(p,room=false) {
   }
   render(); message(`Filled area with ${fresh.length} ${layer()}.`);
 }
-function startFloorStroke(event) {
-  if(floorStroke) return;
-  const p=point(event,true);
+function startBrushStroke(event) {
+  if(brushStroke) return;
+  const p=point(event,tool()!=='erase') || (svg.hidden && tool()==='erase'?{x:0,y:0}:null);
   if(!p) return;
-  floorStroke={pointerId:event.pointerId,target:event.currentTarget,point:p,material:settings().material,before:geometry(),changed:false};
-  floorStroke.target.setPointerCapture(event.pointerId);
-  continueFloorStroke(event);
+  brushStroke={pointerId:event.pointerId,target:event.currentTarget,point:p,layer:layer(),erase:tool()==='erase',material:settings().material,before:geometry(),changed:false};
+  brushStroke.target.setPointerCapture(event.pointerId);
+  continueBrushStroke(event);
 }
-function continueFloorStroke(event) {
-  if(!floorStroke || event.pointerId!==floorStroke.pointerId) return;
-  const p=point(event,true);
-  if(!p) return;
-  const cells=floorBrushCells(floorStroke.point,p);
-  floorStroke.point=p;
-  if(paintFloorTiles(model.floors,cells,floorStroke.material)) {
-    floorStroke.changed=true; render();
+function continueBrushStroke(event) {
+  if(!brushStroke || event.pointerId!==brushStroke.pointerId) return;
+  const projected=point(event,!brushStroke.erase);
+  if(!projected && !(brushStroke.erase && svg.hidden)) return;
+  const p=projected || brushStroke.point;
+  if(brushStroke.erase) {
+    let indices=[];
+    if(svg.hidden && (brushStroke.layer!=='floors' || !projected)) {
+      const hit=tabletopHit(event), index=hit?.[{walls:'wallIndex',doors:'doorIndex',floors:'floorIndex'}[brushStroke.layer]];
+      if(Number.isInteger(index)) indices=[index];
+    } else {
+      const matrix=svg.getScreenCTM(), tolerance=svg.hidden?0:9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
+      indices=eraseStrokeIndices(model[brushStroke.layer],brushStroke.point,p,brushStroke.layer,tolerance);
+    }
+    brushStroke.point=p;
+    if(indices.length) {
+      const removed=new Set(indices);
+      model[brushStroke.layer]=model[brushStroke.layer].filter((_,index)=>!removed.has(index));
+      brushStroke.changed=true; selected.clear(); render();
+    }
+    return;
+  }
+  const cells=floorBrushCells(brushStroke.point,p);
+  brushStroke.point=p;
+  if(paintFloorTiles(model.floors,cells,brushStroke.material)) {
+    brushStroke.changed=true; render();
   }
 }
-function finishFloorStroke(event) {
-  if(!floorStroke || event.pointerId!==floorStroke.pointerId) return;
-  const stroke=floorStroke; floorStroke=null;
+function finishBrushStroke(event) {
+  if(!brushStroke || event.pointerId!==brushStroke.pointerId) return;
+  const stroke=brushStroke; brushStroke=null;
   if(stroke.target.hasPointerCapture(stroke.pointerId)) stroke.target.releasePointerCapture(stroke.pointerId);
   if(stroke.changed) { undo.push(stroke.before); if(undo.length>50) undo.shift(); redo=[]; buttons(); }
 }
 window.addEventListener('pointermove',event=>{
-  if(!floorStroke) return;
-  if(!(event.buttons&1)) { finishFloorStroke(event); return; }
-  attempt(()=>continueFloorStroke(event));
+  if(!brushStroke) return;
+  if(!(event.buttons&1)) { finishBrushStroke(event); return; }
+  attempt(()=>continueBrushStroke(event));
 });
-window.addEventListener('pointerup',finishFloorStroke);
-window.addEventListener('lostpointercapture',event=>{if(event.target===floorStroke?.target) finishFloorStroke(event);});
+window.addEventListener('pointerup',finishBrushStroke);
+window.addEventListener('lostpointercapture',event=>{if(event.target===brushStroke?.target) finishBrushStroke(event);});
 window.addEventListener('blur',cancelGesture);
 host.addEventListener('pointermove',event=>{
   if(!isGM || !model || !floor.buildLayer || host.hidden) return;
@@ -438,11 +482,12 @@ host.addEventListener('pointercancel',cancelGesture);
 host.addEventListener('pointerdown',event=>{
   if(!isGM || !model || !floor.buildLayer || host.hidden || event.button!==0 || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
   const raw=point(event);
-  if(!raw || (!['floors','portals','props'].includes(layer()) && !contains(raw))) return;
+  if((!raw && tool()!=='erase') || (raw && tool()!=='erase' && !['floors','portals','props'].includes(layer()) && !contains(raw))) return;
   event.preventDefault(); host.querySelector('canvas').focus({preventScroll:true});
   attempt(()=>{
-    if(floor.buildLayer==='floors' && leftShift && event.shiftKey) bucket(raw,true);
-    else if(layer()==='floors') startFloorStroke(event);
+    if(tool()==='erase' && ['walls','floors','doors'].includes(layer())) startBrushStroke(event);
+    else if(floor.buildLayer==='floors' && leftShift && event.shiftKey) bucket(raw,true);
+    else if(layer()==='floors') startBrushStroke(event);
     else paint(point(event,true));
   });
   hover=point(event,true); drawPreview();
@@ -455,11 +500,14 @@ svg.addEventListener('pointerdown',event=>{
   if(!['floors','portals','props'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
   event.preventDefault(); svg.focus();
   const p=point(event), index=hit(p);
+  if(tool()==='erase' && ['walls','floors','doors'].includes(layer())) {
+    attempt(()=>startBrushStroke(event)); return;
+  }
   if(floor.buildLayer==='floors' && leftShift && event.shiftKey) {
     attempt(()=>bucket(p,true)); return;
   }
   if(tool()==='paint' || tool()==='bucket') {
-    attempt(()=>tool()==='paint'?(layer()==='floors'?startFloorStroke(event):paint(point(event,true))):bucket(p)); return;
+    attempt(()=>tool()==='paint'?(layer()==='floors'?startBrushStroke(event):paint(point(event,true))):bucket(p)); return;
   }
   gesture={start:p,screen:{x:event.clientX,y:event.clientY},index,shift:event.shiftKey,box:!(tool()==='select' && selected.has(index) && !event.shiftKey),before:null};
   svg.setPointerCapture(event.pointerId);
@@ -514,14 +562,14 @@ svg.addEventListener('pointerup',event=>{
       if(layer()==='lights') { $('edit-color').value=obj.color; $('edit-range').value=obj.range; $('edit-intensity').value=obj.intensity ?? 1; }
       else if(layer()==='props') { $('prop-kind').value=obj.kind; $('prop-size').value=obj.size; $('prop-rotation').value=obj.rotation; }
       else if(layer()==='portals') { if(!portalDestination(portalEntries(),obj)) pendingPortal={scene:floor.sceneDocument,pairId:obj.pairId}; }
-      else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') { $('edit-door-type').value=obj.type || 'door'; $('edit-door').value=obj.open?'open':'closed'; doorTypeChanged(); } }
+      else if(layer()!=='tokens') { if(obj.material) { materialInput().value=obj.material; materialInput().dispatchEvent(new Event('change')); } if(layer()==='doors') { $('edit-door-type').value=obj.type || 'door'; $('edit-window-pane').value=obj.pane || 'glass'; $('edit-door').value=obj.open?'open':'closed'; doorTypeChanged(); } }
     }
     render(false); message(`Selected ${selected.size} ${layer()}. Drag selected objects to move, or apply settings.`);
   } else attempt(()=>apply(indices,tool()));
 });
 function cancelGesture() {
-  if(floorStroke) {
-    const stroke=floorStroke; floorStroke=null;
+  if(brushStroke) {
+    const stroke=brushStroke; brushStroke=null;
     if(stroke.target.hasPointerCapture(stroke.pointerId)) stroke.target.releasePointerCapture(stroke.pointerId);
     if(stroke.changed && model) { Object.assign(model,stroke.before); render(); }
   }
@@ -775,6 +823,11 @@ function doorMenu(index,x,y,origin) {
   const door=model.doors[index];
   if(!door || !visibleObject(floor.tabletopMap,door)) return;
   if(!isGM) {
+    if(door.type==='window') {
+      const actions=interactionMenuItems(objectRef('doors',door));
+      if(actions.length) showMapMenu(x,y,actions,origin);
+      return;
+    }
     showMapMenu(x,y,[{label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))}],origin); return;
   }
   cancelGesture();
@@ -784,8 +837,12 @@ function doorMenu(index,x,y,origin) {
   };
   showMapMenu(x,y,[
     triggerMenuItem(objectRef('doors',door)), resizeMenuItem('doors',door),
-    {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))},
-    {label:door.locked?'Unlock':'Lock',disabled:door.type==='window',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})},
+    ...(door.type==='window'?[
+      {label:door.pane==='open'?'Add glass pane':'Remove glass pane',action:()=>change(()=>{door.pane=door.pane==='open'?'glass':'open';})}
+    ]:[
+      {label:door.open?'Close':'Open',disabled:!door.open && door.locked,action:()=>requestObjectInteraction(objectRef('doors',door))},
+      {label:door.locked?'Unlock':'Lock',action:()=>change(()=>{door.locked=!door.locked; if(door.locked) door.open=false;})}
+    ]),
     ...objectDisplayItems('doors',door),
     {label:'Add light',action:()=>change(()=>addObjectLight({x:(door.points[0].x+door.points[1].x)/2,y:(door.points[0].y+door.points[1].y)/2}))},
     {label:'Delete',action:()=>change(()=>{model.doors=model.doors.filter(item=>item!==door);})}
@@ -814,7 +871,12 @@ function wallMenu(index,x,y,origin) {
   const wall=model.walls[index];
   if(!wall || !visibleObject(floor.tabletopMap,wall)) return;
   cancelGesture();
-  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall)),resizeMenuItem('walls',wall),...objectDisplayItems('walls',wall)]:[]),...interactionMenuItems(objectRef('walls',wall))];
+  const actions=[...(isGM?[triggerMenuItem(objectRef('walls',wall)),resizeMenuItem('walls',wall),...objectDisplayItems('walls',wall),{
+    label:'Delete',action:()=>{
+      if(!model.walls.some(item=>item.id===wall.id)) return;
+      remember(); model.walls=model.walls.filter(item=>item.id!==wall.id); selected.clear(); render();
+    }
+  }]:[]),...interactionMenuItems(objectRef('walls',wall))];
   if(actions.length) showMapMenu(x,y,actions,origin);
 }
 async function fillCompartment(prop,tier) {
@@ -1042,6 +1104,55 @@ floor.addEventListener('object-order',event=>{
   [objects[index],objects[next]]=[objects[next],objects[index]];
   selected.clear(); render();
 });
+floor.addEventListener('object-effect',event=>{
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  const {layer,id,effect}=event.detail;
+  if(!['floors','walls','doors','lights','props','portals','tokens'].includes(layer) || effect!==null && !visualEffects([effect]).length) return;
+  cancelGesture();
+  const object=model[layer].find(object=>object.id===id);
+  if(!object) return;
+  const current=visualEffects(object.visualEffects), next=effect===null?[]:visualEffects([...current,effect]);
+  if(JSON.stringify(current)===JSON.stringify(next)) return;
+  remember(); object.visualEffects=next; render();
+});
+let editingColors, colorEditInput;
+const colorObject=()=>editingColors && model?.[editingColors.layer]?.find(object=>object.id===editingColors.id);
+function drawColorFields() {
+  const object=colorObject();
+  if(!object) return;
+  const kind=propAppearance(object)?.kind || (editingColors.layer==='props'?object.kind:null);
+  const roles=PROP_COLOR_PARTS[kind] || ['base'], colors=objectColors(object.colors);
+  const wall=editingColors.layer==='doors' && object.type==='window'?model.walls[adjoiningWallIndex(object,model.walls)]:null;
+  $('object-color-fields').replaceChildren(...roles.map(role=>{
+    const label=document.createElement('label'), input=document.createElement('input');
+    label.textContent=editingColors.layer==='tokens'?'Base / marker':COLOR_LABELS[role];
+    input.type='color'; input.dataset.colorRole=role;
+    input.value=colors[role] || PROP_COLORS[role] || objectColors(wall?.colors).base || MATERIALS[wall?.material || object.material] || (editingColors.layer==='lights'?object.color:editingColors.layer==='tokens'?'#344f70':'#502e73');
+    label.append(input); return label;
+  }));
+}
+floor.addEventListener('object-colors',event=>{
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  if(!['floors','walls','doors','lights','props','portals','tokens'].includes(event.detail.layer)) return;
+  cancelGesture(); editingColors=event.detail; colorEditInput=null;
+  if(!colorObject()) return;
+  drawColorFields(); openPanel($('object-colors-panel'));
+});
+$('object-colors-form').addEventListener('submit',event=>event.preventDefault());
+$('object-color-fields').addEventListener('input',event=>{
+  if(!isGM || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  const object=colorObject(), input=event.target, role=input.dataset.colorRole;
+  if(!object || !Object.hasOwn(objectColors({[role]:input.value}),role) || object.colors?.[role]===input.value) return;
+  if(colorEditInput!==input) remember();
+  colorEditInput=input; object.colors={...objectColors(object.colors),[role]:input.value}; render();
+});
+for(const type of ['change','focusout']) $('object-color-fields').addEventListener(type,()=>{colorEditInput=null;});
+$('object-colors-reset').addEventListener('click',()=>{
+  const object=colorObject();
+  if(!isGM || !object || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true' || !Object.keys(objectColors(object.colors)).length) return;
+  remember(); object.colors={}; colorEditInput=null; render(); drawColorFields();
+});
+floor.addEventListener('map-ready',()=>{editingColors=null; colorEditInput=null; $('object-colors-panel').hidden=true;});
 function resizeMenuItem(layer,object) {
   return {label:'Resize...',action:()=>floor.dispatchEvent(new CustomEvent('object-resize',{detail:{layer,id:object.id}}))};
 }
@@ -1150,7 +1261,7 @@ for(const button of document.querySelectorAll('[data-edit-layer], #open-tools'))
 });
 $('fog-tool').addEventListener('change',()=>{if($('fog-tool').value!=='off') stopBuild();});
 for(const input of [layerInput,toolInput]) input.addEventListener('change',()=>{cancelGesture(); updateTools();});
-function doorTypeChanged() { $('edit-door').disabled=$('edit-door-type').value==='window'; }
+function doorTypeChanged() { const window=$('edit-door-type').value==='window'; $('edit-door').disabled=window; $('window-pane-label').hidden=!window; }
 $('edit-door-type').addEventListener('change',doorTypeChanged);
 $('prop-category').replaceChildren(...Object.keys(PROP_CATEGORIES).map(name=>new Option(name,name)));
 $('prop-category').addEventListener('change',()=>{
@@ -1191,10 +1302,21 @@ for(const option of toolInput.options) {
   $('tool-buttons').append(button);
 }
 for(const palette of document.querySelectorAll('[data-material-layer]')) {
-  const input=materialInput(palette.dataset.materialLayer), materials=MATERIAL_LAYERS[palette.dataset.materialLayer];
+  const name=palette.dataset.materialLayer, input=materialInput(name), materials=MATERIAL_LAYERS[name];
   const initial=input.value;
   input.replaceChildren(...materials.map(material=>new Option(material,material)));
   input.value=initial;
+  const eraser=document.createElement('button');
+  eraser.type='button'; eraser.dataset.eraserLayer=name; eraser.title='Eraser'; eraser.setAttribute('aria-label','Eraser');
+  const icon=node('svg',{viewBox:'0 0 24 24',width:24,height:24,fill:'none',stroke:'currentColor','stroke-width':1.7,'aria-hidden':'true',focusable:'false'});
+  icon.append(node('path',{d:toolIcons.erase})); eraser.append(icon);
+  eraser.addEventListener('click',()=>{
+    if(!isGM || !model) return;
+    if(svg.hidden || floor.buildLayer) floor.dispatchEvent(new CustomEvent('build-start',{detail:name}));
+    else if(layer()!==name) { layerInput.value=name; layerInput.dispatchEvent(new Event('change')); }
+    toolInput.value='erase'; toolInput.dispatchEvent(new Event('change')); eraser.focus();
+  });
+  palette.append(eraser);
   for(const material of materials) {
     const color=MATERIALS[material];
     const button=document.createElement('button'), swatch=document.createElement('span');
@@ -1204,7 +1326,10 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
     swatch.style.backgroundImage=`url("${materialURL(material)}")`;
     swatch.style.backgroundSize='64px 64px';
     button.append(swatch);
-    button.addEventListener('click',()=>{ input.value=material; input.dispatchEvent(new Event('change')); button.focus(); });
+    button.addEventListener('click',()=>{
+      input.value=material; input.dispatchEvent(new Event('change'));
+      toolInput.value='paint'; toolInput.dispatchEvent(new Event('change')); button.focus();
+    });
     palette.append(button);
   }
   input.addEventListener('change',buttons);
@@ -1300,13 +1425,15 @@ floor.addEventListener('map-ready',()=>{
     props:importedProps(saved?.props),
     floors:(Array.isArray(saved?.floors)?saved.floors:[]).filter(o=>o && Number.isFinite(o.x) && Number.isFinite(o.y)).map(o=>({x:o.x,y:o.y,size:Number.isFinite(o.size) && o.size>=.25 && o.size<=20?o.size:1,hidden:o.hidden===true,material:Object.hasOwn(MATERIALS,o.material)?o.material:'stone'})),
     walls:imported.walls.flatMap((points,i)=>segments(points).map(pair=>({points:pair,hidden:saved?.wallHidden?.[i]===true,material:saved?.wallMaterials?.[i]}))),
-    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),hidden:d.source?.geezvtt_hidden===true,locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
+    doors:imported.doors.map((d,i)=>({...d,type:portalType(d.source),pane:d.source?.geezvtt_pane==='open'?'open':'glass',hidden:d.source?.geezvtt_hidden===true,locked:portalType(d.source)==='door' && d.source?.geezvtt_locked===true,open:portalType(d.source)==='door' && d.open,material:saved?.doorMaterials?.[i]})),
     lights:imported.lights.map(l=>({...l,propId:typeof l.source?.geezvtt_prop_id==='string'?l.source.geezvtt_prop_id:null,hidden:l.source?.geezvtt_hidden===true,off:l.source?.geezvtt_off===true,icon:propAppearance({icon:l.source?.geezvtt_icon})?l.source.geezvtt_icon:''})),tokens:importedTokens(saved?.tokens,imported.width,imported.height)};
   // Each wall and door segment is individually selectable and replaceable.
   model.doors=model.doors.flatMap(d=>segments(d.points).map(points=>({...d,points})));
   for(const name of ['floors','walls','doors','lights','props','portals','tokens']) model[name].forEach((object,index)=>{
     const id=saved?.objectIds?.[name]?.[index];
-    if(typeof id==='string' && id && id.length<=100) object.id=id;
+    if(!['props','portals','tokens'].includes(name) && typeof id==='string' && id && id.length<=100) object.id=id;
+    object.visualEffects=visualEffects(object.visualEffects ?? saved?.objectEffects?.[name]?.[index]);
+    object.colors=objectColors(object.colors ?? saved?.objectColors?.[name]?.[index]);
   });
   undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=false; });
@@ -1328,12 +1455,14 @@ export function serializeMap() {
   const raw=clone(floor.sourceMap), origin=raw.resolution?.map_origin || {x:0,y:0};
   const offset=p=>({x:p.x+(Number.isFinite(origin.x)?origin.x:0),y:p.y+(Number.isFinite(origin.y)?origin.y:0)});
   raw.line_of_sight=model.walls.map(w=>w.points.map(offset));
-  raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_hidden:!!d.hidden,geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
+  raw.portals=model.doors.map(d=>({...d.source,geezvtt_type:d.type || 'door',geezvtt_pane:d.pane==='open'?'open':'glass',geezvtt_hidden:!!d.hidden,geezvtt_locked:d.type!=='window' && !!d.locked,bounds:d.points.map(offset),position:offset({x:(d.points[0].x+d.points[1].x)/2,y:(d.points[0].y+d.points[1].y)/2}),closed:d.type==='window'?false:!d.open,rotation:Math.atan2(d.points[1].y-d.points[0].y,d.points[1].x-d.points[0].x)}));
   raw.lights=model.lights.map(l=>({...l.source,geezvtt_icon:l.icon || '',geezvtt_prop_id:l.propId || null,geezvtt_hidden:!!l.hidden,geezvtt_off:!!l.off,position:offset(l),range:l.range,intensity:l.intensity ?? 1,color:Math.round((l.opacity ?? 1)*255).toString(16).padStart(2,'0')+l.color.slice(1),shadows:l.source?.shadows ?? true}));
   raw.geezvtt_editor={...raw.geezvtt_editor,floors:clone(model.floors),portals:clone(model.portals),props:clone(model.props),wallMaterials:model.walls.map(w=>w.material || null),doorMaterials:model.doors.map(d=>d.material || null),tokens:clone(floor.tabletopMap.tokens || []),environment:clone(floor.tabletopMap.environment)};
   raw.geezvtt_editor.triggers=clone(model.triggers);
   raw.geezvtt_editor.wallHidden=model.walls.map(w=>w.hidden===true);
   raw.geezvtt_editor.objectIds=Object.fromEntries(['floors','walls','doors','lights','props','portals','tokens'].map(name=>[name,model[name].map(object=>object.id)]));
+  raw.geezvtt_editor.objectEffects=Object.fromEntries(['floors','walls','doors','lights','props','portals','tokens'].map(name=>[name,model[name].map(object=>visualEffects(object.visualEffects))]));
+  raw.geezvtt_editor.objectColors=Object.fromEntries(['floors','walls','doors','lights','props','portals','tokens'].map(name=>[name,model[name].map(object=>objectColors(object.colors))]));
   raw.geezvtt_editor.initiative=initiativeState(floor.tabletopMap.initiative,model.tokens);
   return raw;
 }

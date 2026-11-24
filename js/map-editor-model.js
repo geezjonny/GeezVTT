@@ -35,8 +35,35 @@ export function paintFloorTiles(tiles,cells,material) {
   }
   return changed;
 }
+export function eraseStrokeIndices(objects,from,to,layer,tolerance=0) {
+  return objects.flatMap((object,index)=>{
+    if(layer==='floors') {
+      const half=(object.size || 1)/2;
+      const inside=p=>Math.abs(p.x-object.x)<=half && Math.abs(p.y-object.y)<=half;
+      const corners=[[-1,-1],[1,-1],[1,1],[-1,1]].map(([x,y])=>({x:object.x+x*half,y:object.y+y*half}));
+      return inside(from) || inside(to) || corners.some((a,i)=>crosses(from,to,a,corners[(i+1)%4]))?[index]:[];
+    }
+    return segments(object.points).some(([a,b])=>crosses(from,to,a,b) ||
+      Math.min(distance(from,a,b),distance(to,a,b),distance(a,from,to),distance(b,from,to))<=tolerance)?[index]:[];
+  });
+}
 export function portalType(portal) {
   return ['door','window'].includes(portal?.geezvtt_type) ? portal.geezvtt_type : portal?.closed === false ? 'window' : 'door';
+}
+export function adjoiningWallIndex(door,walls) {
+  const a=door.points[0], b=door.points.at(-1), dx=b.x-a.x, dy=b.y-a.y, epsilon=1e-6;
+  return walls.findIndex(wall=>segments(wall.points || wall).some(([c,d])=>
+    Math.abs((d.x-c.x)*dy-(d.y-c.y)*dx)<=epsilon*Math.max(1,Math.hypot(dx,dy)) &&
+    [a,b].some(p=>Math.hypot(p.x-c.x,p.y-c.y)<epsilon || Math.hypot(p.x-d.x,p.y-d.y)<epsilon)));
+}
+export function windowFrameParts(length) {
+  const edge=Math.min(.12,length*.2);
+  return [
+    {x:length/2,y:.3,width:length,height:.6},
+    {x:length/2,y:1.8,width:length,height:.4},
+    {x:edge/2,y:1.1,width:edge,height:1},
+    {x:length-edge/2,y:1.1,width:edge,height:1}
+  ];
 }
 export function segments(points) { return points.slice(1).map((b, i) => [points[i], b]); }
 export function cutDoorOpening(walls, [a,b]) {

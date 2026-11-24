@@ -8,9 +8,12 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
 import { PORTAL_ICONS } from './portal-model.js';
 import { createPropKit } from './prop-meshes.js';
+import { createObjectEffectKit } from './object-effect-meshes.js';
+import { visualEffects, objectEffectBounds } from './object-effects.js';
+import { objectColors, objectLightColor } from './object-appearance.js';
 import { propCorners, propAppearance, propDistance } from './prop-model.js';
 import { TIMES, environmentSettings, fogRectangles } from './environment-model.js';
-import { MATERIALS } from './map-editor-model.js';
+import { MATERIALS, adjoiningWallIndex, windowFrameParts } from './map-editor-model.js';
 import { materialCanvas } from './material-textures.js';
 import { pcTokenStatus } from './token-model.js';
 import { createTokenMiniKit } from './token-meshes.js';
@@ -55,6 +58,8 @@ export function createMapView3D(host) {
   const fogMaterial = new THREE.MeshBasicMaterial({ color: '#080b10', transparent: isGM, opacity: isGM ? .55 : 1 });
   let model, active = false, raf = 0, dirty = true, pendingFit = false;
   let bounds;
+  let effectKit;
+  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
   let firstPerson = false, savedCamera, look, yaw = 0, pitch = 0, lastFrame = 0;
   const keys = new Set();
   const movementKeys = { KeyW: [0,-1], KeyS: [0,1], KeyA: [-1,0], KeyD: [1,0],
@@ -369,22 +374,23 @@ export function createMapView3D(host) {
     groups.grid.add(grid);
     const palette = MATERIALS;
     const materials = new Map();
-    const material = (name, fallback) => {
+    const material = (name, fallback, tint) => {
       name=Object.hasOwn(palette,name)?name:fallback;
-      if (!materials.has(name)) {
+      const key=`${name}:${tint || ''}`;
+      if (!materials.has(key)) {
         const metallic=['metal','rusty iron','bronze'].includes(name);
         const texture=new THREE.CanvasTexture(materialCanvas(name));
         texture.colorSpace=THREE.SRGBColorSpace;
         texture.wrapS=texture.wrapT=THREE.RepeatWrapping;
         texture.anisotropy=renderer.capabilities.getMaxAnisotropy();
-        materials.set(name,new THREE.MeshStandardMaterial({map:texture,bumpMap:texture,bumpScale:metallic?.008:.035,
+        materials.set(key,new THREE.MeshStandardMaterial({color:tint || '#ffffff',map:texture,bumpMap:texture,bumpScale:metallic?.008:.035,
           roughness:metallic?.4:name==='wood'?.8:.95,metalness:metallic?.65:0}));
       }
-      return materials.get(name);
+      return materials.get(key);
     };
     (model.floors || []).forEach((tile,index)=>{
       if(!canSee(tile)) return;
-      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(tile.size || 1, tile.size || 1), material(tile.material, 'stone'));
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(tile.size || 1, tile.size || 1), material(tile.material, 'stone', objectColors(tile.colors).base));
       mesh.rotation.x = -Math.PI / 2;
       mesh.position.set(tile.x, -0.001, tile.y);
       mesh.receiveShadow = true;
@@ -394,15 +400,32 @@ export function createMapView3D(host) {
     model.walls.forEach((points, i) => {
       if(!isGM && model.wallHidden?.[i]) return;
       const start = groups.walls.children.length;
-      slabs(points, material(model.wallMaterials?.[i], 'stone'), groups.walls, false, undefined, model.wallMaterials?.[i]);
+      slabs(points, material(model.wallMaterials?.[i], 'stone', objectColors(model.wallColors?.[i]).base), groups.walls, false, undefined, model.wallMaterials?.[i]);
       for (const mesh of groups.walls.children.slice(start)) mesh.traverse(child => { child.userData.wallIndex = i; });
     });
     model.doors.forEach((door,index) => {
       if(!canSee(door)) return;
-      const window = door.type === 'window';
-      const surface = window ? new THREE.MeshStandardMaterial({ color: '#8bd9f2', transparent: true, opacity: .25, roughness: .15, depthWrite: false })
-        : material(door.material, 'wood');
-      slabs(door.points, surface, groups.doors, !window && door.open, index);
+      if(door.type==='window') {
+        const wall=adjoiningWallIndex(door,model.walls), frame=material(model.wallMaterials?.[wall] || door.material,'stone',objectColors(door.colors).base || objectColors(model.wallColors?.[wall]).base);
+        const a=door.points[0], b=door.points.at(-1), length=Math.hypot(b.x-a.x,b.y-a.y);
+        if(length<.00001) return;
+        const group=new THREE.Group(); group.userData.doorIndex=index;
+        group.position.set(a.x,0,a.y); group.rotation.y=-Math.atan2(b.y-a.y,b.x-a.x);
+        for(const part of windowFrameParts(length)) {
+          const mesh=new THREE.Mesh(new THREE.BoxGeometry(part.width,part.height,.12),frame);
+          const positions=mesh.geometry.attributes.position, normals=mesh.geometry.attributes.normal, uv=mesh.geometry.attributes.uv;
+          for(let vertex=0;vertex<positions.count;vertex++) {
+            const x=positions.getX(vertex)+part.x, y=positions.getY(vertex)+part.y, z=positions.getZ(vertex)+.06;
+            uv.setXY(vertex,Math.abs(normals.getX(vertex))>.5?z:x,Math.abs(normals.getY(vertex))>.5?z:y);
+          }
+          mesh.position.set(part.x,part.y,0); mesh.castShadow=mesh.receiveShadow=true; group.add(mesh);
+        }
+        if(door.pane!=='open') {
+          const pane=new THREE.Mesh(new THREE.BoxGeometry(length-Math.min(.12,length*.2)*2,1,.025),new THREE.MeshStandardMaterial({color:'#8bd9f2',transparent:true,opacity:.25,roughness:.15,depthWrite:false}));
+          pane.position.set(length/2,1.1,0); group.add(pane);
+        }
+        group.traverse(child=>{child.userData.doorIndex=index;}); groups.doors.add(group);
+      } else slabs(door.points,material(door.material,'wood',objectColors(door.colors).base),groups.doors,door.open,index);
     });
     const propMesh=createPropKit();
     const appearanceMesh=(appearance,key,value)=>{
@@ -411,14 +434,14 @@ export function createMapView3D(host) {
       return mesh;
     };
     for (const prop of model.props || []) if(canSee(prop)) groups.props.add(propMesh({
-      ...prop,...(prop.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(prop,token)===0)}:{}),kind:propAppearance(prop)?.kind || prop.kind,lightColor:model.lights.find(light=>light.propId===prop.id)?.color
+      ...prop,...(prop.kind==='pressurePlate'?{open:model.tokens.some(token=>token.kind==='pc' && propDistance(prop,token)===0)}:{}),kind:propAppearance(prop)?.kind || prop.kind,lightColor:objectLightColor(model.lights.find(light=>light.propId===prop.id))
     }));
     model.lights.forEach((light,index)=>{
       if(light.propId || !canSee(light)) return;
       const appearance=propAppearance(light);
-      if(appearance) groups.lightMarkers.add(appearanceMesh({...appearance,lightColor:light.color},'lightIndex',index));
+      if(appearance) groups.lightMarkers.add(appearanceMesh({...appearance,colors:light.colors,lightColor:objectLightColor(light)},'lightIndex',index));
       else {
-        const marker=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:light.color}));
+        const marker=new THREE.Mesh(new THREE.SphereGeometry(.12,8,6),new THREE.MeshBasicMaterial({color:objectLightColor(light)}));
         marker.position.set(light.x,.12,light.y); marker.userData.lightIndex=index;
         groups.lightMarkers.add(marker);
       }
@@ -427,13 +450,13 @@ export function createMapView3D(host) {
       if (!canSee(portal)) continue;
       const appearance=propAppearance(portal);
       if(appearance) {
-        groups.portals.add(appearanceMesh(appearance,'portalId',portal.id));
+        groups.portals.add(appearanceMesh({...appearance,colors:portal.colors},'portalId',portal.id));
         continue;
       }
       const canvas=document.createElement('canvas');
       canvas.width=canvas.height=128;
       const context=canvas.getContext('2d');
-      context.fillStyle='#502e73';
+      context.fillStyle=objectColors(portal.colors).base || '#502e73';
       context.beginPath(); context.arc(64,64,59,0,Math.PI*2); context.fill();
       context.strokeStyle='#d4a0ff'; context.lineWidth=6; context.stroke();
       context.fillStyle='#fff'; context.font='48px system-ui'; context.textAlign='center'; context.textBaseline='middle';
@@ -452,7 +475,7 @@ export function createMapView3D(host) {
       const canvas = document.createElement('canvas');
       canvas.width = 256; canvas.height = status ? 384 : 256;
       const context = canvas.getContext('2d');
-      context.fillStyle = '#344f70';
+      context.fillStyle = objectColors(token.colors).base || '#344f70';
       context.beginPath(); context.arc(128, 128, 124, 0, Math.PI * 2); context.fill();
       context.strokeStyle = '#a2cbff'; context.lineWidth = 8; context.stroke();
       context.fillStyle = '#fff'; context.font = 'bold 22px system-ui'; context.textAlign = 'center'; context.textBaseline = 'middle';
@@ -479,7 +502,7 @@ export function createMapView3D(host) {
       const mesh = new THREE.Mesh(geometry,
         new THREE.MeshBasicMaterial({ map: texture, transparent: true, alphaTest: .1 }));
       mesh.rotation.x = -Math.PI / 2;
-      const miniature = tokenMini(token.icon);
+      const miniature = tokenMini(token.icon,objectColors(token.colors).base);
       miniature.rotation.y = -(token.rotation || 0) * Math.PI / 180;
       miniature.scale.setScalar(token.size);
       const group = new THREE.Group();
@@ -488,21 +511,33 @@ export function createMapView3D(host) {
       group.traverse(object => { object.userData.tokenId = token.id; });
       groups.tokens.add(group);
     }
+    effectKit=createObjectEffectKit();
     for(const name of ['floors','walls','doors','props','portals','tokens','lightMarkers']) {
-      groups[name].children.forEach((object,index)=>object.traverse(child=>{
-        child.renderOrder=index+1;
-        const data=child.userData;
-        const hidden=data.wallIndex!==undefined?model.wallHidden?.[data.wallIndex]:
-          data.doorIndex!==undefined?model.doors[data.doorIndex]?.hidden:
-          data.floorIndex!==undefined?model.floors[data.floorIndex]?.hidden:
-          data.lightIndex!==undefined?model.lights[data.lightIndex]?.hidden:
-          model[name]?.find(item=>item.id===(data.tokenId || data.portalId || data.propId))?.hidden;
-        if(isGM && hidden && child.material) {
-          child.material=child.material.clone(); child.material.transparent=true;
-          child.material.opacity*=.3; child.material.depthWrite=false; child.castShadow=false;
+      const attached=new Set(), layer=name==='lightMarkers'?'lights':name;
+      groups[name].children.forEach((object,index)=>{
+        const data=object.userData;
+        const source=layer==='walls'?{points:model.walls[data.wallIndex],hidden:model.wallHidden?.[data.wallIndex],visualEffects:model.wallEffects?.[data.wallIndex],colors:model.wallColors?.[data.wallIndex]}:
+          data.doorIndex!==undefined?model.doors[data.doorIndex]:
+          data.floorIndex!==undefined?model.floors[data.floorIndex]:
+          data.lightIndex!==undefined?model.lights[data.lightIndex]:
+          model[layer]?.find(item=>item.id===(data.tokenId || data.portalId || data.propId));
+        const effects=visualEffects(source?.visualEffects), key=layer==='walls'?data.wallIndex:source;
+        if(effects.length && !attached.has(key)) {
+          attached.add(key);
+          const effect=effectKit.mesh(objectEffectBounds(source,layer),effects);
+          if(layer==='props') effect.rotation.y=-(source.rotation || 0)*Math.PI/180;
+          object.attach(effect);
         }
-      }));
+        object.traverse(child=>{
+          child.renderOrder=index+1;
+          if(isGM && source?.hidden && child.material) {
+            child.material=child.material.clone(); child.material.transparent=true;
+            child.material.opacity*=.3; child.material.depthWrite=false; child.castShadow=false; child.userData.effectOpacityScale=.3;
+          }
+        });
+      });
     }
+    effectKit.animate(0);
     // Dispose materials for degenerate segments which produced no mesh.
     const used = new Set(), usedTextures = new Set();
     root.traverse(object => { if (object.material) { used.add(object.material); if(object.material.map) usedTextures.add(object.material.map); } });
@@ -516,7 +551,7 @@ export function createMapView3D(host) {
     lights.forEach(light => {
       const height = Math.min(1.3, light.range / 2);
       const distance = Math.hypot(light.range, height);
-      const source = new THREE.PointLight(light.color, strength(light) * 16, distance, 2);
+      const source = new THREE.PointLight(objectLightColor(light), strength(light) * 16, distance, 2);
       source.position.set(light.x, height, light.y);
       source.castShadow = shadowLights.has(light);
       source.shadow.mapSize.set(512, 512);
@@ -557,6 +592,7 @@ export function createMapView3D(host) {
         invalidate();
       }
     } else controls.update();
+    if(!reducedMotion.matches && !document.hidden && effectKit?.animate(now/1000)) invalidate();
     if (dirty) { dirty = false; renderer.render(scene, camera); }
     raf = requestAnimationFrame(loop);
   }

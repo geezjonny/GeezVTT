@@ -1,6 +1,22 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { segments, cutDoorOpening, distance, crosses, inBox, bucketCells, floorBrushCells, paintFloorTiles } from '../js/map-editor-model.js';
+import { segments, cutDoorOpening, distance, crosses, inBox, bucketCells, floorBrushCells, paintFloorTiles, eraseStrokeIndices } from '../js/map-editor-model.js';
+
+test('eraser strokes remove crossed walls and doors without touching nearby segments',()=>{
+  const objects=[{points:[{x:1,y:0},{x:1,y:2}]},{points:[{x:4,y:0},{x:4,y:2}]}];
+  for(const layer of ['walls','doors']) {
+    assert.deepEqual(eraseStrokeIndices(objects,{x:0,y:1},{x:2,y:1},layer,.1),[0]);
+    assert.deepEqual(eraseStrokeIndices(objects,{x:.95,y:1},{x:.95,y:1},layer,.1),[0]);
+    assert.deepEqual(eraseStrokeIndices(objects,{x:2,y:3},{x:3,y:3},layer,.1),[]);
+  }
+});
+
+test('floor erasers follow the stroke through exterior and resized tiles',()=>{
+  const tiles=[{x:-1.5,y:.5},{x:.5,y:.5},{x:2.5,y:.5,size:2},{x:.5,y:3.5}];
+  assert.deepEqual(eraseStrokeIndices(tiles,{x:-2,y:.5},{x:3,y:.5},'floors'),[0,1,2]);
+  assert.deepEqual(eraseStrokeIndices(tiles,{x:3.25,y:.5},{x:3.25,y:.5},'floors'),[2]);
+  assert.equal(tiles.length,4);
+});
 
 test('floor brush clicks paint one cell and fast drags fill intermediate cells',()=>{
   assert.deepEqual(floorBrushCells({x:.5,y:.5},{x:.5,y:.5}),[{x:.5,y:.5}]);
