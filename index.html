@@ -117,6 +117,7 @@
     #initiative-list img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     #vtt-controls, #build-controls, #scene-controls, #initiative-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(1.8rem, 1fr)); gap: .175rem; padding: .28rem; }
     #initiative-controls { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+    html:not([data-role="gm"]) #initiative-controls { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     #vtt-controls button, #build-controls button, #scene-controls button, #initiative-start, #initiative-next, #initiative-list li { display: grid; place-items: center; aspect-ratio: 1; min-width: 0; min-height: 0; padding: 0; font-size: .455rem; }
     #initiative-list li { font-size: .7rem; }
     #vtt-controls svg, #build-controls svg, #scene-controls svg, #initiative-controls svg { width: 9.8px; height: 9.8px; margin: 2.1px; pointer-events: none; }
@@ -387,9 +388,9 @@
         <button class="editor-close" type="button" aria-label="Minimize initiative" aria-expanded="true" aria-controls="initiative-controls">&minus;</button>
       </div>
       <div id="initiative-controls" class="editor-body">
-        <button id="initiative-start" type="button" title="Start Initiative" aria-label="Start Initiative" aria-pressed="false" disabled>Start</button>
+        <button id="initiative-start" type="button" title="Start Initiative" aria-label="Start Initiative" aria-pressed="false" data-gm-only disabled>Start</button>
         <ol id="initiative-list" role="list" aria-label="Next four turns" aria-live="polite"></ol>
-        <button id="initiative-next" type="button" title="Next Turn" aria-label="Next Turn" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 4 10 8-10 8ZM19 4v16"/></svg></button>
+        <button id="initiative-next" type="button" title="Next Turn" aria-label="Next Turn" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 4 10 8-10 8ZM19 4v16"/></svg></button>
       </div>
     </section>
     <section id="player-turn-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="player-turn-title" hidden>

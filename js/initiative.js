@@ -1,5 +1,4 @@
 import { visibleObject } from './player-vision.js';
-import { visibleObject } from './player-vision.js';
 import { tokenImage } from './token-art.js';
 import { isGM, canControlPC } from './session-role.js';
 import { openPanel } from './menu-bar.js';

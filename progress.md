@@ -2,6 +2,19 @@
 
 Updated: 2026-11-23
 
+## Player door visibility and initiative controls saved - 2026-11-23
+
+- Fixes the shared vision check so door and wall surfaces do not block sight to themselves. Sight rays stop just before their destination; intervening barriers still block sight. Applies to player visibility in 2D, 3D and First Person.
+- Adds unrun regression coverage for visible door endpoints/surfaces, closed-door obstruction, open doors, intervening walls, darkness and illumination.
+- Hides initiative Start/End and Next controls from players using the existing GM-only presentation rule. Player initiative uses four columns for the existing four upcoming turns; GM controls remain available.
+- Removes a duplicate visibleObject import that prevented the initiative module from loading.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks or other application validation commands were run.
+
+Outstanding: confirm player door visibility in all views, closed-door and wall obstruction, lighting/darkvision behavior, and player initiative order presentation with GM Start/End and Next controls. Earlier verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
 ## Token art, object controls, vision, item rules and campaign tools saved - 2026-11-23
 
 - Adds character-name token portrait lookup with a catalog-backed Image name override, preserved through scene imports/exports and shared state. Portraits appear in Initiative and on 2D/3D token bases. Fixes the reported missing 3D miniatures by removing portrait-load behavior that hid them; increments the renderer import version.

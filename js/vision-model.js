@@ -16,7 +16,12 @@ export function visionAt(map, point, viewers) {
 }
 export function visionTest(map, viewers) {
   const barriers = [...(map.walls || []).map(wall => wall.points || wall), ...(map.doors || []).filter(door => door.type !== 'window' && !door.open).map(door => door.points)].flatMap(segments);
-  const clear = (a, b) => !barriers.some(([c, d]) => crosses(a, b, c, d));
+  const clear = (a, b) => {
+    // Stop just before the surface so doors and walls do not hide themselves.
+    const inset = Math.min(1, 1e-7 / (Math.hypot(b.x - a.x, b.y - a.y) || 1));
+    const end = { x: b.x + (a.x - b.x) * inset, y: b.y + (a.y - b.y) * inset };
+    return !barriers.some(([c, d]) => crosses(a, end, c, d));
+  };
   return point => {
     const lit = !['night', 'dusk'].includes(map.environment?.time) || (map.lights || []).some(light => !light.off && (light.intensity ?? 1) > 0 && (light.opacity ?? 1) > 0 && Math.hypot(light.x - point.x, light.y - point.y) <= light.range && clear(light, point));
     return viewers.some(token => {

@@ -50,6 +50,23 @@ test('individual darkvision reads Firebase senses, obeys walls and closed doors,
   map.walls=[];
   assert.equal(fogRectangles(map,[viewer]).some(r=>r.x<=4.5 && r.x+r.width>4.5 && r.y<=1.5 && r.y+r.height>1.5),false);
 });
+test('door surfaces remain visible while closed doors and intervening walls block sight beyond them', () => {
+  const door={points:[{x:3,y:1},{x:3,y:2}],open:false,type:'door'};
+  const map={walls:[],doors:[door],lights:[],environment:{time:'day'}};
+  const viewer={x:1,y:1.5,size:1,vision:characterVision({})};
+  for(const point of [...door.points,{x:3,y:1.5}]) assert.equal(visionAt(map,point,[viewer]),true);
+  assert.equal(visionAt(map,{x:4,y:1.5},[viewer]),false);
+  door.open=true;
+  assert.equal(visionAt(map,{x:4,y:1.5},[viewer]),true);
+  map.walls=[[{x:2,y:0},{x:2,y:3}]];
+  for(const point of door.points) assert.equal(visionAt(map,point,[viewer]),false);
+  map.walls=[]; door.open=false; map.environment.time='night';
+  assert.equal(visionAt(map,door.points[0],[viewer]),false);
+  map.lights=[{x:1,y:1.5,range:5}];
+  assert.equal(visionAt(map,door.points[0],[viewer]),true);
+  assert.equal(visionAt(map,{x:4,y:1.5},[viewer]),false);
+});
+
 test('variant encumbrance respects exact thresholds, current strength, size, powerful build and physical disadvantage', () => {
   const pc={stats:{str:10,dex:10},combat:{speed:30},inventory:{load:{name:'Load',weight:50}}};
   assert.equal(characterStats(pc).speed,30);
