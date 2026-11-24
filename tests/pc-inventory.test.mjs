@@ -5,9 +5,83 @@ import { decodeTree } from '../js/firebase-codec.js';
 
 globalThis.window = { GEEZ_FIREBASE_CONFIG: { databaseURL: 'https://example.test' } };
 globalThis.location = { search: '?gm=jonny' };
-const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell } = await import('../js/pc-inventory.js');
+const { addPCInventoryItem, updatePCInventory, updatePCSpellSlot, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell, consumePCItem, takeChestItems } = await import('../js/pc-inventory.js');
 const token = { npcId: 'v2:pc1' };
 const item = { name: 'Torch', equipment_category: { name: 'Adventuring Gear' }, desc: ['Light.'], special: ['Burns.'] };
+
+test('targeted item use conditionally saves consumption and the recipient together', async () => {
+  const original = globalThis.fetch;
+  let writes = 0, last;
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://example.test/v2/worlds/gaia/entities.json');
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(options.headers['If-Match'], 'item-version');
+      last = decodeTree(JSON.parse(options.body));
+      return { ok: true };
+    }
+    return { ok: true, headers: { get: () => 'item-version' }, json: async () => ({
+      pc1: { kind: 'pc', data: { inventory: { potion: { name: 'Potion', qty: 2 } }, effects: { potion: { ...BARK_ARM, consume: true, inventoryKey: 'potion' } } } },
+      target: { kind: 'pc', data: { combat: { ac: 10, hp_current: 5 } } },
+      untouched: { kind: 'npc', data: { name: 'Preserved' } }
+    }) };
+  };
+  try {
+    await consumePCItem(token, { key: 'potion', id: 'effects:potion', to: 'target' });
+    assert.equal(writes, 1);
+    assert.equal(last.pc1.data.inventory.potion.qty, 1);
+    assert.equal(last.pc1.data.activeEffects, undefined);
+    assert.equal(Object.values(last.target.data.activeEffects)[0].remainingMinutes, 60);
+    assert.equal(last.target.data.combat.hp_current, 5);
+    assert.equal(last.untouched.data.name, 'Preserved');
+    await assert.rejects(consumePCItem(token, { key: 'potion', id: 'effects:potion', to: 'untouched' }), /PC unavailable/);
+    assert.equal(writes, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+test('compartment transfers retry fresh state and receipts prevent repeated requests taking twice', async () => {
+  const originalFetch = globalThis.fetch, originalDocument = globalThis.document;
+  const chest = { id: 'chest', kind: 'crate', x: 0, y: 0, open: true, contents: [{ id: 'potion', name: 'Potion', qty: 3, weight: .5, desc: 'Keep metadata.' }] };
+  const props = [chest], selected = { ...token, id: 'token', kind: 'pc', x: 0, y: 0, size: 1 };
+  let world = { settings: { keep: true }, entities: { pc1: { kind: 'pc', data: { inventory: { old: { name: 'Old' } } } } },
+    vtt: { live: { sceneId: 'scene', map: { props: structuredClone(props), tokens: [selected] } } } };
+  let writes = 0, reads = 0;
+  globalThis.document = { getElementById: () => ({ tabletopMap: { props } }) };
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, 'https://example.test/v2/worlds/gaia.json');
+    if (options.method === 'PUT') {
+      writes++;
+      assert.equal(options.headers['If-Match'], `version-${reads}`);
+      if (writes === 1) {
+        world.vtt.live.map.props[0].contents[0].qty = 2;
+        world.entities.pc1.data.notes = 'Concurrent edit';
+        return { ok: false, status: 412 };
+      }
+      world = JSON.parse(options.body);
+      return { ok: true };
+    }
+    reads++;
+    return { ok: true, headers: { get: () => `version-${reads}` }, json: async () => structuredClone(world) };
+  };
+  try {
+    const contents = await takeChestItems(selected, chest, 'potion', props, 'request');
+    assert.equal(writes, 2);
+    assert.equal(contents[0].qty, 1);
+    assert.equal(world.settings.keep, true);
+    assert.equal(world.entities.pc1.data.notes, 'Concurrent edit');
+    const bag = decodeTree(world.entities.pc1).data.inventory;
+    const taken = Object.values(bag).find(item => item.name === 'Potion');
+    assert.equal(taken.qty, 1);
+    assert.equal(taken.weight, .5);
+    assert.equal(taken.desc, 'Keep metadata.');
+    assert.equal(bag.old.name, 'Old');
+    assert.equal((await takeChestItems(selected, chest, 'potion', props, 'request'))[0].qty, 1);
+    assert.equal(writes, 2);
+    world.vtt.live.map.props[0].locked = true;
+    await assert.rejects(takeChestItems(selected, chest, null, props, 'next-request'), /unavailable/);
+    assert.equal(writes, 2);
+  } finally { globalThis.fetch = originalFetch; globalThis.document = originalDocument; }
+});
 
 test('feat use saves the current charge count with a conditional write', async () => {
   const original = globalThis.fetch;
@@ -258,7 +332,8 @@ test('effect activation saves uses, item consumption and active state in one con
     } }) };
   };
   try {
-    await updatePCEffects(token, { type: 'activate', id: 'effects:bark' });
+    await updatePCEffects(token, { type: 'activate', id: 'effects:bark', inventoryKey: 'potion' });
+    await assert.rejects(updatePCEffects(token, { type: 'activate', id: 'effects:bark', inventoryKey: 'other-item' }), /Item effect changed/);
     conflict = true;
     await assert.rejects(updatePCEffects(token, { type: 'activate', id: 'effects:bark' }), /changed elsewhere/);
     assert.equal(writes, 2);

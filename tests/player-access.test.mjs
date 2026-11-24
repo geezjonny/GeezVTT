@@ -5,7 +5,7 @@ globalThis.location = { search: '' };
 globalThis.window = new EventTarget();
 window.GEEZ_FIREBASE_CONFIG = { databaseURL: 'https://example.test' };
 const { setPlayerIdentity, canControlPC } = await import('../js/session-role.js');
-const { readPC, addPCInventoryItem, updatePCSpellSlot, updatePCInventory, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell } = await import('../js/pc-inventory.js');
+const { readPC, addPCInventoryItem, updatePCSpellSlot, updatePCInventory, updatePCCombat, updatePCEffects, updatePCFeat, castPCSpell, consumePCItem, takeChestItems } = await import('../js/pc-inventory.js');
 
 test('players cannot add or edit items even in their own inventory', async () => {
   setPlayerIdentity({ campaign: 'daddies', character: 'Seris', pcId: 'seris' });
@@ -33,6 +33,8 @@ test('players can read another PC while every sheet mutation remains owner-only'
     await assert.rejects(updatePCInventory({ npcId: 'v2:liora' }, { type: 'remove', key: 'item' }), /Sign in/);
     await assert.rejects(updatePCCombat({ npcId: 'v2:liora' }, { type: 'set', field: 'hp_current', value: 1 }), /Sign in/);
     await assert.rejects(updatePCEffects({ npcId: 'v2:liora' }, { type: 'activate', id: 'effects:bark' }), /Sign in/);
+    await assert.rejects(consumePCItem({ npcId: 'v2:liora' }, { key: 'potion', id: 'effects:potion', to: 'seris' }), /Sign in/);
+    await assert.rejects(takeChestItems({ npcId: 'v2:seris' }, {}, null, [], 'request'), /GM session/);
     await assert.rejects(updatePCFeat({ npcId: 'v2:liora' }, { type: 'use', id: 'abilities:wind' }), /Sign in/);
     await assert.rejects(castPCSpell({ npcId: 'v2:liora' }, 'spell', 1, {}), /Sign in/);
     assert.equal(requests, 1);

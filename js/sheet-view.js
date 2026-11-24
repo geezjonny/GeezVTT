@@ -6,6 +6,7 @@ import { sheetRolls } from './sheet-rolls.js';
 import { effectsHTML } from './effects-view.js';
 import { CONDITIONS, conditionNames } from './sheet-combat.js';
 import { featEntries, featUses } from './feats-model.js';
+import { itemWeight, carryingLoad } from './inventory-weight.js';
 export const SHEET_SECTIONS = ['Stats', 'Weapons', 'Inventory', 'Feats', 'Spells', 'Effects'];
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const text = value => Array.isArray(value) ? value.join('\n\n') : value;
@@ -97,7 +98,10 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
   }
   if (section === 'Inventory') {
     const items = Object.entries(pc.inventory || {}).filter(([, item]) => item && typeof item.name === 'string');
-    let html = heading('Equipment');
+    const load = carryingLoad(pc, final.stats.str, reference);
+    let html = row('Carried (lb)', `${load.weight}${load.unknown ? ' + unknown' : ''} / ${load.capacity ?? '—'}`)
+      + row('Load', load.overCapacity ? 'Over carrying capacity' : load.unknown ? 'Incomplete weights' : 'Within carrying capacity')
+      + heading('Equipment');
     for (const [slot, label] of Object.entries(EQUIPMENT_SLOTS)) {
       const name = equippedName(pc, slot);
       const options = items.filter(([, item]) => Number(item.qty ?? 1) > 0 && fitsEquipment(slot, item, reference));
@@ -109,7 +113,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     }
     html += heading('Bag');
     html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}"${editableCombat ? ' tabindex="0"' : ''} aria-label="${esc(item.name)}${editableCombat ? ' bag actions' : ''}">${editableCombat ? `<button type="button" data-bag-menu aria-label="${esc(item.name)} actions">\u22ef</button>` : ''}${card(`${item.name} \u00d7${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc ?? lookup(item.name).desc,
-      [item.category, modifierText(item.modifiers), item.notes].filter(Boolean).join(' \u00b7 '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
+      [item.category, itemWeight(item, reference) === null ? 'Weight unknown' : `${itemWeight(item, reference)} lb each`, modifierText(item.modifiers), item.notes].filter(Boolean).join(' \u00b7 '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
     html += heading('Coins');
     for (const [coin, label] of Object.entries(COIN_TYPES)) {
       const amount = pc.coin_purse?.[coin] ?? 0;

@@ -58,6 +58,9 @@ export function importedItems(value) {
   const ids=new Set();
   return value.flatMap(item=>{
     if(!item || typeof item.id!=='string' || !item.id || item.id.length>100 || /[.#$\[\]\/]/.test(item.id) || ids.has(item.id) || typeof item.name!=='string' || !item.name.trim() || item.name.length>100) return [];
-    ids.add(item.id); return [{id:item.id,name:item.name.trim()}];
+    if (item.qty != null && (!Number.isSafeInteger(item.qty) || item.qty < 0 || item.qty > 9999)) return [];
+    if (item.weight != null && (typeof item.weight !== 'number' || !Number.isFinite(item.weight) || item.weight < 0 || item.weight > 999999)) return [];
+    if (item.coin != null && !['cp', 'sp', 'ep', 'gp', 'pp'].includes(item.coin)) return [];
+    ids.add(item.id); return [{...item,id:item.id,name:item.name.trim()}];
   });
 }

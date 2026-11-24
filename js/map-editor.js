@@ -1,8 +1,11 @@
-import { readPC, pcInventory, takeChestItem } from './pc-inventory.js';
+import { readPC, pcInventory, takeChestItems } from './pc-inventory.js';
+import { loadSheetReference } from './sheet-view.js';
+import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
+import { COIN_TYPES } from './inventory-model.js';
 import { buildRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
 import { MATERIALS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType } from './map-editor-model.js';
-import { isGM } from './session-role.js';
+import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
 import { importedPortals, portalDestination, PORTAL_ICONS } from './portal-model.js';
@@ -442,6 +445,8 @@ for(const prefix of ['object-light-','edit-']) for(const property of ['color','i
   for(const type of ['change','blur']) input.addEventListener(type,()=>{lightEditInput=null;});
 }
 let chestId, pendingChest, chestBusy=false;
+let pendingTake, takeTimer, chestMessage='', chestAddMode='custom';
+const chestToken=()=>model?.tokens.find(item=>item.id===floor.selectedTokenId && item.kind==='pc' && canControlPC(item));
 let inventoryVersion=0;
 async function drawInventory() {
   const version=++inventoryVersion, target=$('chest-inventory'); target.replaceChildren();
@@ -451,55 +456,109 @@ async function drawInventory() {
     const pc=await readPC(token);
     if(version!==inventoryVersion) return;
     for(const item of pcInventory(pc)) { const row=document.createElement('div'); row.textContent=`${item.name} (${item.qty ?? 1})`; target.append(row); }
+    const coins=Object.keys(COIN_TYPES).filter(key=>Number(pc.coin_purse?.[key])>0).map(key=>`${pc.coin_purse[key]} ${key}`);
+    if(coins.length) {const row=document.createElement('div'); row.textContent=`Coins: ${coins.join(' · ')}`; target.append(row);}
   } catch(error) { if(version===inventoryVersion) target.textContent=error.message; }
 }
-floor.addEventListener('vtt-selection-changed',()=>{if(chestId) drawInventory();});
+floor.addEventListener('vtt-selection-changed',()=>{if(chestId) drawChest();});
 function requestChest(chest,command,itemId) {
-  const tokenId=floor.selectedTokenId;
-  if(!tokenId) { $('session-status').textContent='Select a PC first.'; return; }
+  const token=chestToken(), tokenId=token?.id;
+  if(!tokenId) { $('chest-state').textContent=$('session-status').textContent='Select a PC you control first.'; return; }
+  if(pendingTake && ['take','take-all'].includes(command)) return;
   if(command==='open') pendingChest=chest.id;
-  floor.dispatchEvent(new CustomEvent('session-action',{detail:{type:'chest',chestId:chest.id,command,itemId:itemId || null,tokenId}}));
+  const requestId=crypto.randomUUID();
+  if(['take','take-all'].includes(command)) {
+    pendingTake=requestId; chestMessage='Taking…'; drawChest();
+    takeTimer=setTimeout(()=>{if(pendingTake===requestId) {pendingTake=null; chestMessage='No response; check the bag before retrying.'; drawChest();}},25000);
+  }
+  floor.dispatchEvent(new CustomEvent('session-action',{detail:{type:'chest',chestId:chest.id,command,itemId:itemId || null,tokenId,requestId}}));
 }
-function openChest(id) { chestId=id; openPanel($('chest-panel')); drawChest(); }
+function openChest(id) { chestId=id; chestMessage=''; $('chest-add').hidden=true; openPanel($('chest-panel')); drawChest(); }
 function drawChest() {
   const chest=model?.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind));
   if(!chest || !chest.open || (!isGM && (chest.hidden || chest.locked))) { $('chest-panel').hidden=true; return; }
   const list=$('chest-items'); list.replaceChildren();
-  $('chest-add').hidden=!isGM;
-  $('chest-state').textContent=chest.locked?'Locked':'Unlocked';
+  $('chest-title').textContent=`${PROPS[chest.kind].name} · Compartment`;
+  $('chest-manage').hidden=!isGM;
+  if(!isGM) $('chest-add').hidden=true;
+  $('chest-state').textContent=chestMessage || (chest.locked?'Locked':'Unlocked');
+  $('chest-take-all').disabled=!!pendingTake || chestBusy || !chestToken() || !(chest.contents || []).some(item=>(item.qty ?? 1)>0);
   for(const item of chest.contents || []) {
-    const row=document.createElement('div'), label=document.createElement('span'), button=document.createElement('button');
-    label.textContent=item.name; button.type='button'; button.textContent=isGM?'Remove':'Take';
-    button.addEventListener('click',()=>{
-      if(isGM) { if(chestBusy) return; remember(); chest.contents=chest.contents.filter(entry=>entry.id!==item.id); render(); }
-      else requestChest(chest,'take',item.id);
-    }); row.append(label,button); list.append(row);
+    if((item.qty ?? 1)<=0) continue;
+    const row=document.createElement('div'), button=document.createElement('button');
+    button.type='button'; button.textContent=`${item.name} ×${item.qty ?? 1}`;
+    button.title=`Take 1${item.weight != null ? ` · ${item.weight} lb each` : ' · Weight unknown'}`;
+    button.setAttribute('aria-label',`Take one ${item.name}`);
+    button.disabled=!!pendingTake || chestBusy || !chestToken();
+    button.addEventListener('click',()=>requestChest(chest,'take',item.id)); row.append(button);
+    if(isGM) {
+      const remove=document.createElement('button'); remove.type='button'; remove.textContent='Remove'; remove.disabled=chestBusy || !!pendingTake;
+      remove.setAttribute('aria-label',`Remove ${item.name} stack from compartment`);
+      remove.addEventListener('click',()=>{if(chestBusy || pendingTake) return; remember(); chest.contents=chest.contents.filter(entry=>entry.id!==item.id); render();}); row.append(remove);
+    }
+    list.append(row);
   }
+  if(!list.childElementCount) list.textContent='Empty.';
   drawInventory();
 }
-$('chest-add').addEventListener('submit',event=>{
+$('chest-take-all').addEventListener('click',()=>{const chest=model?.props.find(item=>item.id===chestId); if(chest) requestChest(chest,'take-all');});
+floor.addEventListener('session-chest-result',event=>{
+  if(event.detail.requestId!==pendingTake) return;
+  clearTimeout(takeTimer); pendingTake=null;
+  chestMessage=event.detail.error?`Transfer failed: ${event.detail.error} Check the bag before retrying.`:'Taken.'; drawChest();
+});
+async function addChestForm(mode) {
+  if(!isGM || chestBusy || pendingTake) return;
+  chestAddMode=mode; $('chest-add-title').textContent=mode==='srd'?'Add SRD Item':'Add Custom Item';
+  $('chest-add').reset(); $('chest-add').hidden=false;
+  $('chest-item-name').setAttribute('list',mode==='srd'?'chest-srd-items':'');
+  if(mode==='srd') {
+    try {
+      const reference=await loadSheetReference();
+      $('chest-srd-items').replaceChildren(...Object.values(reference).filter(item=>item.equipment_category).map(item=>new Option(item.name,item.name)));
+    } catch(error) { chestMessage=error.message; drawChest(); }
+  }
+  $('chest-item-name').focus();
+}
+$('chest-add-srd').addEventListener('click',()=>addChestForm('srd'));
+$('chest-add-custom').addEventListener('click',()=>addChestForm('custom'));
+$('chest-add-cancel').addEventListener('click',()=>{$('chest-add').hidden=true;});
+$('chest-add').addEventListener('submit',async event=>{
   event.preventDefault();
   const chest=model?.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind)), name=$('chest-item-name').value.trim();
-  if(!isGM || chestBusy || !chest || !name || name.length>100) return;
-  remember(); (chest.contents ||= []).push({id:crypto.randomUUID(),name}); $('chest-item-name').value=''; render();
-});
-async function transferChest(chest,token,itemId) {
-  const item=chest.contents?.find(item=>item.id===itemId);
-  if(!item || chestBusy) return;
+  if(!isGM || chestBusy || pendingTake || !chest || !name || !$('chest-add').reportValidity()) return;
+  const props=model.props, qty=Number($('chest-item-qty').value), enteredWeight=$('chest-item-weight').value.trim(), mode=chestAddMode;
   chestBusy=true;
   try {
-    await takeChestItem(token,chest,item,model.props);
+    const reference=mode==='srd'?await loadSheetReference():{};
+    if(model?.props!==props || !props.includes(chest)) throw new Error('Map changed; reopen the compartment.');
+    const source=mode==='srd'?reference[name.toLowerCase()]:{name};
+    if(!source?.equipment_category && mode==='srd') throw new Error('Choose an SRD item.');
+    const item=lootItem(source,qty);
+    if(enteredWeight) item.weight=Number(enteredWeight);
+    remember(); (chest.contents ||= []).push(item); $('chest-add').reset(); chestMessage='Item added.'; render();
+  } catch(error) { chestMessage=error.message; }
+  finally { chestBusy=false; drawChest(); }
+});
+async function transferChest(chest,token,itemId,requestId) {
+  if(chestBusy) throw new Error('Another transfer is saving.');
+  const props=model.props;
+  chestBusy=true;
+  try {
+    await floor.flushSharedTabletop?.();
+    floor.compartmentBusy=true;
+    const contents=await takeChestItems(token,chest,itemId,props,requestId);
+    if(model?.props!==props) throw new Error('Transfer saved; scene changed. Check the bag.');
     undo=[]; redo=[];
-    chest.contents=chest.contents.filter(entry=>entry.id!==item.id); render();
-  } catch(error) { $('session-status').textContent=`Transfer failed: ${error.message}`; }
-  finally { chestBusy=false; }
+    chest.contents=contents; render();
+  } finally { floor.compartmentBusy=false; chestBusy=false; drawChest(); }
 }
 async function chestAction(action) {
-  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
-  const {chestId,tokenId,command,itemId}=action;
+  if(!isGM || !model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') throw new Error('Table is busy; try again.');
+  const {chestId,tokenId,command,itemId,requestId}=action;
   const chest=model.props.find(item=>item.id===chestId && ['chest','crate'].includes(item.kind) && !item.hidden);
   const token=model.tokens.find(item=>item.id===tokenId && item.kind==='pc');
-  if(!chest || !token || Math.hypot(chest.x-token.x,chest.y-token.y)>token.size/2+1) return;
+  if(!chest || !token || Math.hypot(chest.x-token.x,chest.y-token.y)>token.size/2+1) throw new Error('Move the selected PC next to the compartment.');
   if(command==='pick' && chest.locked) {
     chestBusy=true;
     try {
@@ -519,17 +578,29 @@ async function chestAction(action) {
     finally { chestBusy=false; }
     return;
   }
-  if(chest.locked) return;
+  if(chest.locked) throw new Error('Compartment is locked.');
   if(command==='open' || command==='close') { remember(); chest.open=command==='open'; render(); }
-  else if(chest.open && command==='take') await transferChest(chest,token,itemId);
+  else if(chest.open && ['take','take-all'].includes(command)) {
+    if(command==='take' && typeof itemId!=='string') throw new Error('Choose an item.');
+    await transferChest(chest,token,command==='take-all'?null:itemId,requestId);
+  } else throw new Error('Open the compartment first.');
 }
 let chestActions=Promise.resolve();
-floor.addEventListener('vtt-chest-action',event=>{chestActions=chestActions.then(()=>chestAction(event.detail)).catch(error=>{ $('session-status').textContent=error.message; });});
+floor.addEventListener('vtt-chest-action',event=>{
+  const action=event.detail;
+  chestActions=chestActions.then(async()=>{
+    let failure;
+    try {await chestAction(action);} catch(error) {failure=error.message; $('session-status').textContent=failure;}
+    if(['take','take-all'].includes(action.command)) floor.dispatchEvent(new CustomEvent('session-action',{detail:{
+      type:'chest-result',target:action.client,requestId:action.requestId,...(failure?{error:failure}:{})
+    }}));
+  }).catch(error=>{$('session-status').textContent=error.message;});
+});
 floor.addEventListener('map-changed',()=>{
   if(pendingChest && model?.props.some(item=>item.id===pendingChest && item.open)) { const id=pendingChest; pendingChest=null; openChest(id); }
   if(chestId) drawChest();
 });
-floor.addEventListener('map-ready',()=>{ chestId=pendingChest=null; $('chest-panel').hidden=true; $('object-light-panel').hidden=true; });
+floor.addEventListener('map-ready',()=>{ chestId=pendingChest=pendingTake=null; clearTimeout(takeTimer); $('chest-panel').hidden=true; $('object-light-panel').hidden=true; });
 function iconMenu(x,y,change,origin,portal=false) {
   const defaults=portal?Object.entries(PORTAL_ICONS).map(([icon,symbol])=>({
     label:`${symbol} ${{portal:'Portal',stairsUp:'Stairs up',stairsDown:'Stairs down',ladder:'Ladder',doorway:'Doorway',magic:'Magic'}[icon]}`,
@@ -609,6 +680,31 @@ function floorMenu(index,x,y,origin) {
     {label:'Delete',action:()=>change(()=>{model.floors=model.floors.filter(item=>item!==tile);})}
   ],origin);
 }
+async function fillCompartment(prop,tier) {
+  if(!isGM || chestBusy || pendingTake) return;
+  const props=model.props;
+  chestBusy=true;
+  try {
+    const reference=await loadSheetReference();
+    if(model?.props!==props || !props.includes(prop)) throw new Error('Map changed; reopen the compartment.');
+    const contents=generateLoot(tier,reference);
+    remember(); prop.contents=[...(prop.contents || []),...contents];
+    chestMessage=`Tier ${tier} loot added.`; render(); $('session-status').textContent=chestMessage;
+  } catch(error) { $('session-status').textContent=error.message; }
+  finally { chestBusy=false; if(chestId) drawChest(); }
+}
+function compartmentMenu(prop,x,y,origin) {
+  const open=()=>{
+    if(!model.props.includes(prop) || chestBusy) return;
+    if(isGM) { if(!prop.open) {remember(); prop.open=true; render();} openChest(prop.id); }
+    else if(prop.open) openChest(prop.id);
+    else requestChest(prop,'open');
+  };
+  showMapMenu(x,y,[
+    ...(isGM?[{label:'Contents',action:()=>showMapMenu(x,y,LOOT_TIERS.map((tier,index)=>({label:tier.label,action:()=>fillCompartment(prop,index+1)})),origin)}]:[]),
+    {label:'Open',disabled:!!prop.locked,action:open}
+  ],origin);
+}
 function propMenu(id,x,y,origin) {
   if(!model || travelling || chestBusy || floor.getAttribute('aria-busy')==='true') return;
   cancelGesture();
@@ -618,7 +714,7 @@ function propMenu(id,x,y,origin) {
     showMapMenu(x,y,[
       {label:`Inspect: ${prop.locked?'Locked':'Unlocked'}`,action:()=>{ $('session-status').textContent=prop.locked?'Chest is locked.':'Chest is unlocked.'; }},
       {label:'Pick lock',disabled:!prop.locked,action:()=>requestChest(prop,'pick')},
-      {label:prop.open?'Contents...':'Open',disabled:!!prop.locked,action:()=>{ if(prop.open) openChest(prop.id); else requestChest(prop,'open'); }},
+      {label:'Compartment',action:()=>compartmentMenu(prop,x,y,origin)},
       {label:'Close',disabled:!prop.open,action:()=>requestChest(prop,'close')}
     ],origin); return;
   }
@@ -642,7 +738,7 @@ function propMenu(id,x,y,origin) {
     ...(['chest','crate'].includes(prop.kind)?[
       {label:prop.locked?'Unlock':'Lock',action:()=>change(()=>{prop.locked=!prop.locked; if(prop.locked) prop.open=false;})},
       {label:prop.open?'Close':'Open',disabled:!prop.open && prop.locked,action:()=>{change(()=>{prop.open=!prop.open;}); if(prop.open) openChest(prop.id);}},
-      {label:'Contents...',disabled:!prop.open,action:()=>openChest(prop.id)}
+      {label:'Compartment',action:()=>compartmentMenu(prop,x,y,origin)}
     ]:[]),
     ...(['ladder','stairs'].includes(prop.kind)?[{label:'Use',action:()=>{
       const portal=model.portals.find(item=>Math.hypot(item.x-prop.x,item.y-prop.y)<.5);

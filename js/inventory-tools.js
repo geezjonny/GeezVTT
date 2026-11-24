@@ -1,5 +1,6 @@
 import { mountInventoryAdder } from './inventory-adder.js';
-import { updatePCInventory, readPC } from './pc-inventory.js';
+import { updatePCInventory, consumePCItem, readPC } from './pc-inventory.js';
+import { effectDefinitions } from './effects-model.js';
 import { loadSheetReference } from './sheet-view.js';
 import { showMapMenu } from './map-object-menu.js';
 import { isGM, canControlPC } from './session-role.js';
@@ -12,15 +13,18 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
   const status = document.createElement('p');
   status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite');
   controls.append(status);
-  let busy = false, transferForm, editForm;
+  let busy = false, transferForm, editForm, useForm;
   async function run(token, action) {
     if (busy) return false;
     busy = true; status.textContent = 'Saving…';
     try {
-      const reference = action.type === 'coin' ? {} : await loadSheetReference();
-      const pc = await updatePCInventory(token, action, reference);
+      const reference = ['coin', 'consume'].includes(action.type) ? {} : await loadSheetReference();
+      const pc = action.type === 'consume'
+        ? await consumePCItem(token, action)
+        : await updatePCInventory(token, action, reference);
       status.textContent = 'Saved.';
       transferForm?.remove();
+      useForm?.remove();
       try { await onSaved?.(token, pc); }
       catch (error) { status.textContent = `Saved; refresh failed: ${error.message}`; }
       return true;
@@ -40,6 +44,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       form.innerHTML = `<strong>Edit item</strong><label>Name<input name="name" maxlength="100" required></label>
         <label>Category<select name="category"></select></label>
         <label>Quantity<input name="qty" type="number" min="0" max="9999" step="1" required></label>
+        <label>Weight each (lb; blank = reference)<input name="weight" type="number" min="0" max="999999" step="any"></label>
         <label>AC modifier<input name="ac" type="number" min="-999" max="999" step="1" value="0" required></label>
         <details><summary>Stat score modifiers</summary><div class="sheet-modifiers">${modifierFields('stats', ITEM_STATS)}</div></details>
         <details><summary>Skill modifiers</summary><div class="sheet-modifiers">${modifierFields('skills', ITEM_SKILLS)}</div></details>
@@ -54,6 +59,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       field('category').replaceChildren(...categories.map(category => new Option(category || 'Other', category)));
       field('category').value = item.category || '';
       field('qty').value = item.qty ?? 1;
+      field('weight').value = item.weight ?? '';
       field('desc').value = Array.isArray(item.desc) ? item.desc.join('\n\n') : item.desc || '';
       field('ac').value = item.modifiers?.ac ?? 0;
       field('armorBase').value = item.armor_class?.base ?? '';
@@ -70,7 +76,7 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
         for (const [group, keys] of [['stats', ITEM_STATS], ['skills', ITEM_SKILLS]]) {
           for (const key of keys) modifiers[group][key] = Number(field(`${group}:${key}`).value);
         }
-        const value = { name: field('name').value, category: field('category').value, qty: Number(field('qty').value), desc: field('desc').value, modifiers,
+        const value = { name: field('name').value, category: field('category').value, qty: Number(field('qty').value), weight: field('weight').value.trim() ? Number(field('weight').value) : null, desc: field('desc').value, modifiers,
           armor_class: field('armorBase').value.trim() ? { base: Number(field('armorBase').value), dex_bonus: field('armorDex').checked,
             ...(field('armorCap').value.trim() ? { max_bonus: Number(field('armorCap').value) } : {}) } : null };
         const buttons = [...form.querySelectorAll('button')];
@@ -82,6 +88,38 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       form.querySelector('[type="button"]').addEventListener('click', () => form.remove());
       controls.append(form); field('name').focus();
     } catch (error) { status.textContent = error.message; }
+  }
+  async function useItem(token, key, effect) {
+    if (busy) return;
+    busy = true;
+    try {
+      const entities = await getPCs();
+      if (getToken()?.npcId !== token.npcId) return;
+      const targets = Object.entries(entities || {}).filter(([, entity]) => entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted);
+      if (!targets.length) throw new Error('No target PCs available.');
+      useForm?.remove();
+      const form = useForm = document.createElement('form');
+      form.className = 'sheet-inventory-add';
+      const title = document.createElement('strong'); title.textContent = `Use: ${effect.label}`;
+      form.innerHTML = '<label>Target<select name="target" required></select></label><button type="submit">Confirm use</button><button type="button">Cancel</button>';
+      form.prepend(title);
+      const select = form.elements.namedItem('target');
+      select.replaceChildren(...targets.map(([id, entity]) => new Option(entity.name || id, id)));
+      select.value = token.npcId.slice(3);
+      if (select.selectedIndex < 0) select.selectedIndex = 0;
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        if (busy || !form.reportValidity()) return;
+        if (getToken()?.npcId !== token.npcId) { status.textContent = 'Character changed; reopen Use.'; return; }
+        const buttons = [...form.querySelectorAll('button')];
+        buttons.forEach(button => { button.disabled = true; });
+        const saved = await run(token, { type: 'consume', key, id: effect.id, to: select.value });
+        if (!saved) buttons.forEach(button => { button.disabled = false; });
+      });
+      form.querySelector('[type="button"]').addEventListener('click', () => form.remove());
+      controls.append(form); select.focus();
+    } catch (error) { status.textContent = error.message; }
+    finally { busy = false; }
   }
   async function transfer(token, key) {
     try {
@@ -111,13 +149,23 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
       controls.append(transferForm); select.focus();
     } catch (error) { status.textContent = error.message; }
   }
-  function menu(event, row) {
+  async function menu(event, row) {
     if (busy) return;
     const token = getToken();
     if (!token || !canControlPC(token)) return;
     event.preventDefault(); event.stopPropagation();
     const key = row.dataset.bagKey, rect = row.getBoundingClientRect();
-    showMapMenu(event.clientX ?? rect.right, event.clientY ?? rect.top, [
+    const x = event.clientX ?? rect.right, y = event.clientY ?? rect.top;
+    let effects;
+    busy = true;
+    try {
+      const pc = await readPC(token);
+      if (getToken()?.npcId !== token.npcId || !row.isConnected) return;
+      effects = effectDefinitions(pc).filter(effect => effect.mode === 'activated' && effect.consume === true && effect.inventoryKey === key);
+    } catch (error) { status.textContent = error.message; return; }
+    finally { busy = false; }
+    showMapMenu(x, y, [
+      ...effects.map(effect => ({ label: effects.length === 1 ? 'Use' : `Use: ${effect.label}`, action: () => useItem(token, key, effect) })),
       ...(isGM ? [{ label: 'Edit item', action: () => editItem(token, key) }] : []),
       { label: 'Remove', action: () => run(token, { type: 'remove', key }) },
       ...(isGM ? [{ label: 'Add', action: () => run(token, { type: 'add', key }) }] : []),

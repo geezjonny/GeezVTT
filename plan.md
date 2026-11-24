@@ -1,6 +1,6 @@
 # GeezVTT implementation plan
 
-Status: Agreed product and implementation plan. Application coding has not started.
+Status: Implementation is underway. The application uses JavaScript modules, SVG, and Three.js, with Firebase character persistence and shared tabletop synchronization. This plan describes the intended product; implementation notes and remaining work are tracked in `progress.md` and `to-do.md`. Verification is left to the user.
 
 ## Foundation
 
@@ -59,7 +59,7 @@ Players select or enter a PC character name. Load that character from Firebase a
 - Lights illuminate areas.
 - GM can manually cover or reveal map areas with fog.
 - Preserve remembered exploration.
-- Manual GM fog takes priority over calculated visibility.
+- Active lights reveal through manually covered fog, respecting walls and closed doors. Preserve this subsequently requested behavior. Individual token vision and remembered exploration remain planned.
 - Hidden tokens and props remain hidden from players until revealed.
 
 ### Characters and inventory
@@ -100,13 +100,21 @@ Use a map-first layout with compact toolbars around the tabletop. Show initiativ
 - Support multiple independent renderers and partial views of the application that subscribe to the same RTDB data. Each renderer or view reads the data it needs and may write updates when permitted.
 - Keep the shared data model independent of any renderer. Renderers project database state; authoritative shared state must not live only inside a renderer or UI component.
 - Keep temporary local presentation state, such as camera position, panel visibility, and individual volume, local unless explicitly shared.
-- TypeScript and React for the interface and character sheets.
-- PixiJS for tabletop rendering, tokens, lighting, and fog.
+- Continue the implemented JavaScript modules and HTML/CSS interface and character sheets, SVG 2D tabletop, and Three.js 3D tabletop. Both views use the shared map model.
+- TypeScript/React and PixiJS were the original proposed stack. A migration is not part of current work; obtain an explicit decision before introducing a second stack.
 - Firebase RTDB with separate records for characters, scenes, combat, and transient events such as pings.
 - Target individual objects and fields in multiplayer updates instead of rewriting entire scenes when a token moves.
 - Keep media files outside RTDB; store repository-relative references and settings in the database.
 - Use stable character IDs after the initial name match.
 - Provide automatic saving, connection status, reconnect handling, and campaign export/import for backups.
+
+### Implemented additions to the original scope
+
+- Portable named `.geezvtt` scene files, including multiple floors and map export/import.
+- Exterior floor painting, including space outside the imported map image.
+- Clear/rain/snow weather and original/day/dawn/dusk/night presentation saved with scenes.
+
+The shared tabletop currently publishes the GM scene and live state through Firebase RTDB, sends changed-field patches, and streams updates to players. Local editing state and portable scene saves still exist. This does not establish that every planned persistence, reconnect, or ownership requirement is complete; those behaviors remain subject to user verification. The current trusted-group role convention is not Firebase authentication or server-enforced ownership.
 
 ## Build sequence and verification
 
@@ -142,4 +150,4 @@ Verify selective journal sharing, shared audio playback, local volume, campaign 
 
 ## Working agreement
 
-The plan has been approved for direction. The current instruction is to save it to `plan.md`; application implementation will begin when requested.
+The plan is approved for direction and implementation is underway. Continue with the existing architecture and requested additions. The user handles verification; do not run tests, browser checks, visual inspections, or validation commands unless explicitly requested.

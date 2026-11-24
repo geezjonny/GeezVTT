@@ -57,7 +57,7 @@ export function applyModifiers(base, target, modifiers) {
   return Math.max(target === 'ac' || target === 'speed' || target === 'hp_max' || ITEM_STATS.includes(target) ? 0 : -999999,
     Math.min(999999, Math.floor((start + added) * factor)));
 }
-export function changeEffects(pc, action) {
+export function changeEffects(pc, action, recipient = pc) {
   if (action.type === 'advance') {
     if (!Number.isSafeInteger(action.minutes) || action.minutes < 1 || action.minutes > 525600) throw new Error('Advance 1–525600 game minutes.');
     for (const [id, active] of Object.entries(pc.activeEffects || {})) {
@@ -97,9 +97,15 @@ export function changeEffects(pc, action) {
     return;
   }
   if (action.type !== 'activate') throw new Error('Invalid effect action.');
+  if (existing.spentConsumable === true) throw new Error('This consumable has already been used.');
   const effect = validateEffect({ ...existing, mode: existing.mode || 'activated', consume: existing.consume === true });
+  if (action.inventoryKey != null && (!effect.consume || effect.inventoryKey !== action.inventoryKey)) throw new Error('Item effect changed; reopen the bag menu.');
   if (effect.mode !== 'activated') throw new Error('This effect applies automatically.');
-  if (appliedEffects(pc).some(active => active.label.trim().toLowerCase() === effect.label.toLowerCase())) throw new Error('Effect is already active.');
+  if (recipient !== pc && (!effect.consume || action.inventoryKey == null)) throw new Error('Only consumable item use can target another PC.');
+  if (appliedEffects(recipient).some(active => active.label.trim().toLowerCase() === effect.label.toLowerCase())) throw new Error('Effect is already active on the target.');
+  const activeId = recipient === pc ? action.id : action.targetEffectId;
+  const targetLocation = recipient === pc ? null : location(activeId);
+  if (targetLocation && (targetLocation[0] !== 'effects' || Object.hasOwn(recipient.effects || {}, targetLocation[1]))) throw new Error('Target effect already exists.');
   const current = existing.current ?? effect.max;
   if (effect.max > 0 && (!Number.isSafeInteger(current) || current <= 0 || current > effect.max)) throw new Error('No uses remaining.');
   const item = Object.hasOwn(pc.inventory || {}, effect.inventoryKey) ? pc.inventory[effect.inventoryKey] : null;
@@ -107,6 +113,10 @@ export function changeEffects(pc, action) {
   if (effect.consume && itemEquipped(pc, item)) throw new Error('Unequip the source item before consuming it.');
   if (effect.max > 0) existing.current = current - 1;
   if (effect.consume) item.qty = (item.qty ?? 1) - 1;
-  pc.activeEffects ||= {};
-  pc.activeEffects[action.id] = { remainingMinutes: effect.duration_minutes || -1 };
+  if (targetLocation) {
+    recipient.effects ||= {};
+    recipient.effects[targetLocation[1]] = { ...effect, consume: false, inventoryKey: '', max: 0, current: 0, recharge: 'none', spentConsumable: true };
+  }
+  recipient.activeEffects ||= {};
+  recipient.activeEffects[activeId] = { remainingMinutes: effect.duration_minutes || -1 };
 }

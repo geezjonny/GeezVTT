@@ -2,6 +2,23 @@
 
 Updated: 2026-11-23
 
+## Consumable targets, compartments, tier loot, and carrying limits saved - 2026-11-23
+
+- Adds Item > Use > target PC > Confirm use for configured consuming effects in both the VTT and standalone sheet. Conditionally saves source item/charge spending and recipient effect state together. Target copies retain duration and modifiers without allowing free reactivation after ending. Existing ownership checks apply to the source character.
+- Extends crate/chest inventories with quantities, weights, and preserved item metadata. Right click > Compartment > Contents selects adventuring tier 1–4 and adds random coins, gear, and tier-matched magic items. Compartment > Open provides Add SRD Item and Add Custom Item controls in the existing standard-width floating window.
+- Clicking a compartment item transfers one unit; Take All transfers all remaining contents to the selected controlled PC. Coins credit the corresponding coin-purse denominations. Conditional world writes save bag additions, compartment removal, and retry receipts together. Transfers recheck shared contents and proximity; the GM drains pending scene saves and defers publishing during the transfer to avoid restoring stale contents. Player sessions receive success/error responses.
+- Adds SRD/custom item weights, editable weight overrides, stack and coin totals, current-STR and size-based carrying capacity, missing-weight warnings, and over-capacity status. Keeps weight metadata through compartment taking and existing bag transfers. Limits are displayed; automatic encumbrance penalties and hard enforcement are not added.
+- Reconciles the plan with the implemented JavaScript/SVG/Three.js architecture, shared-tabletop work, light-through-fog behavior, and portable scenes/weather/exterior floors. Updates the requested-additions checklist and records outstanding features.
+- Adds unrun regression cases for weight calculations and validation, stack metadata, single/all taking, coin credits, loot tier boundaries, targeted effects, conditional conflicts, request receipts, and ownership restrictions.
+
+Verification is left to the user. No tests, browser checks, visual inspections, syntax checks, or application validation commands were run. The user reported that choosing Tier 1 populated a chest with 28 copper, 45 silver, and 11 gold and accepted the current loot ranges as good enough for now. This confirms that reported interaction only; it does not verify inventory transfers or the remaining flows.
+
+Outstanding work: exercise Use/target/confirm/cancel and concurrent source/target changes; check effect expiration and preventing free reactivation; take individual units and Take All across GM/player sessions; confirm coin-purse credits, metadata and quantity preservation, proximity/ownership restrictions, retry receipts, scene changes, Firebase errors, and live synchronization; exercise SRD/custom additions, all loot tiers, weight overrides, missing weights, size/current-STR changes, and carrying totals. Earlier verification items remain outstanding. Traps/triggers, instant healing/damage consumables, non-PC consumable targets, automatic potion effects, effect configuration following transferred items, special carrying traits, and optional encumbrance penalties remain unimplemented.
+
+Known limits: loot uses app-defined bounded SRD pools and coin ranges rather than official DMG hoard tables; generating loot adds to existing contents. Magic/custom items without known weights remain explicitly unknown. Compartment taking requires an online GM session and Firebase write access at `v2/worlds/gaia`; targeted consumable saves require entities-collection write access. Existing trusted-group roles and Firebase rules still govern access. The GM URL remains `?gm=jonny`; `?gm=1` uses player mode.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
+
 ## Default 3D starting view — 2026-11-23
 
 - Opens 3D automatically when the first map loads, using the existing toggle and 2D fallback if 3D initialization fails.

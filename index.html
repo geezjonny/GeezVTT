@@ -477,9 +477,10 @@
       </div>
     </section>
     <section id="chest-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="chest-title" hidden>
-      <div class="editor-titlebar" tabindex="0" aria-label="Move chest window."><h2 id="chest-title">Chest</h2><button class="editor-close" type="button" aria-label="Close chest window">&times;</button></div>
-      <div class="editor-body"><p id="chest-state" role="status"></p><div id="chest-items"></div>
-        <form id="chest-add"><label>Item <input id="chest-item-name" maxlength="100" required></label><button type="submit">Add item</button></form>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move compartment window."><h2 id="chest-title">Compartment</h2><button class="editor-close" type="button" aria-label="Close compartment window">&times;</button></div>
+      <div class="editor-body"><p id="chest-state" role="status" aria-live="polite"></p><button type="button" id="chest-take-all">Take All</button><div id="chest-items"></div>
+        <div id="chest-manage"><button type="button" id="chest-add-srd">Add SRD Item</button><button type="button" id="chest-add-custom">Add Custom Item</button></div>
+        <form id="chest-add" hidden><strong id="chest-add-title">Add item</strong><label>Item <input id="chest-item-name" list="chest-srd-items" maxlength="100" required></label><datalist id="chest-srd-items"></datalist><label>Quantity<input id="chest-item-qty" type="number" min="1" max="9999" step="1" value="1" required></label><label>Weight each (lb; blank = reference)<input id="chest-item-weight" type="number" min="0" max="999999" step="any"></label><button type="submit">Add item</button><button type="button" id="chest-add-cancel">Cancel</button></form>
         <h3>Selected PC inventory</h3><div id="chest-inventory"></div>
       </div>
     </section>

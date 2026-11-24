@@ -5,8 +5,9 @@ import { changeEffects } from './effects-model.js';
 import { changeCombat } from './sheet-combat.js';
 import { changeFeat } from './feats-model.js';
 import { isGM, canControlPC } from './session-role.js';
-import { encodeTree, decodeTree } from './firebase-codec.js';
+import { encodeKey, encodeTree, decodeTree } from './firebase-codec.js';
 import { equipmentTurnCost } from './initiative-model.js';
+import { takeCompartmentItems } from './compartment-model.js';
 const base=window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/,'');
 const entityPath=(token,control=true)=>{
   if(control && !canControlPC(token)) throw new Error('Sign in as this PC to control it.');
@@ -35,6 +36,28 @@ export async function updatePCCombat(token, action) {
 }
 export async function updatePCEffects(token, action) {
   return updatePCSheet(token, pc => changeEffects(pc, action));
+}
+export async function consumePCItem(token, action) {
+  entityPath(token);
+  if (typeof action.key !== 'string' || !action.key) throw new Error('Choose a source item.');
+  const sourceId = token.npcId.slice(3), targetEffectId = `effects:${crypto.randomUUID()}`;
+  const url = `${base}/v2/worlds/gaia/entities.json`;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+    const entities = decodeTree(await response.json()), etag = response.headers.get('ETag');
+    if (!etag) throw new Error('Firebase did not return a version; no changes saved.');
+    const source = Object.hasOwn(entities || {}, sourceId) ? entities[sourceId] : null;
+    const target = typeof action.to === 'string' && Object.hasOwn(entities || {}, action.to) ? entities[action.to] : null;
+    if (source?.kind !== 'pc' || !source.data || source.data._sheetsDeleted || target?.kind !== 'pc' || !target.data || target.data._sheetsDeleted) throw new Error('Source or target PC unavailable.');
+    changeEffects(source.data, { type: 'activate', id: action.id, inventoryKey: action.key, targetEffectId }, target.data);
+    const saved = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+      body: JSON.stringify(encodeTree(entities)), signal: AbortSignal.timeout(15000) });
+    if (saved.status === 412) continue;
+    if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
+    return source.data;
+  }
+  throw new Error('Characters changed elsewhere. Reopen Use and try again.');
 }
 export async function updatePCFeat(token, action) {
   return updatePCSheet(token, pc => changeFeat(pc, action));
@@ -120,8 +143,10 @@ export async function addPCInventoryItem(token, item, qty, key) {
   if (typeof item?.name !== 'string' || !item.name.trim()) throw new Error('Choose an SRD item.');
   if (!Number.isSafeInteger(qty) || qty < 1 || qty > 9999) throw new Error('Quantity must be 1–9999.');
   if (typeof key !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(key)) throw new Error('Invalid inventory key.');
+  if (item.weight != null && (typeof item.weight !== 'number' || !Number.isFinite(item.weight) || item.weight < 0 || item.weight > 999999)) throw new Error('Weight must be 0–999999 lb.');
   await readPC(token);
   const entry = { name: item.name, qty, category: item.equipment_category?.name || item.gear_category?.name || '',
+    ...(item.weight != null ? { weight: item.weight } : {}),
     ...(item.armor_class ? { armor_class: item.armor_class, armor_category: item.armor_category } : {}),
     desc: [...(item.desc || []), ...(item.special || [])].join('\n\n') };
   // A new stable key preserves existing bag items and makes a failed request safe to retry.
@@ -130,18 +155,47 @@ export async function addPCInventoryItem(token, item, qty, key) {
   });
   if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
 }
-export async function takeChestItem(token,chest,item,props) {
-  const receiptPath=`v2/worlds/gaia/vtt/loot/${encodeURIComponent(item.id)}`;
-  const receipt=await fetch(`${base}/${receiptPath}.json`,{signal:AbortSignal.timeout(15000)});
-  if(!receipt.ok) throw new Error(`Firebase returned ${receipt.status}`);
-  if(await receipt.json()) return;
-  await readPC(token);
-  if(document.getElementById('floor').tabletopMap?.props!==props) throw new Error('Map changed; reopen the chest.');
-  const patch={};
-  patch[receiptPath]={pc:token.npcId,name:item.name};
-  patch[`${entityPath(token)}/data/inventory/${encodeURIComponent(item.id)}`]={name:item.name,qty:1};
-  patch[`v2/worlds/gaia/vtt/live/map/props/${props.indexOf(chest)}/contents`]=chest.contents.filter(entry=>entry.id!==item.id);
-  // Write loot removal and inventory addition together, with a stable key for retries.
-  const response=await fetch(`${base}/.json`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch),signal:AbortSignal.timeout(15000)});
-  if(!response.ok) throw new Error(`Firebase returned ${response.status}`);
+export async function takeChestItems(token, chest, itemId, props, requestId) {
+  if (!isGM) throw new Error('Compartment transfers must go through the GM session.');
+  entityPath(token);
+  if (typeof requestId !== 'string' || !/^[a-zA-Z0-9-]{1,100}$/.test(requestId)) throw new Error('Invalid transfer request.');
+  const floor = document.getElementById('floor'), url = `${base}/v2/worlds/gaia.json`, keys = Object.create(null);
+  const currentMap = () => floor.tabletopMap?.props === props && props.includes(chest) && chest.open && !chest.locked;
+  let sceneId;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (!currentMap()) throw new Error('Map changed; reopen the compartment.');
+    const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
+    const world = await response.json(), etag = response.headers.get('ETag');
+    if (!etag) throw new Error('Firebase did not return a version; no items taken.');
+    if (!currentMap()) throw new Error('Map changed; reopen the compartment.');
+    const live = world?.vtt?.live;
+    if (!live?.sceneId || sceneId && live.sceneId !== sceneId) throw new Error('Shared scene changed; reopen the compartment.');
+    sceneId = live.sceneId;
+    const shared = live.map?.props?.find(prop => prop.id === chest.id);
+    if (!shared || !['chest', 'crate'].includes(shared.kind) || shared.hidden || shared.locked || !shared.open) throw new Error('Compartment is unavailable or not yet synced.');
+    const receipt = world.vtt.loot?.[requestId];
+    if (receipt) {
+      if (receipt.pc !== token.npcId || receipt.chestId !== chest.id) throw new Error('Transfer request conflict.');
+      return shared.contents || [];
+    }
+    const sharedToken = live.map.tokens?.find(entry => entry.id === token.id && entry.npcId === token.npcId && entry.kind === 'pc');
+    if (!sharedToken || ![shared.x, shared.y, sharedToken.x, sharedToken.y, sharedToken.size].every(Number.isFinite) || sharedToken.size <= 0 ||
+        Math.hypot(shared.x - sharedToken.x, shared.y - sharedToken.y) > sharedToken.size / 2 + 1) throw new Error('Move the selected PC next to the compartment.');
+    const entityId = encodeKey(token.npcId.slice(3));
+    const entity = Object.hasOwn(world.entities || {}, entityId) ? decodeTree(world.entities[entityId]) : null;
+    if (entity?.kind !== 'pc' || !entity.data || entity.data._sheetsDeleted) throw new Error('PC unavailable.');
+    for (const item of shared.contents || []) keys[item.id] ||= crypto.randomUUID();
+    takeCompartmentItems(entity.data, shared, itemId, keys);
+    world.entities[entityId] = encodeTree(entity);
+    world.vtt.loot = { ...world.vtt.loot, [requestId]: { pc: token.npcId, chestId: chest.id } };
+    if (!currentMap()) throw new Error('Map changed; reopen the compartment.');
+    // The common world ETag keeps the compartment, bag, and retry receipt atomic.
+    const saved = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag },
+      body: JSON.stringify(world), signal: AbortSignal.timeout(15000) });
+    if (saved.status === 412) continue;
+    if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
+    return shared.contents;
+  }
+  throw new Error('Inventory changed elsewhere; reopen the compartment.');
 }

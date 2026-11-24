@@ -17,6 +17,7 @@ const base = `${window.GEEZ_FIREBASE_CONFIG.databaseURL.replace(/\/$/, '')}/v2/w
 let sceneId, signature, timer, sending = false, dirty = false, loading = false, pendingScene, pendingLive;
 let outgoing = Promise.resolve();
 let lastLive;
+let publishing = Promise.resolve();
 const seen = new Set();
 const report = error => { status.textContent = `Sync failed: ${error.message}`; };
 async function equip(action, token) {
@@ -58,10 +59,15 @@ function schedule() {
   dirty = true;
   if (!timer && !sending) timer = setTimeout(flush, 100);
 }
-async function flush() {
+function flush() {
+  if (sending) return publishing;
+  publishing = flushChanges();
+  return publishing;
+}
+async function flushChanges() {
   timer = null;
   if (sending || !dirty) return;
-  if (floor.getAttribute('aria-busy') === 'true') { timer = setTimeout(flush, 100); return; }
+  if (floor.getAttribute('aria-busy') === 'true' || floor.compartmentBusy) { timer = setTimeout(flush, 100); return; }
   sending = true;
   dirty = false;
   try {
@@ -93,6 +99,14 @@ async function flush() {
     if (dirty && !timer) timer = setTimeout(flush, 100);
   }
 }
+floor.flushSharedTabletop = async () => {
+  if (!isGM) return;
+  for (let attempt = 0; attempt < 2 && (dirty || sending); attempt++) {
+    if (timer) { clearTimeout(timer); timer = null; }
+    await flush();
+  }
+  if (dirty || sending) throw new Error('Tabletop is not synced; try again after reconnecting.');
+};
 function applyLive() {
   if (loading || !pendingLive || pendingLive.sceneId !== sceneId) return;
   floor.initiativeActive = pendingLive.initiative === true;
@@ -152,6 +166,10 @@ listen('actions', actions => {
     if (!isGM && action.actor.character !== 'GM' && action.actor.campaign !== playerIdentity?.campaign) continue;
     if (action.type === 'equipment-result' && action.actor.character === 'GM' && action.target === client) {
       floor.dispatchEvent(new CustomEvent('session-equipment-result', { detail: action }));
+      continue;
+    }
+    if (action.type === 'chest-result' && action.actor.character === 'GM' && action.target === client) {
+      floor.dispatchEvent(new CustomEvent('session-chest-result', { detail: action }));
       continue;
     }
     if (['ping', 'measure', 'move', 'door', 'chest', 'turn', 'equip'].includes(action.type) && action.floorIndex !== floor.activeFloorIndex) continue;

@@ -3,9 +3,15 @@
 ## Requested additions - 2026-11-23
 
 - [ ] Traps and triggers.
-- [ ] Compartments/chests, including players taking contents into their own inventory.
-- [ ] Weight rules: item weight, carrying capacity, and encumbrance.
-- [ ] Consumable effects, including consuming an item and applying its effect.
+- [x] Compartments for crates/chests: right click > Compartment > Contents > adventuring tier 1–4 generates random coins, gear, and tier-matched magic items. Generation adds to existing contents. Compartment > Open offers Add SRD Item and Add Custom Item. Clicking an item transfers one unit; Take All transfers all remaining contents to the selected controlled PC. Coins credit the coin purse. Bag additions, compartment removal, and retry receipts save together using a conditional world write. Implementation awaits user verification.
+- [x] Item weights and calculated carrying limits: SRD weights, editable custom weights, stack totals, coin weight, current STR and creature-size capacity, unknown-weight warnings, and over-capacity status. Implementation awaits user verification.
+- [ ] Optional encumbrance speed penalties, special carrying traits, and hard enforcement of carrying limits.
+- [x] Configured consumables: Item > Use > target PC > Confirm use. Source consumption and target modifiers save together; target copies expire/end through the existing Effects controls and cannot reactivate for free. Available in the VTT and standalone sheet. Implementation awaits user verification.
+- [ ] Instant healing/damage consumables, automatic potion effect definitions, non-PC consumable targets, and effect configuration following transferred items.
+
+Current implementation notes: tier loot uses bounded SRD pools and app-defined coin ranges rather than reproducing DMG hoard tables; items without a known reference or custom weight remain explicitly unknown. Compartment taking requires an online GM session and a nearby selected PC. Conditional compartment saves require Firebase write access at `v2/worlds/gaia`; targeted consumables require write access at the entities collection. Existing trusted-group permissions remain in effect.
+
+Regression cases were added for weight totals, metadata preservation, single/all taking, coins, tier boundaries, targeted effects, conditional conflicts, ownership, and repeated requests. None were run; all verification is left to the user.
 
 Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This is a documentation comparison, not verification of the application. Later progress entries supersede earlier descriptions.
 
@@ -23,11 +29,11 @@ Compared `plan.md` with the latest entries in `progress.md` on 2026-11-22. This 
 
 ## 1. Reconcile architecture and plan
 
-- [ ] Update the stale plan status saying application coding has not started.
-- [ ] Record the implemented JavaScript/SVG/Three.js architecture against the originally planned TypeScript/React/PixiJS stack. Decide whether migration is still wanted before introducing a second stack.
-- [ ] Keep Firebase RTDB authoritative for shared characters, scenes, combat, and events; the current prototype still keeps scene edits in local UI state.
-- [ ] Reconcile the plan's manual-fog priority with the latest requested behavior: active lights cut through covered fog. Preserve that requested behavior unless explicitly changed.
-- [ ] Document weather, time of day, exterior floor editing, and portable scenes as additions to the original plan.
+- [x] Update the stale plan status saying application coding has not started.
+- [x] Record the implemented JavaScript/SVG/Three.js architecture against the originally planned TypeScript/React/PixiJS stack. Continue the existing stack; any migration requires an explicit decision before introducing a second stack.
+- [ ] Keep Firebase RTDB authoritative for shared characters, scenes, combat, and events; shared scene/live streams and field patches exist alongside local editing state. User verification of persistence and reconnect behavior remains outstanding.
+- [x] Reconcile the plan's manual-fog priority with the latest requested behavior: active lights cut through covered fog. Preserve that requested behavior unless explicitly changed.
+- [x] Document weather, time of day, exterior floor editing, and portable scenes as additions to the original plan.
 
 ## 2. Shared foundation — highest implementation priority
 

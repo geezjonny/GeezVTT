@@ -19,6 +19,10 @@ export function validateItemEdit(value, original) {
   }
   if (!Number.isSafeInteger(modifiers.ac) || Math.abs(modifiers.ac) > 999) throw new Error('AC modifier must be a whole number from -999 to 999.');
   const result = { name: value.name.trim(), category: value.category, qty: value.qty, desc: value.desc, modifiers };
+  if (value.weight !== undefined) {
+    if (value.weight !== null && (typeof value.weight !== 'number' || !Number.isFinite(value.weight) || value.weight < 0 || value.weight > 999999)) throw new Error('Weight must be 0–999999 lb or blank for reference weight.');
+    result.weight = value.weight;
+  }
   if (value.armor_class !== undefined) {
     const armor = value.armor_class;
     if (armor !== null && (!Number.isSafeInteger(armor.base) || armor.base < 0 || armor.base > 999 || typeof armor.dex_bonus !== 'boolean' ||

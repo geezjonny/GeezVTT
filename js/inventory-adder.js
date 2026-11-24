@@ -9,6 +9,7 @@ export function mountInventoryAdder(container, getToken, onSaved) {
   form.innerHTML = `<label>${isGM ? 'SRD or new item' : 'SRD item'} <input name="item" list="sheet-srd-items" autocomplete="off" maxlength="100" required></label>
     <datalist id="sheet-srd-items"></datalist>
     <label>Quantity <input name="qty" type="number" min="1" max="9999" step="1" value="1" required></label>
+    <label>Weight each (lb; blank = reference)<input name="weight" type="number" min="0" max="999999" step="any"></label>
     <button type="submit"${isGM ? '' : ' disabled'}>Add to bag</button><p role="status" aria-live="polite"></p>`;
   container.append(form);
   const name = form.elements.namedItem('item'), quantity = form.elements.namedItem('qty'), button = form.querySelector('button'), status = form.querySelector('[role="status"]');
@@ -27,22 +28,25 @@ export function mountInventoryAdder(container, getToken, onSaved) {
     event.preventDefault();
     if (saving) return;
     const token = getToken(), label = name.value.trim(), qty = Number(quantity.value);
-    const item = items?.get(label.toLowerCase()) || (isGM && label ? { name: label } : null);
+    let item = items?.get(label.toLowerCase()) || (isGM && label ? { name: label } : null);
+    const weight = form.elements.namedItem('weight');
+    if (!form.reportValidity()) return;
+    if (item && weight.value.trim()) item = { ...item, weight: Number(weight.value) };
     if (!token || !item) { status.textContent = 'Choose an SRD item and a linked PC.'; return; }
     if (!Number.isSafeInteger(qty) || qty < 1 || qty > 9999) { status.textContent = 'Quantity must be 1–9999.'; return; }
-    if (!pending || pending.pc !== token.npcId || pending.name !== item.name || pending.qty !== qty) {
-      pending = { pc: token.npcId, name: item.name, qty, key: crypto.randomUUID() };
+    if (!pending || pending.pc !== token.npcId || pending.name !== item.name || pending.qty !== qty || pending.weight !== item.weight) {
+      pending = { pc: token.npcId, name: item.name, qty, weight: item.weight, key: crypto.randomUUID() };
     }
     saving = true; button.disabled = true; status.textContent = 'Saving…';
-    name.disabled = quantity.disabled = true;
+    name.disabled = quantity.disabled = weight.disabled = true;
     try {
       await addPCInventoryItem(token, item, qty, pending.key);
-      pending = null; name.value = ''; quantity.value = '1';
+      pending = null; name.value = ''; quantity.value = '1'; weight.value = '';
       status.textContent = `Added ${qty} × ${item.name}.`;
       try { await onSaved?.(token); }
       catch (error) { status.textContent = `Item saved; refresh failed: ${error.message}`; }
     } catch (error) { status.textContent = `Could not add item: ${error.message}`; }
-    finally { saving = false; button.disabled = false; name.disabled = quantity.disabled = false; }
+    finally { saving = false; button.disabled = false; name.disabled = quantity.disabled = weight.disabled = false; }
   });
   load();
   return label => { if (!saving) { name.value = label || ''; name.focus(); } };
