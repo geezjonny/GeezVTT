@@ -2,6 +2,16 @@
 
 Updated: 2026-11-23
 
+## Minigame window close button saved - 2026-11-23
+
+- Replaces the minigame window's minimize-only button with the standard Close button. Reuses the existing floating-window close handler; hiding the window pauses its local attempt.
+
+Verification is left to the user. No tests, browser checks, visual inspections or application validation commands were run.
+
+Outstanding: user verification of closing the minigame window, local pause behavior and GM reopening through Scene Controls > Minigame. Earlier minigame limitations and verification backlogs remain applicable.
+
+Save, commit and push requested to origin/main. Include only index.html and this progress update; leave unrelated assets, catalogs, scenes and js/tokens.js changes uncommitted.
+
 ## Zombie Typing minigame saved - 2026-11-23
 
 - Adds Scene Controls > Minigame with Zombie Typing (DEX), a Who? checklist of linked PCs, and Push game. Uses a standard-width floating window, shared with participants and spectators; viewers can select which PC to watch. The GM can end the game or push a new session.
