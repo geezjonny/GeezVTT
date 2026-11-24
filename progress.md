@@ -629,3 +629,14 @@ Verification is left to the user. No tests, updater execution, browser checks, o
 
 Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.
 
+
+## Token source dropdowns saved - 2026-11-23
+
+- Splits the Tokens floating window into PC, NPC, and /Token dropdowns, retaining the standard panel width and Blank Token option.
+- Keeps PCs and NPCs in separate lists from the existing character catalog. Selecting any source clears the other two and sets the map placement template.
+- Populates /Token from token/index.json through the existing image loader. Folder images create standalone tokens with the selected image, a filename-derived name, size 1, and 0 HP.
+- Updates browser regression assertions for NPC separation, independent image templates, and clearing other source selections.
+
+Verification is left to the user. No tests, browser checks, visual inspections, or application validation commands were run. Outstanding work: exercise all three dropdowns, placement and replacement, PC synchronization, blank tokens, image rendering, and saving/reloading spawned tokens. Folder images have no linked character stats; adjust size and HP as needed.
+
+Save, commit, and push requested to origin/main. Leave the unrelated scene/blackpearl-whole.geezvtt modification out of this commit.

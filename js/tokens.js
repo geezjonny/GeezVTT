@@ -115,16 +115,27 @@ function pcSyncStatus(id, message) {
 }
 const tokenAt = event => tokens().find(token => token.id === event.target.closest('[data-token-id]')?.dataset.tokenId);
 function template() {
-  floor.tokenTemplate = { ...(npcs.find(npc => npc.npcId === $('token-source').value) || { name: 'Blank Token', size: 1, hp: 0, npcId: null }) };
+  const source = $('token-pc-source').value || $('token-source').value;
+  const image = $('token-art-source').value;
+  floor.tokenTemplate = { ...(npcs.find(npc => npc.npcId === source) || {
+    name: image ? image.replace(/\.[^.]+$/, '').replace(/_/g, ' ').slice(0, 100) : 'Blank Token',
+    size: 1, hp: 0, npcId: null, ...(image ? { imageName: image } : {})
+  }) };
 }
-$('token-source').addEventListener('change', () => { template(); syncPCs(); });
+const tokenSources = ['token-pc-source', 'token-source', 'token-art-source'];
+for (const id of tokenSources) {
+  $(id).addEventListener('change', () => {
+    for (const other of tokenSources) if (other !== id) $(other).value = '';
+    template(); syncPCs();
+  });
+}
 template();
 
 function applyPC(id) {
   const character = entities[id]?.kind === 'pc' ? npcCatalog({ [id]: entities[id] }, null, sheetReference)[0] : null;
   npcs = npcs.filter(npc => npc.npcId !== `v2:${id}`);
   if (character) npcs.push(character);
-  const option = Array.from($('token-source').options).find(option => option.value === `v2:${id}`);
+  const option = Array.from($('token-pc-source').options).find(option => option.value === `v2:${id}`);
   if (option) {
     if (character) option.text = character.name;
     else option.remove();
@@ -186,9 +197,13 @@ async function loadNPCs() {
     if (results[0].status === 'fulfilled') entities = results[0].value || {};
     for (const [id, entity] of Object.entries(entities)) if (entity?.kind === 'pc') knownPCs.add(id);
     npcs = npcCatalog(results[0].value, results[1].value, sheetReference);
-    const previous = $('token-source').value;
-    $('token-source').replaceChildren(new Option('Blank Token', ''), ...npcs.map(npc => new Option(npc.name, npc.npcId)));
-    $('token-source').value = npcs.some(npc => npc.npcId === previous) ? previous : '';
+    for (const id of ['token-pc-source', 'token-source']) {
+      const select = $(id), previous = select.value;
+      const entries = npcs.filter(npc => (npc.kind === 'pc') === (id === 'token-pc-source'));
+      select.replaceChildren(new Option(id === 'token-pc-source' ? 'Select PC' : 'Blank Token', ''),
+        ...entries.map(npc => new Option(npc.name, npc.npcId)));
+      select.value = entries.some(npc => npc.npcId === previous) ? previous : '';
+    }
     template();
     for (const id of Object.keys(entities)) if (entities[id]?.kind === 'pc') applyPC(id);
     syncPCs();
@@ -353,4 +368,7 @@ floor.addEventListener('map-changed', () => {
 });
 if (floor.tabletopMap) loadNPCs();
 
-tokenImages().catch(error => { $('token-status').textContent=error.message; });
+tokenImages().then(names => {
+  $('token-art-source').replaceChildren(new Option('Select image', ''),
+    ...names.map(name => new Option(name.replace(/\.[^.]+$/, '').replace(/_/g, ' '), name)));
+}).catch(error => { $('token-status').textContent=error.message; });

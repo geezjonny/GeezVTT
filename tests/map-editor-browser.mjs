@@ -198,6 +198,7 @@ try {
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.doors[0].open`),true);
   // Tokens share tools, selection, movement, history, bucket barriers, and map export.
   await wait(`document.querySelector('#token-source option[value="legacy:guard"]')!==null`);
+  assert.equal(await evaluate(`document.querySelector('#token-pc-source option[value="legacy:guard"]') === null`),true,'NPCs stay out of the PC dropdown');
   await change('edit-layer','tokens');await change('edit-tool','paint');
   await click(12,12);await click(14,12);assert.equal(await count('tokens'),2);
   await change('edit-tool','select');await drag(11,11,15,13);
@@ -205,8 +206,15 @@ try {
   await drag(12.5,12.5,13.5,13.5);
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].x`),13.5);
   await change('token-source','legacy:guard');await change('edit-tool','replace');await click(13.5,13.5);
+  assert.equal(await evaluate(`document.getElementById('token-pc-source').value`),'','selecting an NPC clears the PC selection');
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].name`),'Guard');
   assert.equal(await evaluate(`document.getElementById('floor').tabletopMap.tokens[0].size`),2);
+  await wait(`document.querySelector('#token-art-source option[value="aboleth.png"]')!==null`);
+  await change('token-art-source','aboleth.png');
+  assert.deepEqual(await evaluate(`(()=>{const t=document.getElementById('floor').tokenTemplate;return [t.name,t.imageName,t.npcId,document.getElementById('token-source').value,document.getElementById('token-pc-source').value]})()`),
+    ['aboleth','aboleth.png',null,'',''],'folder images create independent tokens and clear character selections');
+  await change('token-source','legacy:guard');
+  assert.equal(await evaluate(`document.getElementById('token-art-source').value`),'','selecting an NPC clears the folder image');
   for(const tool of ['select','erase','paint','bucket','replace']) {
     await change('edit-tool',tool);
     const position=await point(13.5,13.5);
