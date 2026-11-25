@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { playerDestination, nearbyDoor } from '../js/player-actions.js';
+import { playerDestination, nearbyDoor, freeDestination, canStand } from '../js/player-actions.js';
 import { fogRectangles } from '../js/environment-model.js';
 
 const pc = { kind: 'pc', x: 2.5, y: 2.5, size: 1 };
@@ -36,3 +36,20 @@ map.doors = [{ points: wall, type: 'door', open: false }];
 assert.equal(covered({ x: 4.5, y: 2.5 }), true);
 map.doors[0].open = true;
 assert.equal(covered({ x: 4.5, y: 2.5 }), false);
+
+// Free roam: fractional positions, short hops only, walls/closed doors/windows block, map edges clamp.
+const open = { width: 10, height: 10, walls: [], doors: [] };
+assert.deepEqual(freeDestination(open, pc, 2.62, 2.5), { x: 2.62, y: 2.5 });
+assert.equal(freeDestination(open, pc, 7, 2.5), null);
+assert.equal(freeDestination(open, { ...pc, kind: 'npc' }, 2.6, 2.5), null);
+assert.equal(freeDestination(open, { ...pc, speed: 0 }, 2.6, 2.5), null);
+assert.equal(freeDestination(open, pc, NaN, 2.5), null);
+assert.equal(freeDestination(open, pc, .2, 2.5), null);
+const walled = { ...open, walls: [[{ x: 3, y: 1 }, { x: 3, y: 4 }]] };
+assert.equal(freeDestination(walled, pc, 3.6, 2.5), null);
+assert.equal(canStand(walled, 1, { x: 2.4, y: 2.5 }, { x: 2.6, y: 2.5 }), false); // within a token radius of the wall
+assert.equal(canStand(walled, 1, { x: 2.4, y: 2.5 }, { x: 2.4, y: 2.9 }), true);
+const door = { ...open, doors: [{ points: [{ x: 3, y: 1 }, { x: 3, y: 4 }], type: 'door', open: true }] };
+assert.notEqual(freeDestination(door, pc, 3.6, 2.5), null);
+door.doors[0].open = false;
+assert.equal(freeDestination(door, pc, 3.6, 2.5), null);

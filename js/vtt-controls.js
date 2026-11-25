@@ -4,9 +4,10 @@ import { isGM, canControlPC, playerIdentity, sessionClient } from './session-rol
 import { fogRectangles } from './environment-model.js';
 import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, firstPersonYaw } from './map-view-toggle.js';
 import { cameraStep } from './first-person-model.js';
-import { reachableCells } from './player-actions.js';
+import { reachableCells, FREE_ROAM_ENABLED } from './player-actions.js';
 import { pcTokenStatus } from './token-model.js';
 import { requestObjectInteraction } from './trigger-controls.js';
+import './free-roam.js';
 
 const $ = id => document.getElementById(id);
 const floor = $('floor'), map = $('map-view'), host = $('view-3d');
@@ -72,6 +73,16 @@ function selectToken(token) {
   $('tokens').querySelectorAll('[data-token-id]').forEach(node => node.classList.toggle('player-selected', node.dataset.tokenId === selectedToken));
   $('vtt-controls').querySelector('[data-vtt-tool="select"]').title = token ? `Selected: ${token.name}` : isGM ? 'Select and move tokens or props' : 'Select a PC token';
 }
+// Movement mode (GM): turn-based = one cell per keypress; free roam = smooth held-key movement for players. Initiative always forces turn-based.
+function syncRoamButton() {
+  const roam = floor.freeRoam === true, button = $('vtt-roam');
+  button.setAttribute('aria-pressed', String(roam));
+  button.title = roam ? 'Movement: Free roam. Click for turn-based (one cell per keypress)' : 'Movement: Turn-based. Click for free roam (players move smoothly with WASD)';
+  button.setAttribute('aria-label', `Movement: ${roam ? 'Free roam' : 'Turn-based'}`);
+}
+if (!FREE_ROAM_ENABLED) $('vtt-roam').hidden = true;
+$('vtt-roam').addEventListener('click', () => { if (!isGM || !FREE_ROAM_ENABLED) return; floor.freeRoam = !floor.freeRoam; syncRoamButton(); floor.dispatchEvent(new Event('roam-changed')); });
+floor.addEventListener('roam-changed', syncRoamButton);
 $('vtt-view').addEventListener('click', () => $('toggle-3d').click());
 $('vtt-grid').addEventListener('click', () => $('toggle-grid').click());
 const syncGrid = () => $('vtt-grid').setAttribute('aria-pressed', String($('toggle-grid').checked));
@@ -305,6 +316,7 @@ document.addEventListener('keydown', event => {
   let step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0],
     ...(yaw === null ? {} : { ArrowUp: [0,-1], ArrowLeft: [-1,0], ArrowDown: [0,1], ArrowRight: [1,0] }) }[event.code];
   if (step && yaw !== null) step = cameraStep(step, yaw);
+  if (step && floor.freeRoam && !floor.initiativeActive) return; // free-roam.js handles held movement keys
   if (!step && event.code !== 'Space') return;
   event.preventDefault();
   const token = floor.tabletopMap?.tokens.find(token => token.id === selectedToken && token.kind === 'pc');

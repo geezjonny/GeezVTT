@@ -2,6 +2,16 @@
 
 ## 2026-11-24
 
+### Free roam (built, switched off for now)
+- Built a Free roam mode: the GM gets a Movement button in VTT Controls, and players hold WASD to move smoothly in 2D, 3D and first person (walls, windows and closed doors still block). Initiative always stays turn-based.
+- Fixed it jittering: a player's token no longer snaps back when the GM's updates arrive, and the map no longer redraws on every step.
+- It is switched off for now (one flag, `FREE_ROAM_ENABLED` in `js/player-actions.js`); play stays turn-based until it has had a dry run with several players. Minigames will live on their own page.
+
+### Minigame page (minigame.html)
+- The minigame page is now a map-building and walking sandbox: GM tools for walls, floors, doors, lights, levers and tokens (PC, NPC or a picture from `token/`), plus a Connect tool to link levers to doors. Maps save and load as `.geezmg`.
+- Right-click opens the object menu for any object, erase and select now pick the nearest wall instead of a neighbour, and the browser's own right-click menu is off on the page.
+- Players' camera follows their character. The lighting overlay is off for now, and light dots are GM-only.
+
 ### Minigame removed
 - The Zombie Horde minigame and the walking/puzzle minigame are gone: their pages, scripts, tests, puzzle files and the Minigame menu and scene-bar buttons. Nothing else in the tabletop depended on them.
 

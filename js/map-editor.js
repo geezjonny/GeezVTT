@@ -1231,7 +1231,7 @@ floor.addEventListener('vtt-token-move',event=>{
   if(!destination) return;
   if(!floor.initiativeActive && crossesWindow(token,destination,model.doors)) return;
   if(token.x===destination.x && token.y===destination.y) return;
-  cancelGesture(); remember();
+  cancelGesture(); if(!event.detail.roam) remember(); // free-roam steps arrive many times a second; keep them out of undo history
   const before={x:token.x,y:token.y};
   if(floor.initiativeActive) floor.tabletopMap.initiative.turn.movementSpent+=destination.cost;
   Object.assign(token,{x:destination.x,y:destination.y}); fireCollision(token,before,destination.path || [token]); render();
@@ -1475,7 +1475,19 @@ export function applySharedMap(state) {
   for(const key of ['floors','walls','doors','lights','tokens','portals','props']) {
     if(state[key] != null && !Array.isArray(state[key])) return;
   }
+  if(floor.roamPos) { // free roam: our own predicted position beats the GM's slightly older echo, so the token doesn't snap back
+    const mine=(state.tokens||[]).find(token=>token.id===floor.roamPos.id);
+    if(mine) floor.roamEcho={id:mine.id,x:mine.x,y:mine.y}; // what the GM has confirmed so far; free-roam.js releases once it catches up
+    const without=value=>JSON.stringify({...value,tokens:(value.tokens||[]).filter(token=>token.id!==floor.roamPos.id)});
+    floor.roamSignature||=floor.lastShared && without(floor.lastShared); // first sync of a stroke: compare against the last state we drew
+    const signature=without(state);
+    if(signature===floor.roamSignature) return; // only our own token moved: skip the costly full redraw that would stall the frame loop
+    floor.roamSignature=signature;
+  } else floor.roamSignature=null;
+  floor.lastShared=state;
   for(const key of ['floors','walls','doors','lights','tokens','portals','props']) model[key]=clone(state[key] || []);
+  const roam=floor.roamPos && model.tokens.find(token=>token.id===floor.roamPos.id);
+  if(roam) { roam.x=floor.roamPos.x; roam.y=floor.roamPos.y; }
   model.triggers=importedTriggers(state.triggers);
   floor.sceneDocument.audio=sceneAudio(state.audio);
   floor.tabletopMap.environment=environmentSettings(state.environment,model);

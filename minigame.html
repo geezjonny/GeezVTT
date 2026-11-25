@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeezVTT · Minigame</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; background: #15191f; color: #e6ebf1; display: flex; flex-direction: column; overflow: hidden; }
+    header { display: flex; gap: .75rem; align-items: center; padding: .15rem .6rem; background: #202731; border-bottom: 1px solid #3a4d65; font-size: .75rem; flex: none; }
+    header a { color: #a2cbff; }
+    #presence-online { flex: 1; text-align: right; color: #b4c0ce; }
+    #map-status { color: #b4c0ce; }
+    #stage { position: relative; flex: 1; min-height: 0; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: #15191f; touch-action: none; }
+    button, select, input[type="number"] { font: inherit; color: inherit; background: #293544; border: 1px solid #61758f; border-radius: .35rem; padding: .25rem .5rem; cursor: pointer; }
+    button:hover { background: #3a4d65; }
+    button:disabled { opacity: .45; cursor: default; }
+    button[aria-pressed="true"] { background: #344f70; border-color: #a2cbff; box-shadow: inset 0 0 0 1px #a2cbff; }
+    :is(button, select, input, [tabindex]):focus-visible { outline: 2px solid #a2cbff; outline-offset: 2px; }
+    html:not([data-role="gm"]) [data-gm-only] { display: none !important; }
+    [hidden] { display: none !important; }
+
+    /* Floating windows, after index.html's editor panels. */
+    .win { position: fixed; width: 13rem; max-height: calc(100dvh - 4rem); display: flex; flex-direction: column; background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; resize: both; overflow: hidden; min-width: 7rem; max-width: calc(100vw - 1rem); font-size: .75rem; }
+    .win.collapsed { resize: none; height: auto !important; min-height: 0; }
+    .win-title { display: flex; align-items: center; gap: .3rem; padding: .1rem .375rem; background: #293544; cursor: move; user-select: none; touch-action: none; font-size: .7rem; line-height: 1.4; flex: none; }
+    .win-title h2 { margin: 0; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: inherit; }
+    .win-title button { border: 0; background: transparent; padding: 0 .25rem; min-width: 1.2rem; font-size: inherit; line-height: inherit; border-radius: 0; box-shadow: none; }
+    .win-title button:hover { background: #344f70; }
+    .win-title button[aria-label^="Close"]:hover { background: #a3313d; }
+    .win-body { padding: .4rem; display: grid; gap: .4rem; align-content: start; overflow: auto; min-height: 0; flex: 1; }
+    .win-body label { display: flex; align-items: center; gap: .35rem; font-size: .75rem; }
+    .win-body p { margin: 0; color: #b4c0ce; line-height: 1.4; }
+    .win-body input[type="number"] { width: 4rem; padding: .2rem .3rem; }
+    .win-body input[type="color"] { width: 2rem; height: 1.5rem; padding: 0; }
+    .icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(2.1rem, 1fr)); gap: .25rem; }
+    .icons button { display: grid; place-items: center; aspect-ratio: 1; padding: .2rem; min-width: 0; }
+    .icons svg { width: 100%; max-width: 1.4rem; pointer-events: none; }
+    .icons.tools { grid-template-columns: repeat(4, 1fr); }
+    .group-label { font-size: .6rem; text-transform: uppercase; letter-spacing: .08em; color: #8da0b8; margin-top: .1rem; }
+    .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: .25rem; max-height: 11rem; overflow: auto; }
+    .swatches button { padding: 0; height: 1.7rem; border-radius: .2rem; overflow: hidden; position: relative; }
+    .swatches canvas { position: static; width: 100%; height: 100%; display: block; }
+
+    #hint { position: absolute; left: 50%; bottom: .6rem; transform: translateX(-50%); max-width: calc(100% - 2rem); padding: .25rem .7rem; background: #202731e6; border: 1px solid #3a4d65; border-radius: 1rem; font-size: .75rem; color: #c9d4e2; pointer-events: none; text-align: center; }
+    #hint:empty { display: none; }
+    #map-object-menu { position: fixed; inset: auto; margin: 0; min-width: 10rem; max-height: 100dvh; overflow: auto; padding: .2rem; background: #202731; color: #e6ebf1; border: 1px solid #61758f; border-radius: .25rem; box-shadow: 0 6px 18px #0008; }
+    #map-object-menu button { display: flex; width: 100%; border: 0; text-align: left; font-size: .8rem; padding: .35rem .5rem; background: transparent; color: inherit; border-radius: 0; }
+    #map-object-menu button:is(:hover, :focus) { background: #3a4d65; }
+    dialog { background: #202731; color: inherit; border: 1px solid #61758f; border-radius: .4rem; }
+    dialog::backdrop { background: #000a; }
+    #player-login-form { display: grid; gap: .6rem; min-width: 16rem; }
+    #player-login-form h2 { margin: 0; font-size: 1rem; }
+    #player-login-form label { display: grid; gap: .2rem; font-size: .8rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="index.html">Tabletop</a>
+    <button id="player-sign-in" type="button" aria-haspopup="dialog" aria-controls="player-login">Sign in</button>
+    <span id="map-status" role="status"></span>
+    <span id="presence-online"></span>
+    <span id="presence-status" role="status"></span>
+    <input id="map-file" type="file" accept=".geezmg,.dd2vtt,.uvtt,.geezvtt,application/json" hidden>
+  </header>
+  <dialog id="player-login" aria-labelledby="player-login-title">
+    <form id="player-login-form">
+      <h2 id="player-login-title">Player sign in</h2>
+      <label>Campaign<select id="player-campaign" required><option value="">Choose campaign</option></select></label>
+      <label>Character<select id="player-character" required disabled><option value="">Choose PC</option></select></label>
+      <button type="submit">Join</button>
+      <output id="player-login-status" role="status" aria-live="polite"></output>
+    </form>
+  </dialog>
+  <main id="stage">
+    <canvas id="map" role="img" aria-label="Top-down map. Move your character with W, A, S and D or the arrow keys. Scroll to zoom, right-drag to pan."></canvas>
+    <div id="hint" role="status" aria-live="polite"></div>
+  </main>
+  <script src="js/firebase-config.js"></script>
+  <script type="module" src="js/player-presence.js"></script>
+  <script type="module" src="js/minigame-page.js"></script>
+</body>
+</html>

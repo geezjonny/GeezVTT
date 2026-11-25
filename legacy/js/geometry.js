@@ -36,10 +36,10 @@ export function parseDD2VTT(json) {
   // (arrays of {x,y} points); flatten each polygon's consecutive pairs
   // into independent segments.
   const polygons = [...(json.line_of_sight || []), ...(json.objects_line_of_sight || [])];
-  for (const poly of polygons) {
+  for (const [pi, poly] of polygons.entries()) {
     for (let i = 0; i < poly.length - 1; i++) {
       const a = poly[i], b = poly[i + 1];
-      walls.push({ id: genId(), x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      walls.push({ id: genId(), x1: a.x, y1: a.y, x2: b.x, y2: b.y, poly: pi });
     }
   }
 

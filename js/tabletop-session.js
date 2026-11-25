@@ -3,7 +3,7 @@ import { isGM, sessionClient as client, playerIdentity, canControlPC } from './s
 import { playerPresence } from './player-presence.js';
 import { ownsPC, validPlayer } from './player-session-model.js';
 import { sharedMapState, applySharedMap } from './map-editor.js';
-import { playerDestination, nearbyDoor } from './player-actions.js';
+import { playerDestination, freeDestination, nearbyDoor, FREE_ROAM_ENABLED } from './player-actions.js';
 import { watchTabletop } from './tabletop-stream.js';
 import { movementQueue } from './movement-queue.js';
 import { takeTurnAction } from './initiative-model.js';
@@ -99,7 +99,7 @@ async function flushChanges() {
       await write('scene', { id: publishingId, scene });
       if (sceneId !== publishingId) { dirty = true; return; }
     }
-    const nextLive = { sceneId, map: sharedMapState(), initiative: $('initiative-active').checked };
+    const nextLive = { sceneId, map: sharedMapState(), initiative: $('initiative-active').checked, freeRoam: FREE_ROAM_ENABLED && floor.freeRoam === true };
     if (lastLive?.sceneId === sceneId) {
       const patch = livePatch(lastLive, nextLive);
       if (Object.keys(patch).length) await write('live', patch, 'PATCH');
@@ -128,6 +128,8 @@ floor.flushSharedTabletop = async () => {
 function applyLive() {
   if (loading || !pendingLive || pendingLive.sceneId !== sceneId) return;
   floor.initiativeActive = pendingLive.initiative === true;
+  const roam = FREE_ROAM_ENABLED && pendingLive.freeRoam === true;
+  if (floor.freeRoam !== roam) { floor.freeRoam = roam; floor.dispatchEvent(new Event('roam-changed')); }
   applySharedMap(pendingLive.map);
   status.textContent = floor.initiativeActive ? 'Player · Initiative active' : 'Player · Synced';
 }
@@ -150,7 +152,7 @@ async function receiveScene(value) {
 if (isGM) {
   status.textContent = 'GM · Load a map to share';
   floor.addEventListener('map-ready', () => { sceneId = null; schedule(); });
-  for (const type of ['map-changed', 'environment-changed', 'scene-changed']) floor.addEventListener(type, schedule);
+  for (const type of ['map-changed', 'environment-changed', 'scene-changed', 'roam-changed']) floor.addEventListener(type, schedule);
   $('initiative-active').addEventListener('change', () => {
     floor.initiativeActive = $('initiative-active').checked;
     schedule();
@@ -231,9 +233,10 @@ listen('actions', actions => {
       } else if (action.type === 'move') {
         const dx = Number.isFinite(action.x) && token ? action.x-token.x : action.dx;
         const dy = Number.isFinite(action.y) && token ? action.y-token.y : action.dy;
-        const next = playerDestination(map, token, dx, dy, floor.initiativeActive);
+        const roam = FREE_ROAM_ENABLED && action.free === true && floor.freeRoam === true && !floor.initiativeActive;
+        const next = roam ? freeDestination(map, token, action.x, action.y) : playerDestination(map, token, dx, dy, floor.initiativeActive);
         if (next) {
-          floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next } }));
+          floor.dispatchEvent(new CustomEvent('vtt-token-move', { detail: { id: token.id, ...next, ...(roam ? { roam: true } : {}) } }));
           if (timer && !sending) { clearTimeout(timer); flush(); }
         }
       } else if (action.type === 'chest') {

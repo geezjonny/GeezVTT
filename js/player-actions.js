@@ -15,6 +15,25 @@ export function playerDestination(map, token, dx, dy, initiative) {
   return next;
 }
 
+// Free-roam movement: can a token of this size stand at `to` after moving from `from`? Walls, windows and closed doors block.
+export function canStand(map, size, from, to) {
+  if (to.x < size / 2 || to.y < size / 2 || to.x > map.width - size / 2 || to.y > map.height - size / 2) return false;
+  const barriers = [...map.walls, ...map.doors.filter(door => door.type === 'window' || !door.open).map(door => door.points)].flatMap(segments);
+  return !barriers.some(([a, b]) => crosses(from, to, a, b) || distance(to, a, b) < size / 2);
+}
+
+// Free roam is switched off for now (turn-based only). Set true to bring back the GM's Movement button and smooth player movement.
+export const FREE_ROAM_ENABLED = false;
+
+// GM side of a free-roam move to an absolute point. Players send positions many times a second, so only short hops are accepted.
+export const FREE_ROAM_MAX_HOP = 3;
+export function freeDestination(map, token, x, y) {
+  if (token?.kind !== 'pc' || token.overCapacity || token.hidden || token.speed === 0 || !Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const to = { x: Math.round(x * 1000) / 1000, y: Math.round(y * 1000) / 1000 };
+  if (Math.hypot(to.x - token.x, to.y - token.y) > FREE_ROAM_MAX_HOP) return null;
+  return canStand(map, token.size, token, to) ? to : null;
+}
+
 export function nearbyDoor(map, token) {
   if (token?.kind !== 'pc') return -1;
   let index = -1, nearest = token.size / 2 + 1;
