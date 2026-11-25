@@ -61,7 +61,7 @@ function frame(now) {
 }
 const start = () => { if (!raf) { last = performance.now(); raf = requestAnimationFrame(frame); } };
 
-const typing = e => e.target.isContentEditable || e.target.closest?.('input, textarea, select, button, .editor-titlebar');
+const typing = e => e.target.isContentEditable || e.target.closest?.('input, textarea, select, .editor-titlebar'); // buttons don't use WASD, so a focused one must not block movement
 document.addEventListener('keydown', e => {
   if (!roaming() || e.ctrlKey || e.metaKey || e.altKey || typing(e) || !WASD[e.code]) return;
   if (!character()) return;

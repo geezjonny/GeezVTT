@@ -46,7 +46,7 @@ function render() {
   $('chance-cards').hidden = hand?.phase !== 'offered';
   for (const button of $('chance-cards').querySelectorAll('button')) {
     button.disabled = busy || isGM || playerIdentity?.pcId !== record?.pcId || !ready || hand?.phase !== 'offered' || pendingChoice && (pendingChoice.id !== hand.id || pendingChoice.choice !== Number(button.dataset.chanceCard));
-    button.textContent = pendingChoice?.id === hand?.id && pendingChoice.choice === Number(button.dataset.chanceCard) ? 'Retry pick' : `✧ ${Number(button.dataset.chanceCard) + 1}`;
+    button.textContent = pendingChoice && pendingChoice.id === hand?.id && pendingChoice.choice === Number(button.dataset.chanceCard) ? 'Retry pick' : `✧ ${Number(button.dataset.chanceCard) + 1}`;
   }
   const revealed = hand && ['revealed', 'handled'].includes(hand.phase);
   $('chance-result').hidden = !revealed;

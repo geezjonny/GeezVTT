@@ -263,8 +263,9 @@ for (const type of ['pointercancel', 'lostpointercapture']) floor.addEventListen
 }, true);
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !event.target.matches('input, textarea, select')) clear();
-  if (isGM || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.isContentEditable || event.target.closest('input, textarea, select, button, .editor-titlebar')) return;
   const step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0] }[event.code];
+  // A focused button (e.g. "Sign in" after the login dialog closes) must not swallow WASD; Space still belongs to buttons.
+  if (isGM || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.isContentEditable || event.target.closest(step ? 'input, textarea, select, .editor-titlebar' : 'input, textarea, select, button, .editor-titlebar')) return;
   if (step && floor.freeRoam && !floor.initiativeActive) return; // free-roam.js handles held movement keys
   if (!step && event.code !== 'Space') return;
   event.preventDefault();

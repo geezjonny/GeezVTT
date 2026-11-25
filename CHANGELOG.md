@@ -2,6 +2,11 @@
 
 ## 2026-11-25
 
+### Movement and Deck of Chance fixes
+- Players can move with WASD again right after signing in. Keyboard focus stays on the Sign in button after the login closes, and the key handler used to ignore WASD while a button had focus; in the old 3D view the canvas took focus, so nobody noticed. Free roam has the same fix.
+- Fixed a Deck of Chance error on every map load (the card buttons crashed when no draw was in progress).
+- Light range circles are now hidden for the GM too, not just players.
+
 ### Token and light tweaks
 - Free roam is switched back on: the GM's Movement button is back in VTT Controls, and players hold WASD to move smoothly (initiative still forces turn-based).
 - Tokens are drawn and collide a bit smaller than their square (85%), so a 1-square token now fits through a 5 ft door.
