@@ -1,27 +1,171 @@
 [
     {
-        "file":  "camp.dd2vtt",
-        "name":  "camp",
-        "bytes":  1057447
+        "file": "camp.dd2vtt",
+        "name": "camp",
+        "bytes": 1057447
     },
     {
-        "file":  "chapel_dungeon.dd2vtt",
-        "name":  "chapel dungeon",
-        "bytes":  706204
+        "file": "chapel_dungeon.dd2vtt",
+        "name": "chapel dungeon",
+        "bytes": 706204
     },
     {
-        "file":  "forestroad.dd2vtt",
-        "name":  "forestroad",
-        "bytes":  3027997
+        "file": "forestroad.dd2vtt",
+        "name": "forestroad",
+        "bytes": 3027997
     },
     {
-        "file":  "mistyoaks.dd2vtt",
-        "name":  "mistyoaks",
-        "bytes":  16122783
+        "file": "mistyoaks.dd2vtt",
+        "name": "mistyoaks",
+        "bytes": 16122783
     },
     {
-        "file":  "prison_00.dd2vtt",
-        "name":  "prison 00",
-        "bytes":  239406
+        "file": "prison_00.dd2vtt",
+        "name": "prison 00",
+        "bytes": 239406
+    },
+    {
+        "file": "Havensreach.dd2vtt",
+        "name": "Havensreach"
+    },
+    {
+        "file": "anchorfall.dd2vtt",
+        "name": "anchorfall"
+    },
+    {
+        "file": "azurite_pointe.dd2vtt",
+        "name": "azurite pointe"
+    },
+    {
+        "file": "blackpearl0.dd2vtt",
+        "name": "blackpearl0"
+    },
+    {
+        "file": "blackpearl1.dd2vtt",
+        "name": "blackpearl1"
+    },
+    {
+        "file": "blackpearl2.dd2vtt",
+        "name": "blackpearl2"
+    },
+    {
+        "file": "cavesystem.dd2vtt",
+        "name": "cavesystem"
+    },
+    {
+        "file": "desertedhouse0.dd2vtt",
+        "name": "desertedhouse0"
+    },
+    {
+        "file": "desertedhouse1.dd2vtt",
+        "name": "desertedhouse1"
+    },
+    {
+        "file": "forest_road.dd2vtt",
+        "name": "forest road"
+    },
+    {
+        "file": "forestroad-cave.dd2vtt",
+        "name": "forestroad cave"
+    },
+    {
+        "file": "lava_grave.dd2vtt",
+        "name": "lava grave"
+    },
+    {
+        "file": "market_district_00.dd2vtt",
+        "name": "market district 00"
+    },
+    {
+        "file": "market_district_01.dd2vtt",
+        "name": "market district 01"
+    },
+    {
+        "file": "market_district_02.dd2vtt",
+        "name": "market district 02"
+    },
+    {
+        "file": "market_district_03.dd2vtt",
+        "name": "market district 03"
+    },
+    {
+        "file": "palace_grounds_00.dd2vtt",
+        "name": "palace grounds 00"
+    },
+    {
+        "file": "palace_grounds_01.dd2vtt",
+        "name": "palace grounds 01"
+    },
+    {
+        "file": "palace_grounds_02.dd2vtt",
+        "name": "palace grounds 02"
+    },
+    {
+        "file": "palace_grounds_03.dd2vtt",
+        "name": "palace grounds 03"
+    },
+    {
+        "file": "palace_grounds_04.dd2vtt",
+        "name": "palace grounds 04"
+    },
+    {
+        "file": "porttown.dd2vtt",
+        "name": "porttown"
+    },
+    {
+        "file": "prison_01.dd2vtt",
+        "name": "prison 01"
+    },
+    {
+        "file": "prison_02.dd2vtt",
+        "name": "prison 02"
+    },
+    {
+        "file": "sanctus_entrance_00.dd2vtt",
+        "name": "sanctus entrance 00"
+    },
+    {
+        "file": "sanctus_entrance_01.dd2vtt",
+        "name": "sanctus entrance 01"
+    },
+    {
+        "file": "sanctus_entrance_02.dd2vtt",
+        "name": "sanctus entrance 02"
+    },
+    {
+        "file": "sanctus_entrance_03.dd2vtt",
+        "name": "sanctus entrance 03"
+    },
+    {
+        "file": "sanctus_entrance_04.dd2vtt",
+        "name": "sanctus entrance 04"
+    },
+    {
+        "file": "skybridge.dd2vtt",
+        "name": "skybridge"
+    },
+    {
+        "file": "sunfalkeep.dd2vtt",
+        "name": "sunfalkeep"
+    },
+    {
+        "file": "test.dd2vtt",
+        "name": "test"
+    },
+    {
+        "file": "undead_town_00.dd2vtt",
+        "name": "undead town 00"
+    },
+    {
+        "file": "undead_town_01.dd2vtt",
+        "name": "undead town 01"
+    },
+    {
+        "file": "undertown_00.dd2vtt",
+        "name": "undertown 00"
+    },
+    {
+        "file": "undertown_01.dd2vtt",
+        "name": "undertown 01"
     }
 ]

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeezVTT · The Deck of Chance</title>
+  <link rel="stylesheet" href="minigame4.css">
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">The Devil’s Table · Minigame IV</p>
+      <h1>The Deck of Chance</h1>
+      <p class="invitation">An adjective. A noun. A verb. Fate has a peculiar vocabulary.</p>
+      <p class="cosmology">One hundred fifty words. One hundred twenty-five thousand omens. From the ridiculous to the dreadful.</p>
+    </header>
+    <section class="board" aria-label="Three 1–50 rolls: adjective, noun, and verb" aria-busy="false">
+      <article class="word-card" data-slot="0">
+        <p class="eyebrow">Adjective</p><div class="die" aria-label="1–50 result">?</div>
+        <h2>Unspoken</h2><p class="whisper">The terms are written between the stars.</p>
+      </article>
+      <article class="word-card" data-slot="1">
+        <p class="eyebrow">Noun</p><div class="die" aria-label="1–50 result">?</div>
+        <h2>Unknown</h2><p class="whisper">Something waits to be named.</p>
+      </article>
+      <article class="word-card" data-slot="2">
+        <p class="eyebrow">Verb</p><div class="die" aria-label="1–50 result">?</div>
+        <h2>Unwritten</h2><p class="whisper">What happens next is not yet spoken.</p>
+      </article>
+    </section>
+    <div class="controls">
+      <button id="roll" type="button" disabled>Roll the bargain</button>
+      <p id="status" role="status">Preparing the deck…</p>
+    </div>
+    <article id="item" class="item" aria-labelledby="item-name" hidden>
+      <p class="eyebrow">The table speaks</p>
+      <h2 id="item-name"></h2>
+      <p id="item-flavor"></p>
+      <details id="meaning">
+        <summary>Word meanings</summary>
+        <dl id="item-rules"></dl>
+      </details>
+    </article>
+    <footer>
+      Unbound table · Local rolls · No character or scene changes
+    </footer>
+    <noscript>This table needs JavaScript to roll its dice.</noscript>
+  </main>
+  <script type="module" src="js/devils-deck.js"></script>
+</body>
+</html>

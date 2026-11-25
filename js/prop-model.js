@@ -56,7 +56,7 @@ export function propProperties(kind, size = 1, rotation = 0) {
   if (!Object.hasOwn(PROPS, kind)) throw new Error('Choose a prop from the palette.');
   if (!Number.isFinite(size) || size < .25 || size > 20) throw new Error('Prop size must be between 0.25 and 20.');
   if (!Number.isFinite(rotation)) throw new Error('Enter a rotation in degrees.');
-  return { kind, size, rotation: ((rotation % 360) + 360) % 360 };
+  return { kind, size: kind === 'pressurePlate' ? 1 : size, rotation: ((rotation % 360) + 360) % 360 };
 }
 
 export function importedProps(value) {

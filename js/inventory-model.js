@@ -1,11 +1,13 @@
 import { validateItemEdit } from './item-modifiers.js';
-export const EQUIPMENT_SLOTS = { helmet: 'Helmet', armor: 'Armor', shield: 'Shield', main_hand: 'Weapon' };
+export const EQUIPMENT_SLOTS = { helmet: 'Helmet', armor: 'Armor', shield: 'Shield', main_hand: 'Weapon', card: 'Card' };
 export const COIN_TYPES = { pp: 'Platinum', gp: 'Gold', ep: 'Electrum', sp: 'Silver', cp: 'Copper' };
 const norm = value => String(value || '').trim().toLowerCase();
 export function fitsEquipment(slot, item, reference = {}) {
   const data = reference[norm(item.name)] || {}, category = norm(item.category || data.equipment_category?.name);
   if (category === 'consumable') return false;
   const shield = data.armor_category === 'Shield' || /\bshield\b/i.test(item.name);
+  if (slot === 'card') return category === 'card';
+  if (category === 'card') return false;
   if (slot === 'helmet') return /\b(helm|helmet|hat|cap|crown|circlet|hood|mask|headband|coif|diadem)\b/i.test(item.name) && !data.weapon_category;
   if (slot === 'shield') return shield;
   if (slot === 'armor') return !shield && (!!data.armor_category || category === 'armor' || /\b(armor|mail|leather|plate|breastplate|padded|hide)\b/i.test(item.name));
@@ -17,8 +19,19 @@ export function equippedName(pc, slot) {
   const eq = pc.equipped || {};
   return slot === 'shield' && eq.shield === true ? eq.shield_name || 'Shield' : eq[slot] || (slot === 'main_hand' ? eq.weapon : '') || '';
 }
+export function equippedItem(pc, slot, reference = {}) {
+  if (slot === 'card' && pc.equipped?.card_key) {
+    const item = Object.hasOwn(pc.inventory || {}, pc.equipped.card_key) ? pc.inventory[pc.equipped.card_key] : null;
+    return item && Number(item.qty ?? 1) > 0 && fitsEquipment('card', item, reference) ? item : null;
+  }
+  const items = Object.values(pc.inventory || {}).filter(item => item && typeof item.name === 'string' && Number(item.qty ?? 1) > 0);
+  const name = norm(equippedName(pc, slot));
+  return items.find(item => name && norm(item.name) === name && (slot !== 'card' || fitsEquipment(slot, item, reference))) ||
+    (slot === 'shield' && pc.equipped?.shield === true && !pc.equipped.shield_name ? items.find(item => fitsEquipment(slot, item, reference)) : null);
+}
 export function itemEquipped(pc, item, reference = {}) {
   return Object.keys(EQUIPMENT_SLOTS).some(slot => {
+    if (slot === 'card') return equippedItem(pc, slot, reference) === item;
     if (slot === 'shield' && pc.equipped?.shield === true && !pc.equipped.shield_name) return fitsEquipment('shield', item, reference);
     return norm(equippedName(pc, slot)) === norm(item.name);
   });
@@ -42,6 +55,7 @@ export function changeInventory(entities, sourceId, action, reference = {}) {
     pc.equipped[action.slot] = action.slot === 'shield' ? !!item : item?.name || null;
     if (action.slot === 'shield') pc.equipped.shield_name = item?.name || null;
     if (action.slot === 'main_hand') delete pc.equipped.weapon;
+    if (action.slot === 'card') pc.equipped.card_key = item ? action.key : null;
     return;
   }
   const item = Object.hasOwn(pc.inventory || {}, action.key) ? pc.inventory[action.key] : null;

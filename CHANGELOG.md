@@ -2,6 +2,11 @@
 
 ## 2026-11-24
 
+### Card Creator
+- New GM-only Card Creator window (menu: Card Creator): build a card with ability score bonuses, skill modifiers, stat changes, effects, feats and conditions, give it to any character, and optionally equip it to their card slot in one step.
+- Equipped cards count in the character's totals, so a +2 STR card helps every STR check, save and attack. Feats and card conditions show only while the card is equipped.
+- Players can fill an empty card slot, but only the GM can unequip or swap an equipped card.
+
 ### Campaign pinboard (campaign.html)
 - The old campaign pin board is back as its own page: `campaign.html?gm=jonny` for the DM board, plain `campaign.html` for the party. It only shows the pinboard (no world, area or battle-map views) and reads the same Firebase data as the rest of GeezVTT. The old code it needs lives in `legacy/`.
 - Portraits load again (from `token/`), and the campaign picker only lists real campaigns, not loose battle maps like blackpearl2 and skybridge.

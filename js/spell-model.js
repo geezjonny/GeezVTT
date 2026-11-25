@@ -6,7 +6,7 @@ const levelNumber = value => value === '' || value == null ? null : Number.isInt
 export function spellInfo(pc, key, reference = {}) {
   const spell = Object.hasOwn(pc.spellcasting?.spells || {}, key) && pc.spellcasting.spells[key];
   if (!spell || typeof spell.name !== 'string' || !spell.name.trim()) throw new Error('Spell is unavailable.');
-  const data = reference[spell.name.toLowerCase()] || {};
+  const data = spell.custom ? {} : reference[spell.name.toLowerCase()] || {};
   const level = spell.prepared_type === 'cantrip' ? 0 : levelNumber(spell.level ?? data.level);
   return { key, name: spell.name, level, prepared: spell.prepared_type || (spell.prepared === true ? 'prepared' : spell.prepared === false ? 'unprepared' : 'Not recorded'),
     available: spell.prepared !== false && !['unprepared', 'not_prepared'].includes(spell.prepared_type),
@@ -67,11 +67,12 @@ export function spellCast(pc, key, slotLevel, reference = {}) {
   const final = characterStats(pc, reference), { spell, data } = info;
   const ability = String(pc.spellcasting?.ability || '').toLowerCase();
   const mod = Object.hasOwn(final.stats, ability) ? Math.floor((final.stats[ability] - 10) / 2) : null;
-  const attack = data.attack_type || spell.attack_type || (/\b(?:melee|ranged) spell attack\b/i.test(info.description) ? 'spell' : '') || (spell.to_hit !== undefined && spell.to_hit !== '' ? 'spell' : '');
+  const attack = data.attack_type || spell.attack_type || (/\b(?:melee|ranged) spell attack\b/i.test(info.description) ? 'spell' : '') || (spell.to_hit != null && spell.to_hit !== '' ? 'spell' : '');
   const save = spell.save_stat || data.dc?.dc_type?.index || '';
   const structured = data.damage || typeof spell.damage === 'object' && spell.damage || {};
   const healing = atLevel(spell.heal_at_slot_level || data.heal_at_slot_level, slotLevel) || text(spell.healing || spell.heal);
-  const dc = final.spellDC ?? (spell.save_dc !== '' && spell.save_dc != null && Number.isFinite(Number(spell.save_dc)) ? Number(spell.save_dc) : null);
+  const explicitDC = spell.save_dc !== '' && spell.save_dc != null && Number.isFinite(Number(spell.save_dc)) ? Number(spell.save_dc) : null;
+  const dc = spell.custom && explicitDC !== null ? explicitDC : final.spellDC ?? explicitDC;
   let formula = healing || (info.level === 0 ? atLevel(structured.damage_at_character_level, Number(pc.level) || 1) : atLevel(structured.damage_at_slot_level, slotLevel)) ||
     (!Object.keys(data).length || attack || save ? text(spell.damage || spell.damage_dice) : '');
   const rolls = [], notes = [];
@@ -81,7 +82,8 @@ export function spellCast(pc, key, slotLevel, reference = {}) {
   }
   if (save) notes.push(`Target: ${String(save).toUpperCase()} saving throw${dc !== null ? ` DC ${dc}` : ' (DC unavailable)'}${data.dc?.dc_success === 'half' ? '; half damage on success' : data.dc?.dc_success === 'none' ? '; no damage on success' : ''}.`);
   if (attack) {
-    const bonus = final.spellAttack ?? (spell.to_hit !== '' && spell.to_hit != null && Number.isFinite(Number(spell.to_hit)) ? Number(spell.to_hit) : null);
+    const explicitAttack = spell.to_hit !== '' && spell.to_hit != null && Number.isFinite(Number(spell.to_hit)) ? Number(spell.to_hit) : null;
+    const bonus = spell.custom && explicitAttack !== null ? explicitAttack : final.spellAttack ?? explicitAttack;
     if (bonus === null) notes.push('Spell attack bonus unavailable; resolve the attack manually.');
     else {
       const attackCount = data.index === 'eldritch-blast' ? [5,11,17].filter(level => Number(pc.level) >= level).length + 1

@@ -1,15 +1,12 @@
 import { carryingLoad } from './inventory-weight.js';
-import { EQUIPMENT_SLOTS, equippedName, fitsEquipment } from './inventory-model.js';
+import { EQUIPMENT_SLOTS, equippedName, equippedItem, itemEquipped } from './inventory-model.js';
 import { appliedEffects, applyModifiers, EFFECT_TARGETS } from './effects-model.js';
 import { ITEM_STATS, ITEM_SKILLS } from './item-modifiers.js';
 
 export function equippedModifiers(pc, reference = {}) {
-  const items = Object.values(pc.inventory || {}).filter(item => item && typeof item.name === 'string' && Number(item.qty ?? 1) > 0);
   const equipped = new Set();
   for (const slot of Object.keys(EQUIPMENT_SLOTS)) {
-    const name = equippedName(pc, slot).toLowerCase();
-    const item = items.find(item => name && item.name.toLowerCase() === name) ||
-      (slot === 'shield' && pc.equipped?.shield === true && !pc.equipped.shield_name ? items.find(item => fitsEquipment('shield', item, reference)) : null);
+    const item = equippedItem(pc, slot, reference);
     if (item) equipped.add(item);
   }
   const result = { ac: 0, stats: {}, skills: {} };
@@ -21,6 +18,10 @@ export function equippedModifiers(pc, reference = {}) {
     }
   }
   return result;
+}
+
+export function cardConditions(pc) {
+  return Object.values(pc.inventory || {}).filter(item => Array.isArray(item?.conditions) && itemEquipped(pc, item)).flatMap(item => item.conditions);
 }
 
 export function baseSpeed(pc) {

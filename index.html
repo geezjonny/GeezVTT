@@ -96,6 +96,30 @@
     #minigame-results strong, #minigame-results span { display: block; }
     #minigame-team, #minigame-status { font-size: .7rem; overflow-wrap: anywhere; }
     #minigame-open { color: #a2cbff; }
+    #chance-body, #chance-setup { display: grid; gap: .5rem; }
+    #chance-body { font-size: .8rem; overflow-wrap: anywhere; }
+    #chance-setup label { display: grid; gap: .25rem; }
+    #chance-recipient { width: 100%; min-width: 0; }
+    #chance-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; }
+    #chance-cards button { min-width: 0; min-height: 4.5rem; padding: .3rem; border-color: #ae8757; background: #35212d; color: #f3d9a9; }
+    #chance-result-name { margin: .25rem 0; color: #f3d9a9; font: 1.1rem/1.4 Georgia, serif; }
+    #chance-flavor { margin: .5rem 0; color: #d4bfc4; font-style: italic; line-height: 1.5; }
+    #chance-words { margin: .5rem 0; }
+    #chance-words dt { margin-top: .5rem; color: #a2cbff; }
+    #chance-words dd { margin: .2rem 0 0; }
+    #chance-effects > summary, #chance-result summary { cursor: pointer; }
+    #chance-status, #chance-effects-status { white-space: pre-wrap; }
+    #chance-table { display: grid; gap: .35rem; list-style: none; padding: 0; margin: .25rem 0; }
+    #chance-table button { width: 100%; text-align: left; white-space: normal; font-size: .75rem; }
+    #card-form, #card-form fieldset { display: grid; gap: .35rem; font-size: .75rem; min-width: 0; }
+    #card-form fieldset { margin: 0; padding: .3rem; border: 1px solid #48576b; }
+    #card-form label { display: grid; gap: .2rem; }
+    #card-form label:has(> input[type="checkbox"]) { display: flex; align-items: center; }
+    #card-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .3rem; }
+    #card-stats input { width: 100%; }
+    .card-row, #card-form .effect-modifier { display: grid; gap: .25rem; margin-bottom: .3rem; }
+    #card-form select, #card-form input:not([type="checkbox"]), #card-form textarea { width: 100%; min-width: 0; }
+    #card-status { white-space: pre-wrap; }
     .editor-panel { resize: both; overflow: hidden; min-width: min(7rem, calc(100vw - 2rem)); max-width: calc(100vw - 2rem); min-height: 2rem; }
     #vtt-panel, #build-panel, #scene-panel, #initiative-panel { min-width: 2.5rem; }
     #dice-panel { min-width: 4rem; }
@@ -219,11 +243,18 @@
     .map-token { cursor: grab; }
     [data-role="gm"] #map-view[data-vtt-tool="select"] :is([data-prop-id], [data-portal-id], [data-light-index]) { cursor: grab; }
     .map-token:focus-visible circle { stroke: white; }
+      #vtt-graphics { position: relative; }
+    #vtt-graphics::after { content: attr(data-level); position: absolute; right: 3px; bottom: 1px; font: 700 9px/1 system-ui; }
   </style>
   <script type="importmap">
     { "imports": {
       "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    },
+    "integrity": {
+      "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js": "sha384-GY5FqjttLCFRt/McQbyaVdCk2O1IQtOeX8Py6NfD89BIAsIyJFRl4UgSXrk2vXAk",
+      "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js": "sha384-aJoe4qqS/DgF2jh9njAuvA6QIveJYoCuYOfYjdFY8P3eawzmc9bEQ40jq2TvOyuP",
+      "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js": "sha384-wOjwauvHlJO7K6APr7FmMGH2nupQa3Ndzas9bJZhsAMOK055efJud8ns4aYmASKv"
     } }
   </script>
 </head>
@@ -303,6 +334,8 @@
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
             <button id="open-initiative" type="button" aria-controls="initiative-panel">Initiative</button>
             <button id="open-minigame" type="button" aria-controls="minigame-panel">Minigame</button>
+            <button id="open-chance" type="button" aria-controls="chance-panel">Deck of Chance</button>
+            <button id="open-card-creator" type="button" aria-controls="card-panel" data-gm-only>Card Creator</button>
           </div>
         </details>
         <details class="menu" name="application-menu">
@@ -359,6 +392,7 @@
         <button id="vtt-tokens" type="button" title="Tokens" aria-controls="tokens-panel" data-gm-only disabled aria-label="Tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></button>
         <button id="vtt-view" type="button" title="2D view. Cycle 2D / 3D / 1st Person" aria-label="2D view. Cycle 2D / 3D / 1st Person" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
         <button id="vtt-grid" type="button" title="Toggle grid" aria-label="Toggle grid" aria-controls="grid" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
+        <button id="vtt-graphics" type="button" title="Graphics: High. Click to change" aria-label="Graphics: High" data-level="H"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
         <button id="vtt-environment" type="button" title="Environment" aria-label="Environment" aria-controls="environment-panel" data-gm-only disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="M9 1v2M1 9h2m1-5L2 2m12 2 2-2M4 14l-2 2m11 4h6a3 3 0 0 0 0-6 5 5 0 0 0-9-1 3.5 3.5 0 0 0 0 7Z"/></svg></button>
         <button id="vtt-journal" type="button" title="Journal" aria-label="Journal" aria-controls="journal-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 3h16v18H4ZM8 3v18m3-13h6m-6 4h6"/></svg></button>
         <button id="vtt-handouts" type="button" title="Handouts" aria-label="Handouts" aria-controls="handouts-panel" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 17l5-5 4 4 4-6 5 7"/><circle cx="8" cy="8" r="2"/></svg></button>
@@ -398,13 +432,14 @@
     </section>
     <section id="minigame-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="minigame-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move minigame window. Drag or use arrow keys.">
-        <h2 id="minigame-title">Minigame · Zombie Typing</h2>
+        <h2 id="minigame-title">Minigame · Zombie Horde</h2>
         <button class="editor-close" type="button" aria-label="Close minigame">&times;</button>
       </div>
       <div id="minigame-body" class="editor-body">
         <form id="minigame-setup" data-gm-only>
-          <label>Game<select disabled aria-label="Minigame type"><option>Zombie Typing · DEX</option></select></label>
+          <label>Game<select disabled aria-label="Minigame type"><option>Zombie Horde</option></select></label>
           <fieldset id="minigame-recipients"><legend>Who?</legend></fieldset>
+          <label>Zombie speed<select id="minigame-speed" aria-label="Zombie speed"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
           <button id="minigame-push" type="submit">Push game</button>
         </form>
         <div id="minigame-session" hidden>
@@ -414,6 +449,59 @@
           <button id="minigame-end" type="button" data-gm-only>End game</button>
         </div>
         <output id="minigame-status" role="status" aria-live="polite"></output>
+      </div>
+    </section>
+    <section id="chance-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="chance-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move Deck of Chance window. Drag or use arrow keys.">
+        <h2 id="chance-title">Deck of Chance</h2>
+        <button class="editor-close" type="button" aria-label="Close Deck of Chance">&times;</button>
+      </div>
+      <div class="editor-body" id="chance-body">
+        <form id="chance-setup">
+          <label>Character<select id="chance-recipient"><option value="">Choose character</option></select></label>
+          <button id="chance-push" type="submit" data-gm-only disabled>Push draw</button>
+        </form>
+        <output id="chance-summary" role="status"></output>
+        <div id="chance-cards" role="group" aria-label="Choose a face-down card" hidden>
+          <button type="button" data-chance-card="0" aria-label="Choose card 1">✧ 1</button>
+          <button type="button" data-chance-card="1" aria-label="Choose card 2">✧ 2</button>
+          <button type="button" data-chance-card="2" aria-label="Choose card 3">✧ 3</button>
+        </div>
+        <article id="chance-result" hidden>
+          <h3 id="chance-result-name"></h3>
+          <blockquote id="chance-flavor"></blockquote>
+          <details><summary>Word meanings</summary><dl id="chance-words"></dl></details>
+        </article>
+        <button id="chance-cancel" type="button" data-gm-only hidden>Cancel draw</button>
+        <details id="chance-effects" data-gm-only hidden><summary>Character effects</summary>
+          <div id="chance-effects-content" class="sheet-content"></div>
+          <output id="chance-effects-status" role="status"></output>
+        </details>
+        <button id="chance-handled" type="button" data-gm-only hidden>Mark handled</button>
+        <output id="chance-status" role="status" aria-live="polite"></output>
+        <ol id="chance-table" aria-label="Table draws"></ol>
+      </div>
+    </section>
+    <section id="card-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="card-title" hidden>
+      <div class="editor-titlebar" tabindex="0" aria-label="Move Card Creator window. Drag or use arrow keys.">
+        <h2 id="card-title">Card Creator</h2>
+        <button class="editor-close" type="button" aria-label="Close Card Creator">&times;</button>
+      </div>
+      <div class="editor-body">
+        <form id="card-form">
+          <label>Character<select id="card-pc" required></select></label>
+          <label>Name<input name="name" maxlength="100" required></label>
+          <label>Description<textarea name="description" rows="2" maxlength="20000"></textarea></label>
+          <fieldset><legend>Ability scores</legend><div id="card-stats"></div></fieldset>
+          <fieldset><legend>Skill modifiers</legend><div id="card-skill-rows"></div><button type="button" data-card-add="skill">Add skill</button></fieldset>
+          <fieldset><legend>Stat changes</legend><div id="card-change-rows"></div><button type="button" data-card-add="change">Add stat change</button></fieldset>
+          <fieldset><legend>Effects</legend><div id="card-effect-rows"></div><button type="button" data-card-add="effect">Add effect</button></fieldset>
+          <fieldset><legend>Feats</legend><div id="card-feat-rows"></div><button type="button" data-card-add="feat">Add feat</button></fieldset>
+          <fieldset><legend>Conditions</legend><div id="card-condition-rows"></div><button type="button" data-card-add="condition">Add condition</button></fieldset>
+          <label><input name="equip" type="checkbox" checked>Equip to card slot</label>
+          <button id="card-submit" type="submit">Give card</button>
+          <output id="card-status" role="status" aria-live="polite"></output>
+        </form>
       </div>
     </section>
     <section id="initiative-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="initiative-title">
@@ -989,6 +1077,7 @@
   <script src="js/firebase-config.js"></script>
   <script type="module" src="js/player-presence.js"></script>
   <script type="module" src="js/menu-bar.js"></script>
+  <script type="module" src="js/graphics-control.js"></script>
   <script type="module" src="js/tokens.js"></script>
   <script type="module" src="js/scenes.js"></script>
   <script type="module" src="js/environment.js"></script>
@@ -999,5 +1088,7 @@
   <script type="module" src="js/tabletop-session.js"></script>
   <script type="module" src="js/campaign-tools.js"></script>
   <script type="module" src="js/minigames.js"></script>
+  <script type="module" src="js/chance.js"></script>
+  <script type="module" src="js/card-creator.js"></script>
 </body>
 </html>

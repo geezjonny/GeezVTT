@@ -1,4 +1,5 @@
 import { viewersFor, visibleObject } from './player-vision.js';
+import { graphicsSettings, onGraphicsChange } from './graphics-settings.js';
 import { openPanel } from './menu-bar.js';
 import './map-editor.js';
 import { TIMES, WEATHER_COLORS, fogSize, fogBounds, fogRectangles } from './environment-model.js';
@@ -110,7 +111,7 @@ floor.addEventListener('map-changed', () => {
   }
 });
 function resize() {
-  const ratio = Math.min(devicePixelRatio || 1, 2);
+  const ratio = Math.min(devicePixelRatio || 1, graphicsSettings().pixelRatio);
   canvas.width = Math.max(1, Math.round(floor.clientWidth * ratio));
   canvas.height = Math.max(1, Math.round(floor.clientHeight * ratio));
   context.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -146,10 +147,12 @@ function updateWeather() {
   cancelAnimationFrame(frame); frame = 0;
   context.clearRect(0, 0, floor.clientWidth, floor.clientHeight);
   if (!floor.tabletopMap || floor.tabletopMap.environment.weather === 'clear' || document.hidden) return;
-  if (!particles.length) particles = Array.from({ length: 160 }, () => ({ x: Math.random(), y: Math.random(), size: 1 + Math.random() * 2 }));
+  const wanted = graphicsSettings().weatherParticles;
+  if (particles.length !== wanted) particles = Array.from({ length: wanted }, () => ({ x: Math.random(), y: Math.random(), size: 1 + Math.random() * 2 }));
   last = performance.now(); drawWeather(last);
 }
 new ResizeObserver(resize).observe(floor);
 reducedMotion.addEventListener('change', updateWeather);
+onGraphicsChange(() => { resize(); });
 document.addEventListener('visibilitychange', updateWeather);
 if (floor.tabletopMap) { drawFog(); updateWeather(); }

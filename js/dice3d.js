@@ -1,17 +1,21 @@
-// GeezVTT — transparent dice tray, three.js r128 + cannon.js 0.6.2.
+// GeezVTT â€” transparent dice tray, three.js r128 + cannon.js 0.6.2.
 // Simulate first, paint the decided result on the upper face, then replay.
 // Each solid uses the same convex hull for its rendering and collisions.
+import { graphicsSettings, onGraphicsChange } from './graphics-settings.js';
+// Pinned by hash: a changed or hijacked CDN file is refused instead of running with the page's GM powers.
 const LIBS = [
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js'
+  { src: 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js', integrity: 'sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu' },
+  { src: 'https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js', integrity: 'sha384-I+vlbhtggPtDgOcGQ3rwhQl9JEO7qonTByw9baD7Vlc+1bJdn2ucktJAsbo3nmGA' }
 ];
 let libsReady;
 function loadLibs() {
-  if (!libsReady) libsReady = Promise.all(LIBS.map((src, i) => {
+  if (!libsReady) libsReady = Promise.all(LIBS.map(({ src, integrity }, i) => {
     if (window[i ? 'CANNON' : 'THREE']) return;
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = src;
+      script.integrity = integrity;
+      script.crossOrigin = 'anonymous';
       script.onload = resolve;
       script.onerror = () => { script.remove(); reject(new Error(`Couldn't load ${src}`)); };
       document.head.appendChild(script);
@@ -60,6 +64,17 @@ export async function createDiceTray3D(container) {
   const Y = new THREE.Vector3(0, 1, 0), live = [], tags = [], textures = new Map(), solids = new Map();
   let width, height, trayWidth, destroyed = false, generation = 0, queue = Promise.resolve();
   const depth = 11, step = 1 / 60;
+  function applyGraphics() {
+    const g = graphicsSettings();
+    renderer.setPixelRatio(Math.min(2, g.pixelRatio, window.devicePixelRatio || 1));
+    renderer.shadowMap.enabled = g.shadows;
+    sun.castShadow = g.shadows;
+    const size = Math.min(2048, g.sunShadowSize);
+    if (sun.shadow.mapSize.x !== size) { sun.shadow.mapSize.set(size, size); sun.shadow.map?.dispose(); sun.shadow.map = null; }
+    scene.traverse(object => { if (object.material) [].concat(object.material).forEach(material => { material.needsUpdate = true; }); });
+  }
+  applyGraphics();
+  const stopGraphics = onGraphicsChange(() => { applyGraphics(); fit(); });
 
   function fit() {
     width = Math.max(1, container.clientWidth);
@@ -360,6 +375,7 @@ export async function createDiceTray3D(container) {
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    stopGraphics();
     cancelAnimationFrame(raf);
     observer.disconnect();
     clear();

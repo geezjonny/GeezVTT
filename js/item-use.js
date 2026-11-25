@@ -4,6 +4,7 @@ import { takeTurnAction } from './initiative-model.js';
 export { applyConsumable };
 import { isGM, canControlPC } from './session-role.js';
 import { encodeKey, encodeTree, decodeTree } from './firebase-codec.js';
+import { updateConditionally } from './firebase-update.js';
 
 export function requestItemUse(token, action) {
   if (!canControlPC(token)) return Promise.reject(new Error('Select a character you control.'));
@@ -33,18 +34,18 @@ export async function resolveItemUse(token, action, reference) {
   await floor.flushSharedTabletop();
   floor.compartmentBusy = true;
   try {
-    for (let attempt = 0; attempt < 3; attempt++) {
+    let savedMap;
+    const result = await updateConditionally(url, world => {
+      savedMap = null;
       if (!current()) throw new Error('Scene changed; reopen the bag.');
-      const response = await fetch(url, { headers: { 'X-Firebase-ETag': 'true' }, signal: AbortSignal.timeout(15000) });
-      if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
-      const world = await response.json(), etag = response.headers.get('ETag'), live = world?.vtt?.live;
-      if (!etag || !live || live.sceneId !== action.sceneId) throw new Error('Shared scene changed or unavailable.');
+      const live = world?.vtt?.live;
+      if (!live || live.sceneId !== action.sceneId) throw new Error('Shared scene changed or unavailable.');
       const source = decodeTree(world.entities?.[sourceKey]);
       if (source?.kind !== 'pc' || !source.data || source.data._sheetsDeleted) throw new Error('PC unavailable.');
       const receipt = world.vtt.itemUses?.[action.requestId];
       if (receipt) {
         if (receipt.tokenId !== token.id) throw new Error('Item request conflict.');
-        return { pc: source.data, text: receipt.text };
+        return { result: { pc: source.data, text: receipt.text }, write: null };
       }
       const map = live.map, actor = map.tokens?.find(value => value.id === token.id && value.npcId === token.npcId);
       if (!actor || actor.hidden) throw new Error('Source token unavailable.');
@@ -78,12 +79,10 @@ export async function resolveItemUse(token, action, reference) {
       world.entities[sourceKey] = encodeTree(source);
       world.vtt.itemUses = { ...world.vtt.itemUses, [action.requestId]: { tokenId: token.id, text } };
       if (!current()) throw new Error('Scene changed; reopen the bag.');
-      const saved = await fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': etag }, body: JSON.stringify(world), signal: AbortSignal.timeout(15000) });
-      if (saved.status === 412) continue;
-      if (!saved.ok) throw new Error(`Firebase returned ${saved.status}`);
-      if (current()) floor.dispatchEvent(new CustomEvent('tabletop-item-saved', { detail: map }));
-      return { pc: source.data, text };
-    }
-    throw new Error('Inventory changed elsewhere; try again.');
+      savedMap = map;
+      return { result: { pc: source.data, text }, write: world };
+    }, 'Inventory changed elsewhere; try again.', { raw: true });
+    if (savedMap && current()) floor.dispatchEvent(new CustomEvent('tabletop-item-saved', { detail: savedMap }));
+    return result;
   } finally { floor.compartmentBusy = false; }
 }

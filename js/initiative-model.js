@@ -68,7 +68,7 @@ export function equipmentTurnCost(map, tokenId, pc, action) {
   if (!turn || map.initiative.currentId !== tokenId || turn.tokenId !== tokenId) throw new Error('Wait for your turn to change equipment.');
   const current = equippedName(pc, action.slot);
   const next = action.key ? pc.inventory?.[action.key]?.name : '';
-  if (current === next) return { item: false, action: false };
+  if (current === next && (action.slot !== 'card' || !pc.equipped?.card_key || pc.equipped.card_key === action.key)) return { item: false, action: false };
   if (action.slot === 'armor') throw new Error('Donning or doffing armor takes longer than one turn.');
   const interactions = Number(!!current) + Number(!!next);
   if (action.slot === 'shield') {

@@ -3,6 +3,7 @@ import { viewersFor, visibleObject, visibilityFor } from './player-vision.js';
 // Adapted from view3d.js: grid coordinates map directly to world (x, z).
 // One grid cell = one world unit = 5 ft; walls and doors are two units high.
 import * as THREE from 'three';
+import { graphicsSettings, onGraphicsChange } from './graphics-settings.js';
 import { isGM, canControlPC } from './session-role.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { onMapRightClick } from './map-right-click.js';
@@ -39,6 +40,23 @@ export function createMapView3D(host) {
   sun.shadow.normalBias = 0.02;
   sun.shadow.bias = -0.0001;
   scene.add(sun, sun.target);
+  // Local quality setting: pixel ratio and shadow cost. Point-light shadows are ranked in setMap.
+  function applyGraphics(live) {
+    const g = graphicsSettings();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, g.pixelRatio));
+    const shadowsChanged = renderer.shadowMap.enabled !== g.shadows;
+    renderer.shadowMap.enabled = g.shadows;
+    sun.castShadow = g.shadows;
+    if (sun.shadow.mapSize.x !== g.sunShadowSize) { sun.shadow.mapSize.set(g.sunShadowSize, g.sunShadowSize); sun.shadow.map?.dispose(); sun.shadow.map = null; }
+    for (const light of groups.lights?.children || []) {
+      if (!light.isPointLight) continue;
+      light.castShadow = light.userData.shadowRank >= 0 && light.userData.shadowRank < g.pointShadows;
+      if (light.shadow.mapSize.x !== g.pointShadowSize) { light.shadow.mapSize.set(g.pointShadowSize, g.pointShadowSize); light.shadow.map?.dispose(); light.shadow.map = null; }
+    }
+    if (shadowsChanged) scene.traverse(object => { if (object.material) [].concat(object.material).forEach(material => { material.needsUpdate = true; }); });
+    renderer.shadowMap.needsUpdate = true;
+    if (live) resize();
+  }
   const camera = new THREE.PerspectiveCamera(45, 1, 0.05, 2000);
   const orbitLabel = renderer.domElement.getAttribute('aria-label');
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -50,6 +68,8 @@ export function createMapView3D(host) {
   const root = new THREE.Group();
   Object.values(groups).forEach(group => root.add(group));
   scene.add(root);
+  applyGraphics(false);
+  const stopGraphics = onGraphicsChange(() => applyGraphics(true));
   const placement = new THREE.Group();
   const placementMaterial = new THREE.LineBasicMaterial({ color: '#d4a0ff', transparent: true, opacity: .85, depthTest: false, depthWrite: false });
   scene.add(placement);
@@ -546,15 +566,18 @@ export function createMapView3D(host) {
       THREE.MathUtils.clamp(Number.isFinite(light.opacity) ? light.opacity : 1, 0, 1);
     const lights = model.lights.filter(light => (isGM || !light.hidden) && strength(light) > 0 && Number.isFinite(light.range) && light.range > 0);
     // shortcut: only the eight strongest eligible lights cast shadows; use tiled lighting for larger scenes.
-    const shadowLights = new Set(lights.filter(light => light.source?.shadows !== false)
-      .sort((a, b) => strength(b) - strength(a)).slice(0, 8));
+    const shadowOrder = lights.filter(light => light.source?.shadows !== false)
+      .sort((a, b) => strength(b) - strength(a)).slice(0, 8);
+    const quality = graphicsSettings();
     lights.forEach(light => {
       const height = Math.min(1.3, light.range / 2);
       const distance = Math.hypot(light.range, height);
       const source = new THREE.PointLight(objectLightColor(light), strength(light) * 16, distance, 2);
       source.position.set(light.x, height, light.y);
-      source.castShadow = shadowLights.has(light);
-      source.shadow.mapSize.set(512, 512);
+      const rank = shadowOrder.indexOf(light);
+      source.userData.shadowRank = rank;
+      source.castShadow = rank >= 0 && rank < quality.pointShadows;
+      source.shadow.mapSize.set(quality.pointShadowSize, quality.pointShadowSize);
       source.shadow.camera.near = Math.min(0.05, height / 4);
       source.shadow.camera.far = distance;
       source.shadow.bias = -0.0002;
@@ -633,6 +656,7 @@ export function createMapView3D(host) {
     invalidate();
   }
   function destroy() {
+    stopGraphics();
     setActive(false);
     previewPlacement();
     placementMaterial.dispose();

@@ -21,7 +21,7 @@ export function mountEffects(container, getToken, getPC, status, onSaved) {
     finally { busy = false; controls.forEach(([control, disabled]) => { control.disabled = disabled; }); }
   }
   function fill(form, value = {}) {
-    for (const [key, fallback] of Object.entries({ label: '', category: 'Ability', mode: 'activated', inventoryKey: '', max: 0, recharge: 'none', duration_minutes: 0 })) {
+    for (const [key, fallback] of Object.entries({ label: '', description: '', category: 'Ability', mode: 'activated', inventoryKey: '', max: 0, recharge: 'none', duration_minutes: 0 })) {
       const field = form.elements.namedItem(key);
       field.value = value[key] ?? fallback;
       if (field.tagName === 'SELECT' && field.selectedIndex < 0) field.value = fallback;
@@ -55,7 +55,7 @@ export function mountEffects(container, getToken, getPC, status, onSaved) {
     if (busy || !form.reportValidity()) return;
     if (form.hasAttribute('data-effect-time')) { run({ type: 'advance', minutes: Number(form.elements.namedItem('minutes').value) }); return; }
     const field = name => form.elements.namedItem(name);
-    const value = Object.fromEntries(['label', 'category', 'mode', 'inventoryKey', 'recharge'].map(key => [key, field(key).value]));
+    const value = Object.fromEntries(['label', 'description', 'category', 'mode', 'inventoryKey', 'recharge'].map(key => [key, field(key).value]));
     for (const key of ['max', 'duration_minutes']) value[key] = Number(field(key).value);
     value.consume = field('consume').checked;
     value.modifiers = [...form.querySelectorAll('.effect-modifier')].map(row => ({ target: row.querySelector('[data-effect-target]').value,

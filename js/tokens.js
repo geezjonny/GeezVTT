@@ -35,6 +35,13 @@ function drawSheet(section) {
   $(`${sheetId(section)}-title`).textContent = `${entity?.name || token.name} · ${section}`;
   $(`${sheetId(section)}-content`).innerHTML = entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted
     ? sheetHTML(entity.data, section, sheetReference, canControlPC(token), canControlPC(token), isGM) : '<p>Linked PC unavailable.</p>';
+  if (isGM && entity?.kind === 'pc' && entity.data && !entity.data._sheetsDeleted) {
+    const link = document.createElement('a'), url = new URL('creator.html', location.href);
+    url.searchParams.set('gm', 'jonny'); url.searchParams.set('pc', pcId(token));
+    url.searchParams.set('kind', { Stats: 'Stat', Weapons: 'Weapon', Inventory: 'Item', Feats: 'Feat', Spells: 'Spell', Effects: 'Effect' }[section]);
+    link.href = url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = 'Create / modify';
+    $(`${sheetId(section)}-content`).prepend(link);
+  }
 }
 for (const section of ['Stats', 'Weapons']) {
   $(`${sheetId(section)}-content`).addEventListener('click', event => {
@@ -251,7 +258,7 @@ function tokenMenu(token, x, y, origin) {
   if (!isGM && !pcId(token) && !interactionMenuItems({layer:'tokens',id:token.id}).length) return;
   showMapMenu(x, y, [
     ...interactionMenuItems({layer:'tokens',id:token.id}),
-    ...SHEET_SECTIONS.map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
+    ...SHEET_SECTIONS.filter(section => isGM || section !== 'Effects').map(section => ({ label: section, disabled: !pcId(token), action: () => openSheet(token, section) })),
     ...(isGM ? [
       triggerMenuItem({layer:'tokens',id:token.id}),
       { label: 'Image name...', action: () => pickImage(token) },

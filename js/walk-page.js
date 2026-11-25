@@ -23,7 +23,11 @@ import { KEY_TO_MOVE, TILE_H, TILE_W, cleanTrigger, direction, doorBlocked, door
 
 const $ = id => document.getElementById(id);
 const canvas = $('walk-canvas'), ctx = canvas.getContext('2d');
-const walkPath = pcId => `${hordeBase}/walk/players/${encodeKey(pcId)}.json`;
+const hordeMode = document.documentElement.dataset.walkSession === 'walk3';
+const walkKey = hordeMode ? 'walk3' : 'walk';
+const walkBase = `${hordeBase}/${walkKey}`;
+let combat = null;
+const walkPath = pcId => `${walkBase}/players/${encodeKey(pcId)}.json`;
 const entitiesUrl = `${hordeBase.replace(/\/vtt$/, '')}/entities`;
 const message = text => { if ($('walk-status').textContent !== text) $('walk-status').textContent = text; };
 
@@ -31,7 +35,7 @@ let me = null;                 // { pcId, name, seat, hp, max, pos } when playin
 let spectator = false;
 let focus = { x: 5, y: 5 };    // where the camera looks (the player, or the spectator's own spot)
 let currentMap = null, maps = [];   // maps: the .dd2vtt file names listed in battlemap/index.json
-const mapPath = `${hordeBase}/walk/map.json`;
+const mapPath = `${walkBase}/map.json`;
 let paused = false;            // the GM can freeze everyone to narrate
 let tool = null, selected = null;   // GM editing: 'lever' | 'plate' | 'connect' | 'remove', and the trigger picked for connecting
 let origin = { x: 0, y: 0 };   // where the map's corner is on screen this frame, for turning clicks into map positions
@@ -62,6 +66,7 @@ const objectLayer = name => ['props', 'tokens', 'chains'].includes(name);
 const editableLayer = name => MATERIAL_LAYERS[name] || objectLayer(name);
 const pcToken = pcId => world.tokens.find(t => t.kind === 'pc' && t.npcId === `v2:${pcId}`);
 const tokenPosition = token => {
+  if (combat?.isZombie(token)) return combat.position(token);
   const pcId = token.kind === 'pc' && token.npcId?.startsWith('v2:') ? token.npcId.slice(3) : null;
   return pcId ? (me?.pcId === pcId ? me.pos : others.get(pcId)?.shown || lastPositions.get(pcId) || token) : ai.position(token);
 };
@@ -72,7 +77,7 @@ const pcStart = (pcId, seat) => {
 let undo = [], redo = [], chain = [], hover = null, paintAction = 'paint', suppressClick = false;
 const selection = new Set();
 const editState = () => ({ ...geometry(), triggers: structuredClone(world.triggers), open: [...world.open] });
-const ai = createWalkAI({ mapKey: () => currentMap ? mapKey() : null, active: () => joined && !paused && !stroke, pcs: aiPCs, onError: message });
+const ai = createWalkAI({ mapKey: () => currentMap ? mapKey() : null, active: () => joined && !paused && !stroke, path: walkKey, exclude: token => !!combat?.isZombie(token), pcs: aiPCs, onError: message });
 function aiPCs() {
   const pcs = new Map(roster.map(bot => [bot.pcId, { pcId: bot.pcId, name: bot.name, hp: bot.hp, ...(lastPositions.get(bot.pcId) || pcStart(bot.pcId, bot.seat)) }]));
   for (const [pcId, p] of others) pcs.set(pcId, { pcId, name: p.name, hp: p.hp, ...p.target });
@@ -96,6 +101,7 @@ function editButtons() {
   $('walk-paint-controls').hidden = !editableLayer(tool);
   $('walk-prop-controls').hidden = tool !== 'props'; $('walk-token-controls').hidden = tool !== 'tokens';
   $('walk-chain-controls').hidden = tool !== 'chains';
+  if (hordeMode) $('walk-zombie-controls').hidden = tool !== 'zombies';
   refreshWalkAIDoors();
   document.querySelector('[data-paint-action="bucket"]').disabled = tool === 'walls' || objectLayer(tool);
   $('walk-spacing-label').hidden = !(paintAction === 'bucket' && tool === 'doors');
@@ -134,9 +140,14 @@ async function loadMap(file) {
   const response = await fetch(`battlemap/${encodeURIComponent(file)}`, { signal: AbortSignal.timeout(30000) });
   if (!response.ok) throw new Error(`Could not load ${file} (${response.status})`);
   const raw = await response.json();
-  const editResponse = await fetch(`${hordeBase}/walk/edits/${file.replace(/[^A-Za-z0-9_-]/g, '_')}.json`, { signal: AbortSignal.timeout(8000) });
+  const editResponse = await fetch(`${walkBase}/edits/${file.replace(/[^A-Za-z0-9_-]/g, '_')}.json`, { signal: AbortSignal.timeout(8000) });
   if (!editResponse.ok) throw new Error(`Could not load map edits (${editResponse.status})`);
-  const edits = await editResponse.json();
+  let edits = await editResponse.json();
+  if (hordeMode && edits == null) {
+    const source = await fetch(`${hordeBase}/walk/edits/${file.replace(/[^A-Za-z0-9_-]/g, '_')}.json`, { signal: AbortSignal.timeout(8000) });
+    if (!source.ok) throw new Error(`Could not load Walk map edits (${source.status})`);
+    edits = await source.json();
+  }
   if (request !== loadingMap) return;
   setWorld(raw); baseGeometry = geometry(); appliedEdit = ''; stroke = null; camera = null; zoom = 1; endPan();
   currentMap = file; $('walk-map').value = file; pendingDoors.clear(); pendingChains.clear(); botSpots.clear(); selected = null;
@@ -145,6 +156,8 @@ async function loadMap(file) {
   $('walk-puzzle-name').value = file.replace(/\.dd2vtt$/i, '');
   undo = []; redo = []; chain = []; hover = null; selection.clear(); editButtons();
   applyMapEdit(edits);
+  if (hordeMode && edits != null) baseGeometry = geometry();
+  combat?.reset();
   if (sharedWalk?.map === file) receive(sharedWalk);
   if (me && !isGM && hitsWall(me.pos.x, me.pos.y)) me.pos = spawn(me.seat);
   focus = me ? { ...me.pos } : { x: world.w / 2, y: world.h / 2 };
@@ -156,12 +169,12 @@ async function chooseMap(file) {
 // --- doors: closed until someone within a tile presses Space; the open ones are shared per map
 // Firebase keys cannot hold a dot, and "%2E" in a URL path is turned back into one, so the map name is reduced to safe characters.
 const mapKey = () => currentMap.replace(/[^A-Za-z0-9_-]/g, '_');
-const doorPath = index => `${hordeBase}/walk/doors/${mapKey()}/d${index}.json`; // "d" keeps Firebase from turning the list into an array
+const doorPath = index => `${walkBase}/doors/${mapKey()}/d${index}.json`; // "d" keeps Firebase from turning the list into an array
 const SWING_SECONDS = 0.3;
 // Our own toggles hold until the server shows the same state (or 3 s pass), so a stream update sent before our write landed cannot flip the door back mid-swing.
 const pendingDoors = new Map();   // door index -> { open, until }
 const pendingChains = new Map();
-const everyone = () => [...(me && !pcToken(me.pcId)?.walkDeleted ? [me.pos] : []), ...[...others.entries()].filter(([id]) => !pcToken(id)?.walkDeleted).flatMap(([, o]) => [o.target, o.shown]), ...world.tokens.filter(t => t.kind !== 'pc' && !t.walkDeleted).map(tokenPosition)];
+const everyone = () => [...(me && !pcToken(me.pcId)?.walkDeleted ? [me.pos] : []), ...[...others.entries()].filter(([id]) => !pcToken(id)?.walkDeleted).flatMap(([, o]) => [o.target, o.shown]), ...world.tokens.filter(t => t.kind !== 'pc' && !t.walkDeleted && (!combat?.isZombie(t) || combat.alive(t))).map(tokenPosition)];
 // A door seen for the first time starts at rest (no swing on load). It blocks until fully open.
 function stepDoors(dt) {
   world.doors.forEach((_, i) => {
@@ -192,7 +205,7 @@ function toggleDoor() {
 }
 
 // --- levers and plates: the GM places them and wires each to doors; using one toggles those doors
-const triggerPath = id => `${hordeBase}/walk/triggers/${mapKey()}/${id}.json`;
+const triggerPath = id => `${walkBase}/triggers/${mapKey()}/${id}.json`;
 const putJson = (url, body) => fetch(url, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000) })
   .catch(error => message(`Sync problem: ${error.message}`));
 let triggersHold = 0;   // just after we edit, ignore stream copies of the list that were sent before our write landed
@@ -202,7 +215,7 @@ function setChain(id, locked) {
   if (!chain) return;
   const before = chain.locked, hold = { locked, until: performance.now() + 3000 };
   chain.locked = locked; pendingChains.set(id, hold);
-  fetch(`${hordeBase}/walk/chains/${mapKey()}/${id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(locked), signal: AbortSignal.timeout(8000) })
+  fetch(`${walkBase}/chains/${mapKey()}/${id}.json`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(locked), signal: AbortSignal.timeout(8000) })
     .then(response => { if (!response.ok) throw new Error(`Firebase returned ${response.status}`); })
     .catch(error => { if (pendingChains.get(id) === hold) { chain.locked = before; pendingChains.delete(id); } message(`Chains sync problem: ${error.message}`); });
 }
@@ -230,7 +243,11 @@ function editClick(event) {
   if (!currentMap || stroke || pan || event.button !== 0) return;
   const p = canvasPoint(event), hit = nearestTrigger(p.x, p.y, 0.6);
   const before = editState();
-  if (tool === 'lever' || tool === 'plate') {
+  if (tool === 'zombies' && combat) {
+    if (p.x < 0 || p.y < 0 || p.x > world.w || p.y > world.h || hitsWall(p.x, p.y)) return;
+    world.tokens.push(combat.createZombie($('walk-zombie-kind').value, p, Number($('walk-zombie-door').value)));
+    commitEdit(before);
+  } else if (tool === 'lever' || tool === 'plate') {
     const x = Math.floor(p.x) + 0.5, y = Math.floor(p.y) + 0.5;
     if (hit || x < 0 || y < 0 || x > world.w || y > world.h || hitsWall(x, y)) return;
     const t = { id: `t${Date.now().toString(36)}`, kind: tool, x, y, doors: [], on: false };
@@ -287,6 +304,11 @@ function pickTool(next) {
   cancelStroke(); chain = []; hover = null; selection.clear(); tool = tool === next ? null : next; selected = null;
   if ((tool === 'walls' || objectLayer(tool)) && paintAction === 'bucket') paintAction = 'paint';
   editButtons();
+  if (tool === 'zombies') {
+    const select = $('walk-zombie-door'), value = select.value;
+    select.replaceChildren(new Option('Start now', '-1'), ...world.doors.map((_, i) => new Option(`Door ${i + 1}`, String(i))));
+    select.value = [...select.options].some(o => o.value === value) ? value : '-1';
+  }
   if (tool === 'tokens') loadWalkTokenSources().catch(error => { $('walk-editor-status').textContent = error.message; });
   document.querySelectorAll('[data-tool]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tool === tool)));
   const materials = MATERIAL_LAYERS[tool];
@@ -338,7 +360,7 @@ if (isGM) {
   addEventListener('resize', () => { if (!panel.hidden) positionPanel(panel.offsetLeft, panel.offsetTop); });
   $('walk-gm').hidden = false;
   document.querySelectorAll('[data-tool]').forEach(b => b.addEventListener('click', () => pickTool(b.dataset.tool)));
-  $('walk-pause').addEventListener('click', () => { const next = !paused; putJson(`${hordeBase}/walk/paused.json`, next).then(() => { paused = next; showPause(); }); });
+  $('walk-pause').addEventListener('click', () => { const next = !paused; putJson(`${walkBase}/paused.json`, next).then(() => { paused = next; showPause(); }); });
   const showEditor = open => {
     $('walk-editor').hidden = !open; $('walk-editor-toggle').setAttribute('aria-expanded', String(open));
     if (open) positionPanel(panel.offsetLeft, panel.offsetTop);
@@ -455,7 +477,7 @@ function saveMapEdit(remapDoors = false) {
   }
   editWrites++; $('walk-editor-status').textContent = 'Saving…';
   editQueue = editQueue.then(async () => {
-    const response = await fetch(`${hordeBase}/walk.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch), signal: AbortSignal.timeout(8000) });
+    const response = await fetch(`${walkBase}.json`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch), signal: AbortSignal.timeout(8000) });
     if (!response.ok) throw new Error(`Firebase returned ${response.status}`);
     if (unsavedEdits.get(key) === pending) unsavedEdits.delete(key);
     if (key === mapKey()) appliedEdit = signature;
@@ -878,6 +900,7 @@ function receive(value) {
       if (typeof locked === 'boolean') chain.locked = locked;
     }
     ai.receive(value?.ai?.[mapKey()] ?? null);
+    combat?.receive(value?.combat?.[mapKey()] ?? null);
   }
   if ((value?.paused === true) !== paused) { paused = value?.paused === true; showPause(); }
   const records = value?.players || {}, now = serverNow(), seen = new Set();
@@ -904,7 +927,7 @@ async function loadHp(pcId) {
 }
 function begin() {
   joined = true; others.clear();
-  stopWatch ||= watchTabletop('walk', receive, message);
+  stopWatch ||= watchTabletop(walkKey, receive, message);
   $('walk-change').hidden = false;
   $('walk-fit').hidden = !(isGM || spectator);
   syncClock().catch(() => {});
@@ -913,15 +936,18 @@ async function playAs(character, campaign) {
   const entities = await (await fetch(`${entitiesUrl}.json`, { signal: AbortSignal.timeout(15000) })).json();
   const player = resolvePlayer(entities, campaign, character);
   setPlayerIdentity(player);
+  if (hordeMode) { $('walk-campaign').value = campaign; await loadRoster(campaign); }
   const combat = entities[player.pcId]?.data?.combat || {};
   const seat = Math.max(0, CHARACTERS.indexOf(character));
   me = { pcId: player.pcId, name: character, seat, pos: pcStart(player.pcId, seat), hp: Number.isFinite(combat.hp_current) ? combat.hp_current : null, max: Number.isFinite(combat.hp_max) ? combat.hp_max : null };
   spectator = false; focus = { ...me.pos };
+  if (hordeMode) $('walk-change').textContent = 'Change character';
   begin(); post(true);
   loadChecks(me.pcId).catch(error => message(`Rolls unavailable: ${error.message}`));
 }
 function watchOnly() {
   me = null; spectator = true; focus = { x: world.w / 2, y: world.h / 2 };
+  if (hordeMode) $('walk-change').textContent = 'Choose character';
   begin();
 }
 async function leave() {
@@ -997,13 +1023,13 @@ addEventListener('keydown', event => { if (event.target.matches?.('#walk-dice se
 
 // --- keys
 addEventListener('keydown', event => {
-  if (event.target.matches?.('select, input, textarea, button, .editor-titlebar')) return;
+  if (event.target.matches?.('select, input, textarea, button, .editor-titlebar') && !(event.target.id === 'horde-command' && event.key.startsWith('Arrow'))) return;
   const key = KEY_TO_MOVE[event.key.toLowerCase()];
   if (!key || dialog.open || event.ctrlKey || event.metaKey || event.altKey) return;
   event.preventDefault(); pressed.add(key);
 });
 addEventListener('keydown', event => {
-  if (event.key !== ' ' || !me || dialog.open || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target.matches?.('select, input')) return;
+  if (event.defaultPrevented || event.key !== ' ' || !me || dialog.open || event.repeat || event.ctrlKey || event.metaKey || event.altKey || event.target.matches?.('select, input')) return;
   event.preventDefault();
   if (paused || pcToken(me.pcId)?.walkDeleted) return;
   const lever = nearestTrigger(me.pos.x, me.pos.y, 1, 'lever');
@@ -1203,6 +1229,7 @@ function draw() {
   for (const token of world.tokens) {
     const p = tokenPosition(token);
     if (token.walkDeleted || token.hidden && !isGM || token.kind === 'pc' && represented.has(token.npcId) || poly && !lineOfSight(me.pos.x, me.pos.y, p.x, p.y)) continue;
+    if (combat?.isZombie(token)) { combat.drawZombie(ctx, token, origin); continue; }
     drawWalkToken(ctx, { ...token, x: p.x, y: p.y }, origin);
     const status = ai.status(token);
     if (token.walkAI) {
@@ -1223,28 +1250,31 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000); last = now;
   stepDoors(dt);
   ai.frame(dt);
+  combat?.frame(dt);
   if (!paused) autoClose();
   if (joined) {
     const dir = direction(pressed);
-    if (me) { if (!paused && !stroke && !pcToken(me.pcId)?.walkDeleted && !ai.held(me.pcId)) { me.pos = move(me.pos, dir, dt, undefined, isGM ? null : hitsWall); checkPlates(); } focus = me.pos; post(); }
+    if (me) { if (!paused && !stroke && !pcToken(me.pcId)?.walkDeleted && !ai.held(me.pcId) && !combat?.held(me.pcId)) { me.pos = move(me.pos, dir, dt, combat?.speed(me.pcId), isGM ? null : hitsWall); checkPlates(); } focus = me.pos; post(); }
     else if (spectator && !stroke && !pan) {
       if (camera) { camera.x += dir.x * dt * 6; camera.y += dir.y * dt * 6; }
       else focus = move(focus, dir, dt, 6);
     }
     for (const other of others.values()) other.shown = smooth(other.shown, other.target, dt);
-    $('walk-hud').textContent = me ? `${me.name}${me.hp !== null && me.max !== null ? ` · ${me.hp}/${me.max} HP` : ''} · WASD or arrows to move${nearestTrigger(me.pos.x, me.pos.y, 1, 'lever') ? ' · Space: lever' : nearestDoor(me.pos.x, me.pos.y) >= 0 ? ' · Space: door' : ''}` : 'Spectating · WASD or arrows to look around';
+    const interactKey = hordeMode ? 'F' : 'Space';
+    $('walk-hud').textContent = me ? `${me.name}${me.hp !== null && me.max !== null ? ` · ${me.hp}/${me.max} HP` : ''} · WASD or arrows to move${nearestTrigger(me.pos.x, me.pos.y, 1, 'lever') ? ` · ${interactKey}: lever` : nearestDoor(me.pos.x, me.pos.y) >= 0 ? ` · ${interactKey}: door` : ''}` : 'Spectating · WASD or arrows to look around';
     if (me && pcToken(me.pcId)?.walkDeleted) $('walk-hud').textContent = 'Token removed by GM';
   }
   const captor = me && !pcToken(me.pcId)?.walkDeleted ? ai.held(me.pcId) : null;
   $('walk-caught').hidden = !captor;
   if (captor) $('walk-caught').textContent = `Spotted by ${captor.name} · Movement stopped for battle`;
   draw();
+  combat?.draw(ctx, origin, viewScale);
 }
 requestAnimationFrame(frame);
 
 // Keep our own hit points current: the GM changes them on the tabletop while we walk.
 setInterval(async () => {
-  if (!me || document.hidden) return;
+  if (!me || document.hidden || hordeMode) return;
   try { const { hp, max } = await loadHp(me.pcId); if (me) { me.hp = hp; me.max = max; } } catch { /* try again next time */ }
 }, 15000);
 addEventListener('pagehide', () => { stopWatch?.(); if (me) fetch(walkPath(me.pcId), { method: 'DELETE', keepalive: true }).catch(() => {}); });
@@ -1258,23 +1288,43 @@ async function loadRoster(campaign) {
   roster = CHARACTERS.flatMap((name, seat) => {
     try {
       const { pcId } = resolvePlayer(entities, campaign, name), combat = entities[pcId]?.data?.combat || {};
-      return [{ name, seat, pcId, hp: Number.isFinite(combat.hp_current) ? combat.hp_current : null, max: Number.isFinite(combat.hp_max) ? combat.hp_max : null }];
+      return [{ name, seat, pcId, cls: String(entities[pcId]?.data?.class || ''), hp: Number.isFinite(combat.hp_current) ? combat.hp_current : null, max: Number.isFinite(combat.hp_max) ? combat.hp_max : null }];
     } catch { return []; }   // that character isn't in this campaign
   });
 }
 $('walk-campaign').addEventListener('change', () => loadRoster($('walk-campaign').value).catch(() => {}));
 async function start() {
+  if (hordeMode) {
+    const { createWalkHorde } = await import('./walk-horde.js');
+    combat = createWalkHorde({ mapKey: () => currentMap ? mapKey() : null, base: walkBase,
+      active: () => joined && !paused && !stroke, me: () => me,
+      pcs: () => roster.filter(p => !pcToken(p.pcId)?.walkDeleted).map(p => ({ ...p, pos: me?.pcId === p.pcId ? me.pos : others.get(p.pcId)?.target || lastPositions.get(p.pcId) || pcStart(p.pcId, p.seat) })),
+      editing: () => !!tool, position: id => me?.pcId === id ? me.pos : others.get(id)?.shown || lastPositions.get(id), onError: message, relocate: (id, pos) => {
+        if (me?.pcId === id) me.pos = pos;
+        lastPositions.set(id, pos);
+      }, interact: () => {
+        if (!me || paused) return false;
+        const lever = nearestTrigger(me.pos.x, me.pos.y, 1, 'lever');
+        if (lever) { fire(lever); return true; }
+        if (nearestDoor(me.pos.x, me.pos.y) >= 0) { toggleDoor(); return true; }
+        return false;
+      } });
+    if (isGM) { const label = $('walk-map').parentElement; $('walk-editor').append(label); }
+  }
   tokenImages().catch(() => {});
   if (isGM) loadPuzzleLibrary().catch(error => { $('walk-editor-status').textContent = error.message; });
-  loadRoster(CAMPAIGNS.includes(campaign) ? campaign : $('walk-campaign').value).catch(() => {});
+  loadRoster(CAMPAIGNS.includes(campaign) ? campaign : $('walk-campaign').value).catch(error => { if (hordeMode) message(error.message); });
   maps = (await (await fetch('battlemap/index.json', { signal: AbortSignal.timeout(15000) })).json()).map(m => m.file).filter(f => /\.dd2vtt$/i.test(f));
   $('walk-map').append(...maps.map(file => new Option(file.replace(/\.dd2vtt$/i, ''), file)));
-  const shared = await fetch(mapPath, { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(() => null);
+  let shared = await fetch(mapPath, { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(() => null);
+  if (hordeMode && !shared) shared = await fetch(`${hordeBase}/walk/map.json`, { signal: AbortSignal.timeout(8000) }).then(r => r.json()).catch(() => null);
   await loadMap([params.get('map'), shared, 'prison_00.dd2vtt', maps[0]].find(f => maps.includes(f)));
   if (params.has('spectate')) watchOnly();
   else if (CHARACTERS.includes(wanted) && CAMPAIGNS.includes(campaign)) await playAs(wanted, campaign);
   else if (isGM) watchOnly();
   else if (playerIdentity && CAMPAIGNS.includes(playerIdentity.campaign)) await playAs(playerIdentity.character, playerIdentity.campaign).catch(() => dialog.showModal());
+  else if (hordeMode) watchOnly();
   else dialog.showModal();
+  if (hordeMode && !me) { fitView = true; $('walk-fit').setAttribute('aria-pressed', 'true'); }
 }
 start().catch(error => { message(error.message); if (!joined) dialog.showModal(); });

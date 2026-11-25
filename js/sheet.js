@@ -30,6 +30,13 @@ const inventoryAdder = mountInventoryTools($('sheet-content').parentElement, () 
 }, refresh);
 function draw() {
   inventoryAdder.hidden = section !== 'Inventory' || !pc || !canControlPC({ npcId: `v2:${id}` });
+  $('sheet-creator').hidden = !isGM || !pc;
+  if (isGM && pc) {
+    const url = new URL('creator.html', location.href);
+    url.searchParams.set('gm', 'jonny'); url.searchParams.set('pc', id);
+    url.searchParams.set('kind', { Stats: 'Stat', Weapons: 'Weapon', Inventory: 'Item', Feats: 'Feat', Spells: 'Spell', Effects: 'Effect' }[section]);
+    $('sheet-creator').href = url; $('sheet-creator').target = '_blank'; $('sheet-creator').rel = 'noopener';
+  }
   if (pc) $('sheet-content').innerHTML = sheetHTML(pc, section, reference, false, canControlPC({ npcId: `v2:${id}` }), isGM);
   for (const button of $('sheet-sections').children) button.setAttribute('aria-pressed', String(button.textContent === section));
 }

@@ -1,6 +1,6 @@
-import { EQUIPMENT_SLOTS, COIN_TYPES, fitsEquipment, equippedName, itemEquipped } from './inventory-model.js';
+import { EQUIPMENT_SLOTS, COIN_TYPES, fitsEquipment, equippedName, equippedItem, itemEquipped } from './inventory-model.js';
 import { modifierText } from './item-modifiers.js';
-import { characterStats, baseSpeed } from './equipment-modifiers.js';
+import { characterStats, baseSpeed, cardConditions } from './equipment-modifiers.js';
 import { spellsHTML, spellSlotsHTML } from './spell-view.js';
 import { sheetRolls } from './sheet-rolls.js';
 import { effectsHTML } from './effects-view.js';
@@ -81,6 +81,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     if (final.effects.length) html += row('Active effects', final.effects.map(effect => effect.label).join(', '));
     const conditions = conditionNames(combat.conditions);
     html += row('Conditions', conditions.join(', ') || 'None');
+    if (cardConditions(pc).length) html += row('Card conditions', [...new Set(cardConditions(pc))].join(', '));
     if (editableCombat) {
       const options = [...new Set([...conditions, ...CONDITIONS])];
       html += `<label class="sheet-equipment">Conditions<select data-condition-toggle aria-label="Add or remove a condition"><option value="">Add / remove condition</option>${options.map(name => `<option value="${esc(name)}" data-enabled="${!conditions.includes(name)}">${conditions.includes(name) ? 'Remove' : 'Add'} ${esc(name)}</option>`).join('')}</select></label>`;
@@ -106,11 +107,11 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     for (const [slot, label] of Object.entries(EQUIPMENT_SLOTS)) {
       const name = equippedName(pc, slot);
       const options = items.filter(([, item]) => Number(item.qty ?? 1) > 0 && fitsEquipment(slot, item, reference));
-      const selected = options.find(([, item]) => item.name === name)?.[0];
-      html += `<label class="sheet-equipment">${esc(label)}<select data-equipment-slot="${slot}" data-current-key="${esc(selected ?? '')}"${editableCombat ? '' : ' disabled'}><option value="">Unequip</option>${name && selected === undefined ? `<option value="" selected disabled>${esc(name)}</option>` : ''}${options.map(([key, item]) => `<option value="${esc(key)}"${key === selected ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>`;
-      const equippedItem = items.find(([, item]) => item.name === name)?.[1];
-      const description = equippedItem?.desc ?? lookup(name).desc;
-      if (name && description) html += card(name, description, modifierText(equippedItem?.modifiers));
+      const wornItem = equippedItem(pc, slot, reference);
+      const selected = options.find(([, item]) => item === wornItem)?.[0];
+      html += `<label class="sheet-equipment">${esc(label)}<select data-equipment-slot="${slot}" data-current-key="${esc(selected ?? '')}"${editableCombat && (gm || slot !== 'card' || !name) ? '' : ' disabled'}><option value="">Unequip</option>${name && selected === undefined ? `<option value="" selected disabled>${esc(name)}</option>` : ''}${options.map(([key, item]) => `<option value="${esc(key)}"${key === selected ? ' selected' : ''}>${esc(item.name)}</option>`).join('')}</select></label>`;
+      const description = wornItem?.desc ?? lookup(name).desc;
+      if (name && description) html += card(name, description, modifierText(wornItem?.modifiers));
     }
     html += heading('Bag');
     html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}"${editableCombat ? ' tabindex="0"' : ''} aria-label="${esc(item.name)}${editableCombat ? ' bag actions' : ''}">${editableCombat ? `<button type="button" data-bag-menu aria-label="${esc(item.name)} actions">\u22ef</button>` : ''}${card(`${item.name} \u00d7${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc ?? lookup(item.name).desc,

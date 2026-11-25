@@ -17,7 +17,7 @@ export function mountFeats(container, getToken, getPC, status, onSaved) {
     if (busy || !token || !canControlPC(token)) return;
     const feat = featEntries(getPC() || {}).find(feat => feat.id === row.dataset.featId);
     if (!feat) return;
-    const tracked = featUses(feat), effect = feat.id.startsWith('abilities:') && feat.modifiers?.length;
+    const tracked = featUses(feat), effect = Array.isArray(feat.modifiers);
     if (!tracked && !effect) {
       description.hidden = false;
       row.querySelector('[data-feat-details]').setAttribute('aria-expanded', 'true');

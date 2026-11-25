@@ -15,7 +15,7 @@ test('light and portal prop appearances validate the icon and use the prop footp
 });
 
 test('props survive saving with identity, visibility, size, and rotation', () => {
-  const props=Object.keys(PROPS).map((kind,i)=>({id:String(i),kind,x:-2,y:3,size:1.5,rotation:90,hidden:true,locked:false,open:false,contents:[]}));
+  const props=Object.keys(PROPS).map((kind,i)=>({id:String(i),kind,x:-2,y:3,size:kind==='pressurePlate'?1:1.5,rotation:90,hidden:true,locked:false,open:false,contents:[],...(kind==='tripwire'?{length:1}:{})}));
   assert.deepEqual(importedProps(JSON.parse(JSON.stringify(props))),props);
   assert.equal(importedProps([...props,props[0],{...props[0],id:'bad',kind:'unknown'},null]).length,Object.keys(PROPS).length);
   assert.deepEqual(importedProps(null),[]);

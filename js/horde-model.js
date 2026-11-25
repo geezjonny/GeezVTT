@@ -85,12 +85,12 @@ function stepToward(from, to, speed, carry = null) {
   return { x: from.x + sx, y: from.y + sy, arrived: false };
 }
 
-export function validEvent(event, participants = []) {
+export function validEvent(event, participants = [], maxTicks = MAX_TICKS) {
   if (!event || typeof event !== 'object') return false;
   if (isSpectator(event.pcId)) { if (event.k !== 'w') return false; }
   else if (!participants.some(p => p.pcId === event.pcId)) return false;
   if (!Number.isInteger(event.seq) || event.seq < 0 || event.seq > 1e6) return false;
-  if (!Number.isInteger(event.t) || event.t < 0 || event.t > MAX_TICKS) return false;
+  if (!Number.isSafeInteger(event.t) || event.t < 0 || event.t > maxTicks) return false;
   if (event.k === 'm') return [-1, 0, 1].includes(event.dx) && [-1, 0, 1].includes(event.dy);
   if (event.k === 'w') return typeof event.s === 'string' && /^[a-z]{1,16}$/.test(event.s);
   if (event.k === 'c' || event.k === 'x') return true;
@@ -196,7 +196,7 @@ function applyEvent(game, event) {
     case 'm': if (MOVERS.includes(player.role) && !(player.role === 'simon' && mech.mode === 1)) { player.dx = event.dx; player.dy = event.dy; } return;
     case 'r':
       // Everyone rolls again before each wave; the result sets that role's difficulty for the wave.
-      if (!rollPhase(game) || player.rolled) return;
+      if ((!game.manual && !rollPhase(game)) || player.rolled) return;
       player.rolled = true; player.tier = tierFromRoll(event); setVitals(player);
       player.roll = { nat: event.nat, total: event.total, at: game.tick };
       log(game, 'roll', index(game, player), player.tier);
@@ -402,7 +402,8 @@ function slashPress(game, player) {
   if (!target) { m.slash = null; return; }
   if (Math.abs(off) > window) { m.slash = null; m.next = game.tick + 20; log(game, 'slashmiss', slot); return; } // too early: she whiffs
   const perfect = Math.abs(off) <= window >> 1, radius = (30 + 3 * player.tier) * PX, damage = 2 + (player.tier >> 1) + (perfect ? 1 : 0);
-  player.x = player.ox = clamp(target.x, PLAYER_MIN_X, PLAYER_MAX_X); player.y = player.oy = clamp(target.y, PLAYER_MIN_Y, PLAYER_MAX_Y);
+  player.x = player.ox = game.manual ? target.x : clamp(target.x, PLAYER_MIN_X, PLAYER_MAX_X);
+  player.y = player.oy = game.manual ? target.y : clamp(target.y, PLAYER_MIN_Y, PLAYER_MAX_Y);
   log(game, 'slash', slot, target.id, perfect ? 1 : 0);
   for (const z of game.zombies.filter(z => z.hp > 0 && dist2(z, target) <= radius * radius)) hurt(game, z, damage, player);
   player.stats.cuts++; m.slash = null; m.next = game.tick + 30;
@@ -484,27 +485,30 @@ function hurt(game, zombie, damage, by) {
 }
 
 // --- one tick
-export function step(game, events = []) {
+export function step(game, events = [], arena = null) {
   if (game.phase === 'won' || game.phase === 'lost') return game;
   for (const p of game.players) { p.ox = p.x; p.oy = p.y; }
   for (const z of game.zombies) { z.ox = z.x; z.oy = z.y; }
   for (const a of game.arrows) { a.ox = a.x; a.oy = a.y; }
   for (const event of events) applyEvent(game, event);
+  if (arena) for (const p of game.players) if (arena.blocked(p.x, p.y)) Object.assign(p, arena.safe(p));
   advancePhase(game);
-  movePlayers(game);
+  movePlayers(game, arena);
   mechanicsTick(game);
   moveArrows(game);
-  zombiesAct(game);
+  zombiesAct(game, arena);
+  if (arena) for (const z of game.zombies) Object.assign(z, arena.move({ x: z.ox, y: z.oy }, z));
   game.zombies = game.zombies.filter(z => z.hp > 0);
   tickDown(game);
-  if (game.gate.hp <= 0 || game.players.every(p => p.downed)) { game.phase = 'lost'; log(game, 'lost'); }
+  if (!game.manual && (game.gate.hp <= 0 || game.players.every(p => p.downed))) { game.phase = 'lost'; log(game, 'lost'); }
   game.tick++;
   game.log = game.log.filter(entry => entry.t > game.tick - LOG_TICKS);
-  if (game.tick >= MAX_TICKS && game.phase !== 'won') game.phase = 'lost';
+  if (!game.manual && game.tick >= MAX_TICKS && game.phase !== 'won') game.phase = 'lost';
   return game;
 }
 
 function advancePhase(game) {
+  if (game.manual) return;
   if (game.phase === 'countdown' || game.phase === 'between') {
     // The next wave starts when the timer runs out, or a few seconds after everyone has rolled.
     if (game.players.every(p => p.downed || p.rolled)) game.timer = Math.min(game.timer, EARLY_START);
@@ -528,14 +532,17 @@ function enterBetween(game) {
   log(game, 'between', game.wave);
 }
 
-function movePlayers(game) {
+function movePlayers(game, arena) {
   const speed = playerSpeed(game);
   for (const p of game.players) {
     if (p.downed || !p.dx && !p.dy || p.role === 'tank' && p.mech.plant) continue;
     // Diagonals keep the same speed on both axes (a slight speed-up, fixed for everyone).
     const pace = (p.role === 'tank' || p.role === 'simon') && p.mech.charge >= 0 ? speed >> 1 : speed;
-    p.x = clamp(p.x + p.dx * pace, PLAYER_MIN_X, PLAYER_MAX_X);
-    p.y = clamp(p.y + p.dy * pace, PLAYER_MIN_Y, PLAYER_MAX_Y);
+    if (arena) Object.assign(p, arena.move(p, { x: p.x + p.dx * pace, y: p.y + p.dy * pace }));
+    else {
+      p.x = clamp(p.x + p.dx * pace, PLAYER_MIN_X, PLAYER_MAX_X);
+      p.y = clamp(p.y + p.dy * pace, PLAYER_MIN_Y, PLAYER_MAX_Y);
+    }
   }
 }
 
@@ -574,7 +581,7 @@ function moveArrows(game) {
   game.arrows = live;
 }
 
-function zombiesAct(game) {
+function zombiesAct(game, arena) {
   const tanks = game.players.filter(p => p.role === 'tank' && !p.downed);
   const alive = game.players.filter(p => !p.downed);
   for (const z of game.zombies) {
@@ -597,10 +604,26 @@ function zombiesAct(game) {
       const aggro = 56 * PX;
       for (const p of alive) if (dist2(z, p) <= aggro * aggro && (!target || dist2(z, p) < dist2(z, target))) target = p;
     }
+    if (arena && !target) target = arena.gate;
+    if (game.manual && !target) {
+      if (arena?.roam) {
+        if (!z.roam || dist2(z, z.roam) < 32 * 32 || game.tick >= z.roamUntil) {
+          z.roam = arena.roam(z, randInt(game, 9) - 4, randInt(game, 9) - 4); z.roamUntil = game.tick + 180;
+        }
+        const next = stepToward(z, arena.waypoint(z, z.roam), speed, z);
+        Object.assign(z, arena.move(z, next));
+      }
+      continue;
+    }
     if (target) {
       const reach = 20 * PX;
-      if (dist2(z, target) <= reach * reach) { if (z.cool === 0) { bite(game, z, target); z.cool = def.cool; } }
-      else { const next = stepToward(z, target, speed, z); z.x = next.x; z.y = next.y; }
+      if (dist2(z, target) <= reach * reach && (!arena || arena.clear(z, target))) { if (z.cool === 0) {
+        if (arena && target === arena.gate) { game.gate.hp -= def.damage; log(game, 'gate', z.x >> 4); }
+        else bite(game, z, target);
+        z.cool = def.cool;
+      } }
+      else { const next = stepToward(z, arena ? arena.waypoint(z, target) : target, speed, z);
+        Object.assign(z, arena ? arena.move(z, next) : { x: next.x, y: next.y }); }
       continue;
     }
     if (z.y >= ARENA.gateY - GATE_REACH) {

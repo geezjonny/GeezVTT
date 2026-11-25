@@ -17,6 +17,7 @@ export function effectsHTML(pc, editable, reference = {}, gm = false) {
     <label>Effect<select name="definition"><option value="">New effect</option>${definitions.map(effect => `<option value="${esc(effect.id)}">${esc(effect.label)}</option>`).join('')}</select></label>
     <button type="button" data-effect-preset>Bark Arm preset</button>
     <label>Name<input name="label" maxlength="100" required></label>
+    <label>Description<textarea name="description" maxlength="20000" rows="4"></textarea></label>
     <label>Source<select name="category">${options(['Ability', 'Spell', 'Feat', 'Consumable', 'Equipment'], 'Ability')}</select></label>
     <label>Applies<select name="mode">${options(['activated', 'passive', 'equipped'], 'activated')}</select></label>
     <label>Source item<select name="inventoryKey"><option value="">None</option>${Object.entries(pc.inventory || {}).filter(([, item]) => item?.name).map(([key, item]) => `<option value="${esc(key)}">${esc(item.name)}</option>`).join('')}</select></label>

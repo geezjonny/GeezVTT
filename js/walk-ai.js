@@ -4,13 +4,14 @@ import { updateConditionally } from './firebase-update.js';
 import { smooth, world } from './walk-model.js';
 import { activeNPC, advanceNPC, npcSpec, npcState } from './walk-ai-model.js';
 
-export function createWalkAI({ mapKey, active, pcs, onError }) {
+export function createWalkAI({ mapKey, active, pcs, onError, path = 'walk', exclude = () => false }) {
+  const enabledNPC = token => activeNPC(token) && !exclude(token);
   let runtime = null, busy = false, receivedMap = null, lastError = 0;
   const shown = new Map(), routes = new Map();
   const fresh = () => runtime && Number.isFinite(runtime.until) && runtime.until > serverNow() && runtime.until < serverNow() + 15000;
   const recorded = token => token.walkAI && !token.walkDeleted && runtime?.npcs?.[token.id]?.spec === npcSpec(token) ? npcState(token, runtime.npcs[token.id]) : null;
   const state = token => {
-    if (!activeNPC(token) || !fresh()) return null;
+    if (!enabledNPC(token) || !fresh()) return null;
     const value = recorded(token);
     if (!value) return null;
     if (world.chains.some(c => c.id === token.walkAI.chain && c.locked)) return { ...value, mode: 'chained', captured: null };
@@ -20,18 +21,18 @@ export function createWalkAI({ mapKey, active, pcs, onError }) {
   const report = error => { if (Date.now() - lastError > 5000) { onError(`NPC AI: ${error.message}`); lastError = Date.now(); } };
   async function tick() {
     const key = mapKey();
-    if (!isGM || busy || !key || !active() || !world.tokens.some(activeNPC)) return;
+    if (!isGM || busy || !key || !active() || !world.tokens.some(enabledNPC)) return;
     if (fresh() && runtime.owner !== sessionClient) return;
     busy = true;
     try {
-      const result = await updateConditionally(`${hordeBase}/walk/ai/${key}.json`, current => {
+      const result = await updateConditionally(`${hordeBase}/${path}/ai/${key}.json`, current => {
         if (key !== mapKey() || !active()) return { result: null, write: null };
         const now = serverNow();
         if (current?.owner !== sessionClient && Number.isFinite(current?.until) && current.until > now && current.until < now + 15000) return { result: current, write: null };
         const previousTime = Number.isFinite(current?.at) ? current.at : now - 200;
         const dt = Math.max(0.02, Math.min(0.35, (now - previousTime) / 1000));
         const available = pcs(), captured = new Set(), npcs = Object.create(null);
-        const tokens = world.tokens.filter(activeNPC).sort((a, b) => Number(!!current?.npcs?.[b.id]?.captured) - Number(!!current?.npcs?.[a.id]?.captured));
+        const tokens = world.tokens.filter(enabledNPC).sort((a, b) => Number(!!current?.npcs?.[b.id]?.captured) - Number(!!current?.npcs?.[a.id]?.captured));
         for (const token of tokens) {
           const candidates = token.walkAI.disposition === 'friendly' ? available : available.filter(p => !captured.has(p.pcId));
           npcs[token.id] = advanceNPC(token, current?.npcs?.[token.id], candidates, dt, routes);
@@ -70,7 +71,7 @@ export function createWalkAI({ mapKey, active, pcs, onError }) {
       if (!isGM || !mapKey()) return;
       const key = mapKey(), now = serverNow(), value = { owner: sessionClient, until: now + 8000, at: now, npcs: {} };
       try {
-        await updateConditionally(`${hordeBase}/walk/ai/${key}.json`, () => key === mapKey() ? { result: value, write: value } : { result: null, write: null }, 'Could not reset NPC AI.', { raw: true });
+        await updateConditionally(`${hordeBase}/${path}/ai/${key}.json`, () => key === mapKey() ? { result: value, write: value } : { result: null, write: null }, 'Could not reset NPC AI.', { raw: true });
         if (key === mapKey()) receive(value);
       } catch (error) { report(error); }
     },
@@ -78,7 +79,7 @@ export function createWalkAI({ mapKey, active, pcs, onError }) {
       if (!isGM || !mapKey()) return;
       const key = mapKey();
       try {
-        const result = await updateConditionally(`${hordeBase}/walk/ai/${key}.json`, current => {
+        const result = await updateConditionally(`${hordeBase}/${path}/ai/${key}.json`, current => {
           if (!current || key !== mapKey()) return { result: null, write: null };
           for (const npc of Object.values(current.npcs || {})) if (npc?.captured === pcId) { npc.captured = null; npc.ignore = pcId; npc.target = null; npc.mode = 'wandering'; }
           return { result: current };

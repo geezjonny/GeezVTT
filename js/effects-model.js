@@ -10,11 +10,11 @@ export const BARK_ARM = {
     { target: 'speed', operation: 'multiply', value: .5 }]
 };
 export function effectDefinitions(pc) {
-  return ['effects', 'abilities'].flatMap(group => Object.entries(pc[group] || {}).filter(([, value]) => value && typeof value === 'object' && typeof value.label === 'string' && value.label.trim())
+  return ['effects', 'abilities', 'feats'].flatMap(group => Object.entries(pc[group] || {}).filter(([, value]) => value && typeof value === 'object' && typeof value.label === 'string' && value.label.trim())
     .map(([key, value]) => ({ ...value, id: `${group}:${key}` })));
 }
 function location(id) {
-  const match = typeof id === 'string' && /^(effects|abilities):([^.#$\[\]/]{1,200})$/.exec(id);
+  const match = typeof id === 'string' && /^(effects|abilities|feats):([^.#$\[\]/]{1,200})$/.exec(id);
   if (!match || ['__proto__', 'constructor', 'prototype'].includes(match[2])) throw new Error('Invalid effect.');
   return match.slice(1);
 }
@@ -23,7 +23,8 @@ export function validateEffect(value) {
   if (!['activated', 'passive', 'equipped'].includes(value.mode)) throw new Error('Choose how this effect is applied.');
   if (!['none', 'daily', 'short_rest', 'long_rest', 'short_or_long_rest'].includes(value.recharge)) throw new Error('Choose a recharge.');
   if (!Number.isSafeInteger(value.max) || value.max < 0 || value.max > 999 || !Number.isSafeInteger(value.duration_minutes) || value.duration_minutes < 0 || value.duration_minutes > 525600) throw new Error('Invalid uses or duration.');
-  if (!Array.isArray(value.modifiers) || !value.modifiers.length || value.modifiers.length > 100) throw new Error('Add 1–100 modifiers.');
+  if (!Array.isArray(value.modifiers) || value.modifiers.length > 100) throw new Error('Use at most 100 modifiers.');
+  if (value.description != null && (typeof value.description !== 'string' || value.description.length > 20000)) throw new Error('Description must be at most 20000 characters.');
   const modifiers = value.modifiers.map(modifier => {
     if (!EFFECT_TARGETS.includes(modifier?.target) || !['add', 'multiply', 'set'].includes(modifier.operation) ||
         !Number.isFinite(modifier.value) || modifier.value < (modifier.operation === 'add' ? -999 : 0) ||
@@ -35,7 +36,7 @@ export function validateEffect(value) {
   if (value.consume && value.mode !== 'activated') throw new Error('Only activated effects can consume an item.');
   return { label: value.label.trim(), category: String(value.category || 'Ability').slice(0, 50), mode: value.mode,
     max: value.max, recharge: value.recharge, duration_minutes: value.duration_minutes, modifiers,
-    inventoryKey: value.inventoryKey || '', consume: value.consume };
+    inventoryKey: value.inventoryKey || '', consume: value.consume, ...(value.description != null ? { description: value.description } : {}) };
 }
 export function appliedEffects(pc, reference = {}) {
   return effectDefinitions(pc).filter(effect => {

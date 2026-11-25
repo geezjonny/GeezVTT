@@ -46,7 +46,7 @@ const roleExtras = {
   pitch: (ctx, x, y) => { rect(ctx, '#e8e8f0', x - 4, y - 3, 8, 3); rect(ctx, '#c8c8d8', x + 6, y + 1, 1, 9); rect(ctx, '#c8c8d8', x + 5, y + 1, 3, 1); rect(ctx, '#c8c8d8', x + 5, y - 1, 1, 3); rect(ctx, '#c8c8d8', x + 7, y - 1, 1, 3); },
   support: (ctx, x, y) => { rect(ctx, '#593a80', x - 4, y - 3, 8, 2); rect(ctx, '#593a80', x - 2, y - 5, 4, 2); rect(ctx, '#593a80', x - 1, y - 7, 2, 2); rect(ctx, '#ffd84a', x, y - 8, 1, 1); rect(ctx, '#d9b3ff', x + 6, y + 3, 2, 6); rect(ctx, '#d9b3ff', x + 8, y + 3, 1, 2); }
 };
-function drawZombie(ctx, z, x, y, frame, flash) {
+export function drawZombie(ctx, z, x, y, frame, flash) {
   const look = ZOMBIE_LOOK[z.type], s = look.scale, lift = frame ? s : 0, w = 8 * s;
   rect(ctx, '#0e120e', x - w / 2 - 1, y - 2 * s - 1, w + 2, 16 * s + 2);
   rect(ctx, '#3a2f2a', x - 3 * s, y + 10 * s + lift, 3 * s, 4 * s - lift);
@@ -580,7 +580,26 @@ export function createHordeView(canvas, textCanvas) {
     return mode ? { type: 'mode', index: mode.mode } : null;
   }
   const flashPad = pad => { padFlash[pad] = 0.25; };
-  return { draw, hudAt, flashPad, destroy() { particles.length = 0; } };
+  function drawControls(state, hud, frac = 0, map = null) {
+    layoutText(); ctx.clearRect(0, 0, VIEW.width, VIEW.height);
+    const now = performance.now(), dt = Math.min(.1, (now - lastTime) / 1000); lastTime = now;
+    if (map) {
+      ctx.save();
+      ctx.translate(-T.ox / T.scale, -T.oy / T.scale);
+      ctx.scale(map.zoom / T.scale, map.zoom / T.scale);
+      ctx.translate(map.origin.x, map.origin.y); ctx.scale(map.tile * PX / map.unit, map.tile * PX / map.unit);
+      const at = p => ({ x: p.x / PX, y: p.y / PX });
+      react(state, { players: state.players.map(at), zombies: new Map(state.zombies.map(z => [z.id, at(z)])) }, hud);
+      for (const p of state.players) if (map.visible(p)) drawMechanic(p, at(p), state, frac);
+      for (const z of state.zombies) if (z.frozen > 0 && map.visible(z)) drawHeld(z, at(z), state);
+      drawArrows({ ...state, arrows: state.arrows.filter(map.visible) }, (_, value) => value / PX, { players: state.players.map(at) });
+      drawParticles(dt); ctx.restore();
+    }
+    drawRoleHud(state, frac, hud, dt);
+    const me = state.players.find(p => p.pcId === hud.me);
+    if (!map && me && ['tank', 'simon'].includes(me.role)) drawMechanic(me, { x: 160, y: 120 }, state, frac);
+  }
+  return { draw, drawControls, hudAt, flashPad, destroy() { particles.length = 0; } };
 }
 
 export { SPELLS };

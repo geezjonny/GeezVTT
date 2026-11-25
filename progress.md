@@ -2,6 +2,16 @@
 
 Updated: 2026-11-24
 
+## Card Creator saved - 2026-11-24
+
+- Adds a GM-only Card Creator floating window (index.html, js/card-creator.js, js/card-model.js). A card is a 'Card' bag item (ability/skill bonuses, conditions) plus equipped-only effects (stat changes, named effects) and feats linked to it, given to a PC in one write and optionally equipped to the card slot.
+- Feats granted by a card show only while it is equipped; card conditions show as a read-only 'Card conditions' sheet row. Players can fill an empty card slot but only the GM can unequip or swap it (pc-inventory.js, sheet-view.js).
+- Verification: syntax check of every js/*.js file passed. node --test shows 3 failures outside this work (horde hold-person, horde stance change, walk .dd2vtt key order). tests/card-model.test.mjs was not run separately and no browser checks were done.
+
+Outstanding: user verification of the Card Creator in a GM session; card conditions do not yet affect token overlays; cards cannot be edited after creation; feats from a deleted card stay on the character; live 3D dice for other players not yet done.
+
+Save, commit and push requested to origin/main with the entire working tree.
+
 ## Direct chains-to-NPC connection flow saved - 2026-11-24
 
 - Simplifies minigame2.html setup to place NPC, place chains, then Connect chains > NPC and lever > chains. Chains can be selected as a connection source and highlight while selected. Existing links remain visible while connecting, including unlocked chains.

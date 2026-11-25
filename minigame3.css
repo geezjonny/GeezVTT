@@ -1,0 +1,10 @@
+#horde-canvas, #horde-text { position: fixed; inset: 0; width: 100vw; height: 100dvh; pointer-events: none; z-index: 1; }
+#horde-canvas { object-fit: contain; image-rendering: pixelated; }
+#horde-command-form { position: fixed; bottom: 3.2rem; left: .6rem; z-index: 2; display: grid; gap: .3rem; max-width: calc(100vw - 1.2rem); padding: .4rem .6rem; border-radius: .35rem; background: #10151cdd; }
+#horde-command-form label { display: flex; align-items: center; gap: .4rem; font-size: .8rem; }
+#horde-command { width: 12rem; max-width: 70vw; font: 1.1rem monospace; color: inherit; background: #17212e; border: 1px solid #61758f; border-radius: .25rem; padding: .3rem; }
+#horde-command:focus-visible { outline: 2px solid #a2cbff; outline-offset: 2px; }
+#horde-role, #horde-spell-list { font-size: .8rem; }
+#horde-spell-list:empty { display: none; }
+#walk-zombie-controls { display: grid; gap: .4rem; }
+#walk-gm, #walk-change, #walk-fit, #walk-dice-toggle, #walk-dice { z-index: 2; }

@@ -86,7 +86,7 @@ test('Weapons shows one compact row per weapon with attack and damage dice in to
   assert.match(html, /data-sheet-roll="damage:rapier"[^>]*title="1d8\+4 · piercing">Damage<\/button>/);
   assert.match(html, /data-sheet-roll="attack:bow"/);
   assert.match(html, /data-sheet-roll="damage:bow"/);
-  assert.doesNotMatch(html, /<small>|<script>|sheet-roll/);
+  assert.doesNotMatch(html, /<small>|<script>|class="sheet-roll/);
   const readOnly = sheetHTML(pc, 'Weapons');
   assert.doesNotMatch(readOnly, /data-sheet-roll/);
   assert.equal((readOnly.match(/ disabled/g) || []).length, 4);

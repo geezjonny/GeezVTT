@@ -1,10 +1,13 @@
 import { changeEffects } from './effects-model.js';
+import { itemEquipped } from './inventory-model.js';
 
 export function featEntries(pc) {
   return ['abilities', 'feats'].flatMap(group => Object.entries(pc[group] || {}).flatMap(([key, value]) => {
     const feat = typeof value === 'string' ? { name: value } : value;
     const name = feat?.label || feat?.name;
-    return name ? [{ ...feat, name, id: `${group}:${key}` }] : [];
+    // Feats granted by a card only show while that card is equipped.
+    const card = feat?.cardKey && Object.hasOwn(pc.inventory || {}, feat.cardKey) ? pc.inventory[feat.cardKey] : null;
+    return name && (!feat.cardKey || card && itemEquipped(pc, card)) ? [{ ...feat, name, id: `${group}:${key}` }] : [];
   }));
 }
 
@@ -17,7 +20,7 @@ export function featUses(feat) {
 export function changeFeat(pc, action) {
   const feat = featEntries(pc).find(feat => feat.id === action.id);
   if (!feat) throw new Error('Feat is unavailable.');
-  if (action.type === 'use' && feat.id.startsWith('abilities:') && Array.isArray(feat.modifiers) && feat.modifiers.length) {
+  if (action.type === 'use' && Array.isArray(feat.modifiers)) {
     changeEffects(pc, { type: 'activate', id: feat.id });
     return;
   }

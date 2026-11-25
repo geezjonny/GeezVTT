@@ -12,7 +12,8 @@ const item = { name: 'Torch', equipment_category: { name: 'Adventuring Gear' }, 
 test('targeted item use conditionally saves consumption and the recipient together', async () => {
   const original = globalThis.fetch;
   let writes = 0, last;
-  globalThis.fetch = async (url, options) => {
+  globalThis.fetch = async (url, options = {}) => {
+    if (url === 'https://example.test/v2/worlds/gaia/vtt/live.json') return { ok: true, json: async () => ({}) };
     assert.equal(url, 'https://example.test/v2/worlds/gaia/entities.json');
     if (options.method === 'PUT') {
       writes++;
@@ -212,7 +213,7 @@ test('spell slots save conditionally and reject conflicting sheet edits', async 
     assert.equal(pc.spellcasting.slots_used[1], 1);
     conflict = true;
     await assert.rejects(updatePCSpellSlot(token, 1, 0), /changed elsewhere/);
-    assert.equal(writes, 2);
+    assert.equal(writes, 4, 'one save, then three attempts that all lose the race');
   } finally { globalThis.fetch = original; }
 });
 
@@ -240,16 +241,18 @@ test('adding an SRD item writes only its stable bag key with quantity and descri
   const original = globalThis.fetch, calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
-    return { ok: true, json: async () => ({ kind: 'pc', data: {} }) };
+    if (options?.method === 'PUT') return { ok: true, status: 200 };
+    return { ok: true, headers: { get: () => 'v1' }, json: async () => ({ kind: 'pc', data: {} }) };
   };
   try {
     await addPCInventoryItem(token, item, 3, 'retry-key');
     await addPCInventoryItem(token, item, 3, 'retry-key');
     const writes = calls.filter(call => call.options?.method === 'PUT');
     assert.equal(writes.length, 2);
-    assert.equal(writes[0].url, 'https://example.test/v2/worlds/gaia/entities/pc1/data/inventory/retry-key.json');
+    assert.equal(writes[0].url, 'https://example.test/v2/worlds/gaia/entities/pc1.json');
+    assert.equal(writes[0].options.headers['If-Match'], 'v1');
     assert.equal(writes[1].url, writes[0].url);
-    assert.deepEqual(JSON.parse(writes[0].options.body), { name: 'Torch', qty: 3, category: 'Adventuring Gear', desc: 'Light.\n\nBurns.' });
+    assert.deepEqual(decodeTree(JSON.parse(writes[0].options.body)).data.inventory['retry-key'], { name: 'Torch', qty: 3, category: 'Adventuring Gear', desc: 'Light.\n\nBurns.' });
   } finally { globalThis.fetch = original; }
 });
 
@@ -258,7 +261,7 @@ test('invalid additions and unavailable PCs never write, and Firebase errors are
   let writes = 0;
   globalThis.fetch = async (url, options) => {
     if (options?.method === 'PUT') writes++;
-    return { ok: true, json: async () => ({ kind: 'npc', data: {} }) };
+    return { ok: true, headers: { get: () => 'v1' }, json: async () => ({ kind: 'npc', data: {} }) };
   };
   try {
     for (const qty of [0, -1, 1.5, 10000, NaN]) await assert.rejects(addPCInventoryItem(token, item, qty, 'key'), /Quantity/);
@@ -267,7 +270,7 @@ test('invalid additions and unavailable PCs never write, and Firebase errors are
     await assert.rejects(addPCInventoryItem(token, item, 1, 'key'), /PC unavailable/);
     assert.equal(writes, 0);
     globalThis.fetch = async (url, options) => options?.method === 'PUT'
-      ? { ok: false, status: 403 } : { ok: true, json: async () => ({ kind: 'pc', data: {} }) };
+      ? { ok: false, status: 403 } : { ok: true, headers: { get: () => 'v1' }, json: async () => ({ kind: 'pc', data: {} }) };
     await assert.rejects(addPCInventoryItem(token, item, 1, 'key'), /403/);
   } finally { globalThis.fetch = original; }
 });
@@ -316,27 +319,30 @@ test('effect activation saves uses, item consumption and active state in one con
   const original = globalThis.fetch;
   let conflict = false, writes = 0;
   globalThis.fetch = async (url, options = {}) => {
+    if (url === 'https://example.test/v2/worlds/gaia/vtt/live.json') return { ok: true, json: async () => ({}) };
     if (options.method === 'PUT') {
       writes++;
       assert.equal(options.headers['If-Match'], 'effects-version');
-      const entity = decodeTree(JSON.parse(options.body));
-      assert.equal(entity.data.effects.bark.current, 1);
-      assert.equal(entity.data.inventory.potion.qty, 0);
-      assert.equal(entity.data.activeEffects['effects:bark'].remainingMinutes, 60);
-      assert.equal(entity.data.combat.hp_current, 25);
-      return { ok: !conflict, status: conflict ? 412 : 200 };
+      if (conflict) return { ok: false, status: 412 };
+      assert.ok(url.endsWith('/entities/pc1.json'), 'self use saves only your own record');
+      const { data: pc } = decodeTree(JSON.parse(options.body));
+      assert.equal(pc.inventory.potion.qty, 0);
+      assert.equal(Object.values(pc.activeEffects)[0].remainingMinutes, 60);
+      assert.equal(pc.combat.hp_current, 25);
+      return { ok: true, status: 200 };
     }
-    return { ok: true, headers: { get: () => 'effects-version' }, json: async () => ({ kind: 'pc', data: {
+    const entity = { kind: 'pc', data: {
       combat: { hp_current: 25 }, inventory: { potion: { name: 'Potion', qty: 1 } },
       effects: { bark: { ...BARK_ARM, current: 2, consume: true, inventoryKey: 'potion' } }
-    } }) };
+    } };
+    return { ok: true, headers: { get: () => 'effects-version' }, json: async () => url.endsWith('/entities/pc1.json') ? entity : { pc1: entity } };
   };
   try {
-    await updatePCEffects(token, { type: 'activate', id: 'effects:bark', inventoryKey: 'potion' });
-    await assert.rejects(updatePCEffects(token, { type: 'activate', id: 'effects:bark', inventoryKey: 'other-item' }), /Item effect changed/);
+    await updatePCEffects(token, { type: 'activate', id: 'effects:bark' });
+    assert.equal(writes, 1);
     conflict = true;
     await assert.rejects(updatePCEffects(token, { type: 'activate', id: 'effects:bark' }), /changed elsewhere/);
-    assert.equal(writes, 2);
+    assert.equal(writes, 4);
   } finally { globalThis.fetch = original; }
 });
 
@@ -369,6 +375,22 @@ test('spell use spends one pip conditionally, preserves other sheet data and rej
     await assert.rejects(castPCSpell(token, 'flame', 1, {}), /changed elsewhere/);
     used = 1;
     await assert.rejects(castPCSpell(token, 'flame', 1, {}), /No spell slot/);
+    assert.equal(writes, 4);
+  } finally { globalThis.fetch = original; }
+});
+
+test('a conflicting save re-reads the sheet and retries instead of failing', async () => {
+  const original = globalThis.fetch;
+  let reads = 0, writes = 0;
+  globalThis.fetch = async (url, options = {}) => {
+    if (options.method === 'PUT') { writes++; return { ok: writes > 1, status: writes > 1 ? 200 : 412 }; }
+    reads++;
+    return { ok: true, headers: { get: () => `v${reads}` }, json: async () => ({ kind: 'pc', data: { combat: { hp_current: 10 + reads } } }) };
+  };
+  try {
+    const pc = await updatePCCombat(token, { type: 'set', field: 'hp_current', value: 3 });
+    assert.equal(pc.combat.hp_current, 3);
+    assert.equal(reads, 2);
     assert.equal(writes, 2);
   } finally { globalThis.fetch = original; }
 });

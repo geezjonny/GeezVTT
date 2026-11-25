@@ -1,5 +1,5 @@
 import { buildExpressionRoll } from './dice-roll.js';
-export const ITEM_CATEGORIES = ['Consumable', 'Armor', 'Weapon'];
+export const ITEM_CATEGORIES = ['Consumable', 'Armor', 'Weapon', 'Card'];
 export const ITEM_STATS = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
 export const ITEM_SKILLS = ['acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception', 'history', 'insight', 'intimidation', 'investigation', 'medicine', 'nature', 'perception', 'performance', 'persuasion', 'religion', 'sleight_of_hand', 'stealth', 'survival'];
 
