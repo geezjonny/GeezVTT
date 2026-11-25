@@ -2,6 +2,7 @@ import { visibleObject } from './player-vision.js';
 import { tokenImage } from './token-art.js';
 import { isGM, canControlPC } from './session-role.js';
 import { openPanel } from './menu-bar.js';
+import { drainOnTurn } from './effect-drain.js';
 import { initiativeState, initiativeOrder, startTurn, remainingMovement, attacksPerTurn } from './initiative-model.js';
 
 const $ = id => document.getElementById(id);
@@ -95,8 +96,10 @@ $('initiative-next').addEventListener('click', () => {
   if (!isGM || !map || !floor.initiativeActive || floor.equipmentBusy || floor.getAttribute('aria-busy') === 'true') return;
   const order = initiativeOrder(initiativeState(map.initiative, map.tokens));
   if (!order.length) return;
-  startTurn(map.initiative, (order[1] || order[0]).id);
+  const next = order[1] || order[0];
+  startTurn(map.initiative, next.id);
   changed();
+  drainOnTurn(map.tokens.find(token => token.id === next.id)); // life-drain effects bite at the start of the turn
 });
 $('open-initiative').addEventListener('click', () => openPanel(panel));
 floor.addEventListener('map-ready', render);

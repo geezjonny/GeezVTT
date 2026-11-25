@@ -12,10 +12,12 @@ export function mountEffects(container, getToken, getPC, status, onSaved) {
     const controls = [...container.querySelectorAll('button, input, select')].map(control => [control, control.disabled]);
     controls.forEach(([control]) => { control.disabled = true; });
     try {
+      const drained = [];
+      if (action.type === 'advance') action.onDrain = found => drained.push(...found); // life-drain effects bite as game time passes
       const pc = await updatePCEffects(token, action);
       if (getToken()?.npcId === token.npcId) {
         await onSaved(pc, token);
-        status.textContent = 'Saved.';
+        status.textContent = drained.length ? drained.map(hit => `${hit.label} drained ${hit.taken} HP (${hit.rolls.map(r => `d${hit.sides}: ${r}`).join(', ')}).`).join(' ') : 'Saved.';
       }
     } catch (error) { if (getToken()?.npcId === token.npcId) status.textContent = `${error.message} Check effects before retrying.`; }
     finally { busy = false; controls.forEach(([control, disabled]) => { control.disabled = disabled; }); }

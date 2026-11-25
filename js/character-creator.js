@@ -13,7 +13,7 @@ const $ = id => document.getElementById(id), query = new URLSearchParams(locatio
 const character = $('creator-character'), kind = $('creator-kind'), record = $('creator-record');
 const form = $('creator-form'), fields = $('creator-fields'), status = $('creator-status');
 const input = (name, label, attributes = '') => `<label>${label}<input name="${name}" ${attributes}></label>`;
-const select = (name, label, values) => `<label>${label}<select name="${name}">${values.map(value => `<option value="${value}">${value || 'None / sheet default'}</option>`).join('')}</select></label>`;
+const select = (name, label, values) => `<label>${label}<select name="${name}">${values.map(value => `<option value="${value}">${String(value || 'None / sheet default').replaceAll('_', ' ')}</option>`).join('')}</select></label>`;
 const number = (name, label, min, max, extra = 'required') => input(name, label, `type="number" min="${min}" max="${max}" step="1" ${extra}`);
 const check = (name, label) => `<label class="creator-check"><input type="checkbox" name="${name}">${label}</label>`;
 const description = '<label>Description / custom rules<textarea name="description" rows="6" maxlength="20000"></textarea></label>';
@@ -22,8 +22,24 @@ const field = name => form.elements.namedItem(name);
 const token = () => ({ npcId: `v2:${loadedId}` });
 const text = value => Array.isArray(value) ? value.join('\n\n') : typeof value === 'string' ? value : '';
 
+const group = (title, body, hint = '', layout = '') => `<section class="creator-group"><h3>${title}</h3>${hint ? `<p class="creator-hint">${hint}</p>` : ''}<div class="${layout}">${body}</div></section>`;
 function modifierFields() {
-  return `<div class="creator-modifiers"><strong>Stat modifiers</strong><div id="creator-modifiers"></div><button type="button" data-add-modifier>Add modifier</button></div>`;
+  return group('Stat changes', '<div id="creator-modifiers"></div><button type="button" data-add-modifier>Add stat change</button>',
+    'Each row changes one stat while the effect is active: add a number, multiply it, or set it.');
+}
+function summarize() { // one plain-words line describing the effect being edited
+  const out = $('creator-summary');
+  if (!out) return; // an older cached creator.html without the summary line
+  if (!['Effect', 'Feat'].includes(kind.value) || !field('mode')) { out.hidden = true; return; }
+  const n = name => Number(field(name)?.value) || 0;
+  const mods = [...fields.querySelectorAll('.effect-modifier')].map(row => {
+    const target = row.querySelector('[data-effect-target]').value.replaceAll('_', ' ').replace(':', ' '), op = row.querySelector('[data-effect-operation]').value, v = Number(row.querySelector('[data-effect-value]').value);
+    return Number.isFinite(v) ? `${target.toUpperCase()} ${op === 'multiply' ? '×' + v : op === 'set' ? '= ' + v : (v >= 0 ? '+' : '−') + Math.abs(v)}` : '';
+  }).filter(Boolean);
+  const parts = [(field('name').value || 'This effect') + (mods.length ? ': ' + mods.join(', ') : '')];
+  parts.push([field('mode').value === 'activated' ? (n('max') ? n('max') + ' use' + (n('max') > 1 ? 's' : '') + (field('recharge').value !== 'none' ? ', recharges ' + field('recharge').value.replaceAll('_', ' ') : '') : 'unlimited uses') : 'always on', n('duration_minutes') ? 'lasts ' + n('duration_minutes') + ' min' : 'lasts until ended'].join(', '));
+  if (n('drain_sides')) parts.push(`Costs 1d${n('drain_sides')} HP${field('drain_turn').checked ? ' each turn' : ''}${n('drain_minutes') ? (field('drain_turn').checked ? ' and' : '') + ' every ' + n('drain_minutes') + ' min' : ''}, never below ${n('drain_floor')} HP`);
+  out.textContent = parts.join('. ') + '.'; out.hidden = false;
 }
 function fill() {
   if (!pc) return;
@@ -69,11 +85,20 @@ function fill() {
       consumable_kind: value.consumable?.kind || '', consumable_dice: value.consumable?.dice || '' };
     for (const target of ITEM_STATS) defaults[`item_${target}`] = value.modifiers?.stats?.[target] ?? 0;
   } else if (kind.value === 'Effect' || kind.value === 'Feat') {
-    html += select('mode', 'Applies', ['activated', 'passive', 'equipped']) + number('max', 'Uses (0 = unlimited)', 0, 999)
-      + select('recharge', 'Recharge', ['none', 'daily', 'short_rest', 'long_rest', 'short_or_long_rest'])
-      + number('duration_minutes', 'Duration in game minutes (0 = until ended)', 0, 525600)
-      + '<label>Source item<select name="inventoryKey"></select></label>' + check('consume', 'Consume source item on use') + modifierFields();
-    defaults = { mode: 'activated', max: 0, recharge: 'none', duration_minutes: 0, inventoryKey: '', consume: false, ...defaults };
+    html += group('Uses and timing', select('mode', 'How it applies', ['activated', 'passive', 'equipped']) + number('max', 'Uses (0 = unlimited)', 0, 999)
+        + select('recharge', 'Recharges', ['none', 'daily', 'short_rest', 'long_rest', 'short_or_long_rest'])
+        + number('duration_minutes', 'Lasts (game minutes; 0 = until ended)', 0, 525600),
+        'Activated effects start when the player presses Use. Passive ones are always on.', 'creator-grid')
+      + group('Source item', '<label>Item this comes from<select name="inventoryKey"></select></label>' + check('consume', 'Use up one of this item when activated'),
+        'Optional. Link the effect to an item in the character’s bag.')
+      // Life drain: while active, lose 1d{sides} HP at the start of each turn and/or every N game minutes, never below the floor.
+      + group('Life drain', number('drain_sides', 'Die (0 = none, 4 = d4)', 0, 100) + number('drain_floor', 'Stops at this many HP', 0, 999)
+        + check('drain_turn', 'Lose HP at the start of each of their turns') + number('drain_minutes', 'Also lose HP every N game minutes (0 = never)', 0, 1440),
+        'Optional. Costs the user HP while the effect is active, never below the stop value.', 'creator-grid')
+      + modifierFields();
+    const drain = value.drain || {};
+    defaults = { mode: 'activated', max: 0, recharge: 'none', duration_minutes: 0, inventoryKey: '', consume: false,
+      drain_sides: drain.sides ?? 0, drain_turn: drain.perTurn === true, drain_minutes: drain.everyMinutes ?? 0, drain_floor: drain.floor ?? 1, ...defaults };
   } else {
     html += select('operation', 'Change', ['add', 'multiply', 'set', 'base']) + '<label>Stat<select name="target"></select></label>'
       + input('value', 'Amount / new base value', 'type="number" step="any" required');
@@ -91,6 +116,7 @@ function fill() {
   if ($('creator-modifiers')) $('creator-modifiers').innerHTML = (value.modifiers || []).map(modifierRow).join('');
   if (kind.value === 'Stat') syncStat(defaults.target);
   fields.disabled = false; $('creator-save').disabled = false;
+  summarize();
   if (!entry && query.get('name')) field('name').value = query.get('name').slice(0, 100);
 }
 
@@ -147,9 +173,10 @@ async function loadCharacter() {
   } catch (error) { if (version === reading) status.textContent = error.message; }
 }
 
+form.addEventListener('input', summarize);
 form.addEventListener('click', event => {
   if (event.target.closest('[data-add-modifier]')) $('creator-modifiers').insertAdjacentHTML('beforeend', modifierRow());
-  if (event.target.closest('[data-effect-remove]')) event.target.closest('.effect-modifier').remove();
+  if (event.target.closest('[data-effect-remove]')) { event.target.closest('.effect-modifier').remove(); summarize(); }
 });
 form.addEventListener('change', event => {
   if (kind.value === 'Stat' && event.target.name === 'operation') syncStat();
@@ -172,6 +199,7 @@ form.addEventListener('submit', async event => {
   else {
     Object.assign(value, { category: 'Ability', mode: string('mode'), inventoryKey: string('inventoryKey'), consume: field('consume').checked,
       max: num('max'), recharge: string('recharge'), duration_minutes: num('duration_minutes'),
+      drain_sides: num('drain_sides'), drain_turn: field('drain_turn').checked, drain_minutes: num('drain_minutes'), drain_floor: num('drain_floor'),
       modifiers: [...fields.querySelectorAll('.effect-modifier')].map(row => ({ target: row.querySelector('[data-effect-target]').value,
         operation: row.querySelector('[data-effect-operation]').value, value: Number(row.querySelector('[data-effect-value]').value) })) });
   }

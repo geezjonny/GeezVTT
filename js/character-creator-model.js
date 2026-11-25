@@ -117,11 +117,13 @@ export function changeCreation(pc, action, reference = {}) {
   } else {
     const definition = kind === 'Stat' ? { label: name, category: 'Ability', mode: 'passive', consume: false, inventoryKey: '', max: 0, recharge: 'none', duration_minutes: 0,
       modifiers: [{ target: value.target, operation: value.operation, value: value.value }], description }
-      : { ...value, label: name, category: kind === 'Feat' ? 'Ability' : value.category, description };
+      : { ...value, label: name, category: kind === 'Feat' ? 'Ability' : value.category, description,
+        ...(Number(value.drain_sides) > 0 ? { drain: { sides: Number(value.drain_sides), perTurn: value.drain_turn === true, everyMinutes: Number(value.drain_minutes) || 0, floor: Number(value.drain_floor) || 0 } } : { drain: null }) };
     if (kind === 'Stat' && (!EFFECT_TARGETS.includes(value.target) || !['add', 'multiply', 'set'].includes(value.operation))) throw new Error('Choose a stat modifier.');
     const effect = validateEffect(definition);
     if (effect.inventoryKey && !own(next.inventory, effect.inventoryKey)) throw new Error('Choose an existing source item.');
     saved = { ...original, ...effect, current: effect.max === 0 ? 0 : Math.min(effect.max, Math.max(0, Number.isSafeInteger(original.current) ? original.current : effect.max)) };
+    if (!effect.drain) delete saved.drain; // clearing the drain fields removes it
     if (kind === 'Feat') { saved.name = name; delete saved.desc; delete saved.effect_desc; }
     if (kind === 'Stat') saved.creatorKind = 'Stat';
   }

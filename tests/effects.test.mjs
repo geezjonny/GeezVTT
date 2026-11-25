@@ -181,3 +181,21 @@ test('consumption preserves equipped items and depleted uses leave inventory unc
   assert.equal(pc.inventory.leather.qty, 1);
   assert.equal(pc.activeEffects, undefined);
 });
+
+// Life drain: d4 each turn / every 10 game minutes, never below the floor, none for inactive effects.
+test('life drain rolls each turn and over game time, never below its floor', async () => {
+  const { applyDrain, validateEffect } = await import('../js/effects-model.js');
+  const make = hp => ({ combat: { hp_current: hp, hp_max: 33 }, effects: { bark: { label: 'Bark Arm', mode: 'activated', max: 2, current: 1, recharge: 'daily', duration_minutes: 60, modifiers: [{ target: 'str', operation: 'add', value: 2 }], drain: { sides: 4, perTurn: true, everyMinutes: 10, floor: 1 } } }, activeEffects: { 'effects:bark': { remainingMinutes: 60 } } });
+  const seq = (...v) => { let i = 0; return () => (v[i++] - 1) / 4 + .01; }; // returns the next die value
+  let pc = make(25);
+  let out = applyDrain(pc, { turn: true }, seq(3));
+  assert.equal(pc.combat.hp_current, 22); assert.deepEqual(out[0].rolls, [3]); assert.equal(out[0].taken, 3);
+  out = applyDrain(pc, { minutes: 25 }, seq(2, 4)); // two full 10-minute ticks, 5 minutes carried
+  assert.equal(pc.combat.hp_current, 16); assert.equal(pc.activeEffects['effects:bark'].drainCarry, 5);
+  pc = make(3); applyDrain(pc, { turn: true }, seq(4)); assert.equal(pc.combat.hp_current, 1); // floor
+  pc = make(1); assert.equal(applyDrain(pc, { turn: true }, seq(4))[0].taken, 0); assert.equal(pc.combat.hp_current, 1);
+  pc = make(25); delete pc.activeEffects['effects:bark']; assert.deepEqual(applyDrain(pc, { turn: true }, seq(4)), []);
+  pc = make(25); changeEffects(pc, { type: 'advance', minutes: 60, noDrain: true }); assert.equal(pc.combat.hp_current, 25);
+  assert.throws(() => validateEffect({ ...make(1).effects.bark, consume: false, inventoryKey: '', drain: { sides: 0 } }));
+  assert.deepEqual(validateEffect({ ...make(1).effects.bark, consume: false, inventoryKey: '' }).drain, { sides: 4, perTurn: true, everyMinutes: 10, floor: 1 });
+});

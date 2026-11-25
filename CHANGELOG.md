@@ -2,6 +2,11 @@
 
 ## 2026-11-24
 
+### Life-drain effects and Character Workshop (creator.html)
+- Effects can now feed on their user's life force: roll a die (like a d4) at the start of each of their turns and/or every N game minutes while the effect is active, never taking them below a set HP. The roll is posted to the table and the character's HP updates.
+- Added Lark's Bark Arm: STR +2, speed x1.5, CON -2, CHA -2, two uses a day for an hour, draining a d4 each turn.
+- Character Workshop: the Effect and Feat forms have life-drain fields, and the page got a layout pass: sections with short hints, aligned checkboxes, one stat change per row with a small remove button, a plain-words summary of the effect as you edit, and a Save button that stays on screen.
+
 ### Free roam (built, switched off for now)
 - Built a Free roam mode: the GM gets a Movement button in VTT Controls, and players hold WASD to move smoothly in 2D, 3D and first person (walls, windows and closed doors still block). Initiative always stays turn-based.
 - Fixed it jittering: a player's token no longer snaps back when the GM's updates arrive, and the map no longer redraws on every step.
