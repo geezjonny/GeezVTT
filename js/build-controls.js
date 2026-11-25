@@ -11,7 +11,7 @@ $('open-build').addEventListener('click',()=>{openPanel(panel); $('build-collaps
 function start(layer) {
   if(!isGM || !floor.tabletopMap || floor.getAttribute('aria-busy')==='true') return;
   floor.dispatchEvent(new CustomEvent('build-start',{detail:layer}));
-  ($('map-view').hidden ? $('view-3d').querySelector('canvas') : $('map-view'))?.focus({preventScroll:true});
+  $('map-view')?.focus({preventScroll:true});
 }
 for(const button of buttons) {
   const layer=button.dataset.buildLayer;
@@ -53,6 +53,5 @@ function state() {
   $('vtt-tokens').disabled=$('open-tokens').disabled;
 }
 for(const type of ['map-ready','build-state']) floor.addEventListener(type,state);
-new MutationObserver(()=>{closeMapMenu(); state();}).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});
 new MutationObserver(state).observe($('open-tokens'),{attributes:true,attributeFilter:['disabled']});
 state();

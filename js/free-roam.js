@@ -1,15 +1,13 @@
 // Free-roam movement for players: while the GM has Free roam on (and initiative is off), held WASD / arrow keys move the
-// selected PC smoothly in 2D, 3D and first person. The player's client predicts the motion locally (same wall/door rules as the
+// selected PC smoothly. The player's client predicts the motion locally (same wall/door rules as the
 // GM's check in player-actions.js) and streams its position as `move` actions; the GM's client validates and applies them.
 // Turn-based play (one cell per keypress, or initiative) is untouched and lives in vtt-controls.js.
 import { isGM, canControlPC } from './session-role.js';
-import { firstPersonYaw, previewToken } from './map-view-toggle.js';
 import { canStand, FREE_ROAM_ENABLED } from './player-actions.js';
 
 const floor = document.getElementById('floor');
 const CELLS_PER_SECOND = 4, SEND_EVERY = 60, HOLD_MAX = 4000; // HOLD_MAX: longest we wait for the GM to confirm where we stopped
 const WASD = { KeyW: [0, -1], KeyA: [-1, 0], KeyS: [0, 1], KeyD: [1, 0] };
-const ARROWS = { ArrowUp: [0, -1], ArrowLeft: [-1, 0], ArrowDown: [0, 1], ArrowRight: [1, 0] };
 const held = new Set();
 let raf = 0, last = 0, lastSent = 0, pos = null, idleSince = 0, sentPos = null;
 
@@ -17,21 +15,16 @@ const roaming = () => FREE_ROAM_ENABLED && !isGM && floor.freeRoam === true && !
 const character = () => floor.tabletopMap?.tokens.find(t => t.id === floor.selectedTokenId && t.kind === 'pc' && canControlPC(t));
 
 function direction() {
-  const yaw = firstPersonYaw();
   let x = 0, y = 0;
-  for (const code of held) { const v = WASD[code] || (yaw !== null && ARROWS[code]); if (v) { x += v[0]; y += v[1]; } }
+  for (const code of held) { const v = WASD[code]; if (v) { x += v[0]; y += v[1]; } }
   const len = Math.hypot(x, y);
-  if (!len) return null;
-  x /= len; y /= len;
-  // First person: keys are relative to where the camera looks (same rotation as cameraStep, without snapping to 90 degrees).
-  return yaw === null ? { x, y } : { x: x * Math.cos(yaw) + y * Math.sin(yaw), y: y * Math.cos(yaw) - x * Math.sin(yaw) };
+  return len ? { x: x / len, y: y / len } : null;
 }
 
 function show(token) { // update the local view of the token without waiting for the GM
   token.x = pos.x; token.y = pos.y;
   floor.roamPos = { id: token.id, x: pos.x, y: pos.y }; // read by applySharedMap so GM echoes don't yank the token back
   document.querySelector(`#tokens [data-token-id="${CSS.escape(token.id)}"]`)?.setAttribute('transform', `translate(${pos.x} ${pos.y})`);
-  previewToken(token.id, pos);
 }
 
 const caughtUp = token => floor.roamEcho?.id === token.id && Math.hypot(floor.roamEcho.x - pos.x, floor.roamEcho.y - pos.y) < .03;
@@ -70,8 +63,7 @@ const start = () => { if (!raf) { last = performance.now(); raf = requestAnimati
 
 const typing = e => e.target.isContentEditable || e.target.closest?.('input, textarea, select, button, .editor-titlebar');
 document.addEventListener('keydown', e => {
-  if (!roaming() || e.ctrlKey || e.metaKey || e.altKey || typing(e) || !(WASD[e.code] || ARROWS[e.code])) return;
-  if (ARROWS[e.code] && firstPersonYaw() === null) return; // arrows only move you in first person, as in turn-based play
+  if (!roaming() || e.ctrlKey || e.metaKey || e.altKey || typing(e) || !WASD[e.code]) return;
   if (!character()) return;
   e.preventDefault(); held.add(e.code); start();
 });

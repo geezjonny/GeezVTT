@@ -23,7 +23,7 @@ function drawFog() {
   }));
   map.style.backgroundColor = '#080b10';
   $('time-overlay').style.background = TIMES[model.environment.time].tint;
-  $('time-overlay').hidden = $('toggle-3d').getAttribute('aria-pressed') === 'true';
+  $('time-overlay').hidden = false;
 }
 $('open-environment').addEventListener('click', () => {
   openPanel(panel);
@@ -85,12 +85,6 @@ function endStroke(event) {
   changed();
 }
 for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) map.addEventListener(type, endStroke, true);
-new MutationObserver(() => {
-  if (!floor.tabletopMap) return;
-  $('time-overlay').hidden = map.hidden;
-  $('fog-tool').disabled = map.hidden;
-  $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
-}).observe($('toggle-3d'), { attributes: true, attributeFilter: ['aria-pressed'] });
 floor.addEventListener('map-ready', () => {
   stroke = null;
   $('open-environment').disabled = false;
@@ -98,7 +92,7 @@ floor.addEventListener('map-ready', () => {
   $('environment-weather').value = floor.tabletopMap.environment.weather;
   $('environment-weatherColor').value = floor.tabletopMap.environment.weatherColor;
   $('fog-tool').value = 'off';
-  $('fog-help').textContent = map.hidden ? 'Fog editing: 2D only' : `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
+  $('fog-help').textContent = `Cell size: ${fogSize(floor.tabletopMap)} square(s)`;
   drawFog(); updateWeather();
 });
 window.addEventListener('player-signed-in',()=>{if(floor.tabletopMap?.environment) drawFog();});

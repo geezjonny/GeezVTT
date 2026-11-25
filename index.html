@@ -75,14 +75,11 @@
     #dice-history li { padding: 0.2rem 0; overflow-wrap: anywhere; }
     .roll-critical { color: #ffd86b; }
     .roll-fumble { color: #ffb4ac; }
-    #view-3d { position: absolute; inset: 0; }
     #time-overlay, #weather-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
     #fog-of-war { fill: #080b10; pointer-events: none; }
     #environment-panel .editor-body { display: grid; gap: .5rem; }
     #environment-panel label { display: grid; gap: .2rem; }
     #fog-help { margin: 0; font-size: .7rem; color: #b4c0ce; }
-    #view-3d canvas { display: block; width: 100%; height: 100%; touch-action: none; }
-    #toggle-3d[aria-pressed="true"] { background: #344f70; }
     .editor-panel { position: fixed; top: 4rem; left: 1rem; width: min(13rem, calc(100vw - 2rem)); max-height: calc(100dvh - 5rem); background: #202731; border: 1px solid #61758f; border-radius: .35rem; box-shadow: 0 10px 30px #0009; z-index: 3; display: flex; flex-direction: column; }
     #journal-text, #token-image-name, #handouts-panel input[type="file"], #soundboard-tracks input { width: 100%; box-sizing: border-box; }
     #journal-text { min-height: 12rem; resize: vertical; }
@@ -160,15 +157,7 @@
     #vtt-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2; overflow: hidden; }
     #vtt-overlay line, #vtt-overlay circle { fill: none; stroke: #ffd86b; stroke-width: 3; }
     #vtt-overlay text { fill: #ffd86b; stroke: #15191f; stroke-width: 4; paint-order: stroke; font-size: 14px; font-weight: 600; text-anchor: middle; }
-    #first-person-health { left: auto; top: auto; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); }
-    #first-person-health .health-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 9px; }
-    #first-person-health strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #first-person-hp { flex-shrink: 0; font-variant-numeric: tabular-nums; font-size: 14px; color: #e6eef7; }
-    #first-person-health [role="meter"] { height: 16px; overflow: hidden; border: 1px solid #0009; border-radius: 4px; background: #060b10; box-shadow: inset 0 2px 4px #0008; }
-    #first-person-health-fill { display: block; height: 100%; background: linear-gradient(#ffffff30, #00000018), var(--health-color, #55c779); transition: width .2s ease; }
-    #first-person-sheet-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; margin-top: .5rem; }
-    @media (prefers-reduced-motion: reduce) { #first-person-health-fill { transition: none; } }
-    #map-view[data-vtt-tool="measure"], #map-view[data-vtt-tool="ping"], #view-3d[data-vtt-tool="measure"], #view-3d[data-vtt-tool="ping"] { cursor: crosshair; }
+    #map-view[data-vtt-tool="measure"], #map-view[data-vtt-tool="ping"] { cursor: crosshair; }
     #walls-panel { left: 15rem; }
     #floors-panel { top: 11rem; left: 29rem; }
     #lights-panel { top: 11rem; left: 15rem; }
@@ -238,17 +227,6 @@
       #vtt-graphics { position: relative; }
     #vtt-graphics::after { content: attr(data-level); position: absolute; right: 3px; bottom: 1px; font: 700 9px/1 system-ui; }
   </style>
-  <script type="importmap">
-    { "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-    },
-    "integrity": {
-      "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js": "sha384-GY5FqjttLCFRt/McQbyaVdCk2O1IQtOeX8Py6NfD89BIAsIyJFRl4UgSXrk2vXAk",
-      "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/controls/OrbitControls.js": "sha384-aJoe4qqS/DgF2jh9njAuvA6QIveJYoCuYOfYjdFY8P3eawzmc9bEQ40jq2TvOyuP",
-      "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js": "sha384-wOjwauvHlJO7K6APr7FmMGH2nupQa3Ndzas9bJZhsAMOK055efJud8ns4aYmASKv"
-    } }
-  </script>
 </head>
 <body>
   <main>
@@ -317,9 +295,7 @@
         <details class="menu" name="application-menu">
           <summary>View</summary>
           <div class="menu-items">
-            <button id="toggle-3d" type="button" aria-pressed="false" aria-controls="view-3d" data-view="2d" disabled>View: 2D</button>
             <label><input id="toggle-grid" type="checkbox" aria-controls="grid">Grid</label>
-            <button id="fit-3d" type="button" hidden>Fit map</button>
             <button id="open-environment" type="button" aria-controls="environment-panel" data-gm-only disabled>Environment</button>
             <button id="open-build" type="button" aria-controls="build-panel" data-gm-only>Build Controls</button>
             <button id="open-scene-controls" type="button" aria-controls="scene-panel" data-gm-only>Scene Controls</button>
@@ -381,7 +357,6 @@
         <button type="button" data-vtt-tool="ping" aria-pressed="false" title="Click the map to ping" disabled aria-label="Ping"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 1v4m0 14v4M1 12h4m14 0h4"/></svg></button>
         <button id="vtt-roll" type="button" title="Open dice roller" aria-controls="dice-panel" aria-label="Dice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path stroke-linecap="round" stroke-width="3" d="M8 8h0m8 0h0m-4 4h0m-4 4h0m8 0h0"/></svg></button>
         <button id="vtt-tokens" type="button" title="Tokens" aria-controls="tokens-panel" data-gm-only disabled aria-label="Tokens"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8ZM4 21v-3a8 8 0 0 1 16 0v3Z"/></svg></button>
-        <button id="vtt-view" type="button" title="2D view. Cycle 2D / 3D / 1st Person" aria-label="2D view. Cycle 2D / 3D / 1st Person" aria-controls="view-3d" aria-pressed="false" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m12 2 9 5v10l-9 5-9-5V7Zm-9 5 9 5 9-5M12 12v10"/></svg></button>
         <button id="vtt-grid" type="button" title="Toggle grid" aria-label="Toggle grid" aria-controls="grid" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h18v18H3ZM3 9h18M3 15h18M9 3v18M15 3v18"/></svg></button>
         <button id="vtt-roam" type="button" title="Movement: Turn-based. Click for free roam (players move smoothly with WASD)" aria-label="Movement: Turn-based" aria-pressed="false" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 4.5a1.5 1.5 0 1 0 3 0 1.5 1.5 0 0 0-3 0ZM4 22l3-6 3 2 2-5-3-2 2-4 4 3 3 1M8 8l3-2"/></svg></button>
         <button id="vtt-graphics" type="button" title="Graphics: High. Click to change" aria-label="Graphics: High" data-level="H"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
@@ -772,27 +747,10 @@
         <g id="edit-preview"></g>
         <g id="fog-of-war"></g>
       </svg>
-      <div id="view-3d" role="region" aria-label="3D map. Middle-drag to pan, scroll to zoom, right-drag to orbit." hidden></div>
       <div id="time-overlay" aria-hidden="true"></div>
       <canvas id="weather-overlay" aria-hidden="true"></canvas>
       <div id="dice-overlay" aria-hidden="true"></div>
       <svg id="vtt-overlay" aria-hidden="true"></svg>
-    </section>
-    <section id="first-person-health" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="first-person-character" hidden>
-      <div class="editor-titlebar" tabindex="0" aria-label="Move character window. Drag or use arrow keys.">
-        <h2 id="first-person-character">Character</h2>
-        <button class="editor-close" type="button" aria-label="Minimize character window" aria-expanded="true" aria-controls="first-person-character-body">&minus;</button>
-      </div>
-      <div id="first-person-character-body" class="editor-body">
-        <div class="health-heading"><span id="first-person-hp"></span><strong id="first-person-ac"></strong></div>
-        <div id="first-person-health-meter" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0"><span id="first-person-health-fill"></span></div>
-        <div id="first-person-sheet-buttons" role="group" aria-label="Character sheet">
-          <button type="button" data-character-sheet="Stats">Stats</button>
-          <button type="button" data-character-sheet="Inventory">Inventory</button>
-          <button type="button" data-character-sheet="Feats">Feats</button>
-          <button type="button" data-character-sheet="Spells">Spells</button>
-        </div>
-      </div>
     </section>
     <section id="dice-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="dice-title" hidden>
       <div class="editor-titlebar" tabindex="0" aria-label="Move dice window. Drag or use arrow keys.">
@@ -987,7 +945,7 @@
         }
         mapView.removeAttribute('hidden');
         empty.hidden = true;
-        // Keep the decoded image and validated grid-space geometry for the optional 3D view.
+        // Keep the decoded image and validated grid-space geometry for the scene model.
         const points = element => element.getAttribute('points').split(' ').map(pair => {
           const [x, y] = pair.split(',').map(Number);
           return { x, y };
@@ -1004,7 +962,6 @@
         };
         floor.sourceMap = map;
         floor.sourceName = sourceName;
-        document.querySelector('#toggle-3d').disabled = false;
         floor.changingMap = true;
         try {
           floor.dispatchEvent(new CustomEvent('map-ready', { detail: { preserveScene: Boolean(options.entry || options.addFloor || replaceFloor), addedFloor: Boolean(options.addFloor), replacedMap: replaceFloor } }));
@@ -1029,7 +986,6 @@
     document.querySelector('#scene-file').addEventListener('change', event => loadMap(event.target.files[0]));
   </script>
   <script type="module" src="js/dice-roller.js"></script>
-  <script type="module" src="js/map-view-toggle.js"></script>
   <script type="module" src="js/map-view-2d.js"></script>
   <script type="module" src="js/map-editor.js"></script>
   <section id="spell-glossary-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="spell-glossary-title" hidden>

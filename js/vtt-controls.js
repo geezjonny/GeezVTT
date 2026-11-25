@@ -2,15 +2,12 @@ import { viewersFor, visibleObject } from './player-vision.js';
 import { openPanel } from './menu-bar.js';
 import { isGM, canControlPC, playerIdentity, sessionClient } from './session-role.js';
 import { fogRectangles } from './environment-model.js';
-import { tabletopPoint, screenPoint, tabletopHit, previewToken, previewObject, firstPersonYaw } from './map-view-toggle.js';
-import { cameraStep } from './first-person-model.js';
 import { reachableCells, FREE_ROAM_ENABLED } from './player-actions.js';
-import { pcTokenStatus } from './token-model.js';
 import { requestObjectInteraction } from './trigger-controls.js';
 import './free-roam.js';
 
 const $ = id => document.getElementById(id);
-const floor = $('floor'), map = $('map-view'), host = $('view-3d');
+const floor = $('floor'), map = $('map-view');
 const panel = $('vtt-panel'), overlay = $('vtt-overlay');
 const buttons = [...panel.querySelectorAll('[data-vtt-tool]')];
 let tool = 'select', enabled = true, gesture, measurement, ping, frame;
@@ -35,35 +32,6 @@ function updateMovement() {
 $('combat-move').addEventListener('click', () => { moving = !moving; updateMovement(); });
 for (const type of ['turn-changed', 'environment-changed']) floor.addEventListener(type, updateMovement);
 window.addEventListener('player-signed-in', updateMovement);
-function currentCharacter() {
-  const tokens = floor.tabletopMap?.tokens || [];
-  return tokens.find(token => token.id === floor.selectedTokenId && (isGM || canControlPC(token))) ||
-    (!isGM && tokens.find(token => token.kind === 'pc' && canControlPC(token)));
-}
-function syncHealth() {
-  const token = currentCharacter();
-  const status = token && pcTokenStatus(token);
-  const hud = $('first-person-health');
-  hud.hidden = $('toggle-3d').dataset.view !== 'first' || !status;
-  if (hud.hidden) return;
-  $('first-person-character').textContent = token.name;
-  $('first-person-hp').textContent = `${token.hp} / ${token.hpMax ?? '—'} HP`;
-  $('first-person-ac').textContent = `AC ${token.ac ?? '—'}`;
-  for (const button of hud.querySelectorAll('[data-character-sheet]')) button.disabled = !token.npcId?.startsWith('v2:');
-  $('first-person-health-fill').style.width = `${status.fraction * 100}%`;
-  hud.style.setProperty('--health-color', status.color);
-  $('first-person-health-meter').setAttribute('aria-valuenow', String(status.fraction));
-  $('first-person-health-meter').setAttribute('aria-valuetext', `${token.name}: ${token.hp} of ${token.hpMax ?? 'unknown'} HP`);
-}
-for (const type of ['map-ready', 'map-changed', 'vtt-selection-changed']) floor.addEventListener(type, syncHealth);
-window.addEventListener('player-signed-in', syncHealth);
-$('first-person-sheet-buttons').addEventListener('click', event => {
-  const button = event.target.closest('[data-character-sheet]');
-  const token = currentCharacter();
-  if (button && token && !button.disabled) floor.dispatchEvent(new CustomEvent('token-sheet', {
-    detail: { id: token.id, section: button.dataset.characterSheet }
-  }));
-});
 const sendAction = detail => floor.dispatchEvent(new CustomEvent('session-action', { detail }));
 const visible = p => isGM || !fogRectangles(floor.tabletopMap).some(rect => p.x >= rect.x && p.x < rect.x + rect.width && p.y >= rect.y && p.y < rect.y + rect.height);
 function selectToken(token) {
@@ -83,7 +51,6 @@ function syncRoamButton() {
 if (!FREE_ROAM_ENABLED) $('vtt-roam').hidden = true;
 $('vtt-roam').addEventListener('click', () => { if (!isGM || !FREE_ROAM_ENABLED) return; floor.freeRoam = !floor.freeRoam; syncRoamButton(); floor.dispatchEvent(new Event('roam-changed')); });
 floor.addEventListener('roam-changed', syncRoamButton);
-$('vtt-view').addEventListener('click', () => $('toggle-3d').click());
 $('vtt-grid').addEventListener('click', () => $('toggle-grid').click());
 const syncGrid = () => $('vtt-grid').setAttribute('aria-pressed', String($('toggle-grid').checked));
 $('toggle-grid').addEventListener('change', syncGrid);
@@ -92,14 +59,6 @@ $('vtt-environment').addEventListener('click', () => $('open-environment').click
 const syncEnvironment = () => { $('vtt-environment').disabled = $('open-environment').disabled; };
 new MutationObserver(syncEnvironment).observe($('open-environment'), { attributes: true, attributeFilter: ['disabled'] });
 syncEnvironment();
-new MutationObserver(() => {
-  $('vtt-view').disabled = $('toggle-3d').disabled;
-  $('vtt-view').setAttribute('aria-pressed', $('toggle-3d').getAttribute('aria-pressed'));
-  const label = { '2d': '2D', '3d': '3D', first: '1st Person' }[$('toggle-3d').dataset.view] || '2D';
-  $('vtt-view').title = `${label} view. Cycle 2D / 3D / 1st Person`;
-  $('vtt-view').setAttribute('aria-label', $('vtt-view').title);
-  syncHealth();
-}).observe($('toggle-3d'), { attributes: true, attributeFilter: ['disabled', 'aria-pressed', 'data-view'] });
 if (!isGM) {
   $('empty').textContent = 'Waiting for the GM’s map.';
   map.setAttribute('aria-label', 'Player tabletop. Select a PC; WASD to move, Space to open nearby doors.');
@@ -111,14 +70,13 @@ const svgNode = (tag, attributes) => {
   return node;
 };
 function point(event) {
-  if (map.hidden) return tabletopPoint(event);
   const matrix = map.getScreenCTM();
   return matrix && new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
 }
 const cellCenter = p => ({ x: Math.floor(p.x) + .5, y: Math.floor(p.y) + .5 });
 function project(p) {
   const matrix = map.getScreenCTM();
-  const screen = map.hidden ? screenPoint(p) : matrix && new DOMPoint(p.x, p.y).matrixTransform(matrix);
+  const screen = matrix && new DOMPoint(p.x, p.y).matrixTransform(matrix);
   const rect = overlay.getBoundingClientRect();
   return screen && { x: screen.x - rect.left, y: screen.y - rect.top };
 }
@@ -166,9 +124,7 @@ function clear() {
   if (previous?.element) previous.element.setAttribute('transform', `translate(${previous.token.x} ${previous.token.y})`);
   if(previous?.object) {
     if(previous.objectElement) previous.objectElement.setAttribute('transform',previous.objectTransform);
-    previewObject(previous.objectKind,previous.object.id,previous.objectIndex,previous.object);
   }
-  if (previous?.token) previewToken(previous.token.id, previous.token);
   if (previous?.target.hasPointerCapture(previous.pointerId)) previous.target.releasePointerCapture(previous.pointerId);
   cancelAnimationFrame(frame); frame = null; overlay.replaceChildren();
   if (movementCells.size || remoteMeasurements.size || remotePings.size) redraw();
@@ -183,7 +139,7 @@ function activate(next) {
   clear(); tool = next; enabled = true;
   $('editor-close').click();
   $('fog-tool').value = 'off';
-  for (const target of [map, host]) target.dataset.vttTool = tool;
+  map.dataset.vttTool = tool;
   buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.vttTool === tool)));
 }
 buttons.forEach(button => button.addEventListener('click', () => activate(button.dataset.vttTool)));
@@ -195,7 +151,7 @@ $('open-vtt').addEventListener('click', () => { openPanel(panel); $('vtt-collaps
 function handToEditor() {
   clear(); enabled=false;
   buttons.forEach(button=>button.setAttribute('aria-pressed','false'));
-  for(const target of [map,host]) delete target.dataset.vttTool;
+  delete map.dataset.vttTool;
 }
 floor.addEventListener('build-start',handToEditor);
 for (const button of document.querySelectorAll('[data-edit-layer], #open-tools')) button.addEventListener('click', handToEditor);
@@ -203,13 +159,13 @@ $('fog-tool').addEventListener('change', () => {
   if ($('fog-tool').value === 'off') return;
   clear(); enabled = false;
   buttons.forEach(button => button.setAttribute('aria-pressed', 'false'));
-  for (const target of [map, host]) delete target.dataset.vttTool;
+  delete map.dataset.vttTool;
 });
 floor.addEventListener('pointerdown', event => {
-  if (!enabled || event.button !== 0 || !floor.tabletopMap || floor.getAttribute('aria-busy') === 'true' || !event.target.closest('#map-view, #view-3d')) return;
+  if (!enabled || event.button !== 0 || !floor.tabletopMap || floor.getAttribute('aria-busy') === 'true' || !event.target.closest('#map-view')) return;
   const p = point(event);
   if (!p) return;
-  const hit = map.hidden ? tabletopHit(event) : {
+  const hit = {
     tokenId: event.target.closest('[data-token-id]')?.dataset.tokenId,
     doorIndex: event.target.closest('[data-door-index]')?.dataset.doorIndex,
     lightIndex: event.target.closest('[data-light-index]')?.dataset.lightIndex,
@@ -239,12 +195,12 @@ floor.addEventListener('pointerdown', event => {
       sendAction({ type: 'move', tokenId: movementToken.id, turnId: floor.tabletopMap.initiative.turn.id,
         x: destination.x, y: destination.y, dx: destination.x-movementToken.x, dy: destination.y-movementToken.y });
     } else if (token) selectToken(token);
-    (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
+    map.focus({ preventScroll: true });
     return;
   }
   if (!isGM && tool === 'select') {
-    if (token || firstPersonYaw() === null) selectToken(token?.kind === 'pc' && visible(token) ? token : null);
-    (map.hidden ? host.querySelector('canvas') : map)?.focus({ preventScroll: true });
+    selectToken(token?.kind === 'pc' && visible(token) ? token : null);
+    map.focus({ preventScroll: true });
     return;
   }
   if(isGM && tool==='select' && (token || hit?.doorIndex===undefined)) selectToken(token);
@@ -254,10 +210,10 @@ floor.addEventListener('pointerdown', event => {
     if (hit?.doorIndex !== undefined) floor.dispatchEvent(new CustomEvent('vtt-door-toggle', { detail: Number(hit.doorIndex) }));
     return;
   }
-  const target = map.hidden ? host.querySelector('canvas') : map;
+  const target = map;
   gesture = { pointerId: event.pointerId, target, start: p, token, object, objectKind, objectIndex:Number(hit?.lightIndex), destination: (token || object) && { x: (token || object).x, y: (token || object).y },
-    element: !map.hidden && token ? $('tokens').querySelector(`[data-token-id="${CSS.escape(token.id)}"]`) : null };
-  if(object && !map.hidden) {
+    element: token ? $('tokens').querySelector(`[data-token-id="${CSS.escape(token.id)}"]`) : null };
+  if(object) {
     const key=objectKind==='lights'?'light-index':objectKind==='portals'?'portal-id':'prop-id';
     const value=objectKind==='lights'?String(hit.lightIndex):object.id;
     gesture.objectElement=$(objectKind).querySelector(`[data-${key}="${CSS.escape(value)}"]`);
@@ -283,11 +239,7 @@ floor.addEventListener('pointermove', event => {
     const x = moving.x + Math.round(p.x - gesture.start.x), y = moving.y + Math.round(p.y - gesture.start.y);
     gesture.destination = { x: Math.max(0, Math.min(model.width, x)), y: Math.max(0, Math.min(model.height, y)) };
     gesture.element?.setAttribute('transform', `translate(${gesture.destination.x} ${gesture.destination.y})`);
-    if(gesture.token) previewToken(gesture.token.id, gesture.destination);
-    else {
-      gesture.objectElement?.setAttribute('transform',`translate(${gesture.destination.x-moving.x} ${gesture.destination.y-moving.y}) ${gesture.objectTransform}`);
-      previewObject(gesture.objectKind,moving.id,gesture.objectIndex,gesture.destination);
-    }
+    if(!gesture.token) gesture.objectElement?.setAttribute('transform',`translate(${gesture.destination.x-moving.x} ${gesture.destination.y-moving.y}) ${gesture.objectTransform}`);
   }
 }, true);
 floor.addEventListener('pointerup', event => {
@@ -312,10 +264,7 @@ for (const type of ['pointercancel', 'lostpointercapture']) floor.addEventListen
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !event.target.matches('input, textarea, select')) clear();
   if (isGM || event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey || event.target.isContentEditable || event.target.closest('input, textarea, select, button, .editor-titlebar')) return;
-  const yaw = firstPersonYaw();
-  let step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0],
-    ...(yaw === null ? {} : { ArrowUp: [0,-1], ArrowLeft: [-1,0], ArrowDown: [0,1], ArrowRight: [1,0] }) }[event.code];
-  if (step && yaw !== null) step = cameraStep(step, yaw);
+  const step = { KeyW: [0,-1], KeyA: [-1,0], KeyS: [0,1], KeyD: [1,0] }[event.code];
   if (step && floor.freeRoam && !floor.initiativeActive) return; // free-roam.js handles held movement keys
   if (!step && event.code !== 'Space') return;
   event.preventDefault();
@@ -351,5 +300,4 @@ function selectOwnToken() {
 window.addEventListener('player-signed-in', selectOwnToken);
 floor.addEventListener('map-changed', selectOwnToken);
 floor.addEventListener('map-ready', () => { remoteMeasurements.clear(); remotePings.clear(); clear(); selectOwnToken(); buttons.forEach(button => { button.disabled = false; }); });
-new MutationObserver(clear).observe($('toggle-3d'), { attributes: true, attributeFilter: ['aria-pressed'] });
-for (const target of [map, host]) target.dataset.vttTool = tool;
+map.dataset.vttTool = tool;

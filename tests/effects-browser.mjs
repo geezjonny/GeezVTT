@@ -100,7 +100,6 @@ try {
   await wait(`typeof document.querySelector('#floor')?.loadMap === 'function' && document.querySelector('#map-view')?.tabIndex === 0`);
   await evaluate(`(async () => {
     const floor = document.querySelector('#floor');
-    floor.addEventListener('map-ready', () => { document.querySelector('#toggle-3d').disabled = true; }, { capture: true });
     const raw = await (await fetch('/battlemap/camp.dd2vtt')).json();
     raw.geezvtt_editor = { ...(raw.geezvtt_editor || {}), tokens: [{ id: 'lark-token', npcId: 'v2:pc1', kind: 'pc', name: 'Lark', x: 2.5, y: 2.5, size: 1, hp: 25 }] };
     if (!await floor.loadMap(new File([JSON.stringify(raw)], 'effects.dd2vtt'))) throw new Error('Fixture map did not load');

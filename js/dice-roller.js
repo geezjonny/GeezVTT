@@ -90,19 +90,18 @@ async function presentRoll(roll, name = '') {
   diceButtons.forEach(button => { button.disabled = true; });
   try {
     if (!tray) {
-      // dice3d.js loads its compatible Three.js r128 and Cannon only on demand.
-      const { createDiceTray3D } = await import('./dice3d.js');
-      tray = await createDiceTray3D(document.querySelector('#dice-overlay'));
+      const { createDiceTray2D } = await import('./dice2d.js');
+      tray = createDiceTray2D(document.querySelector('#dice-overlay'));
     }
     if (token === version) {
       await tray.throwGroup([roll]);
       if (token === version) clearTimer = setTimeout(clearTray, 3000);
     }
   } catch (error) {
-    console.warn('3D dice unavailable:', error);
+    console.warn('Dice animation unavailable:', error);
     tray?.destroy();
     tray = null;
-    if (token === version) status.textContent = `${entry.textContent}. 3D unavailable; your roll is recorded.`;
+    if (token === version) status.textContent = `${entry.textContent}. Animation unavailable; your roll is recorded.`;
   } finally {
     busy = false;
     selectedButton.disabled = false;

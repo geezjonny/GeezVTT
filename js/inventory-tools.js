@@ -133,11 +133,11 @@ export function mountInventoryTools(container, getToken, getPCs, onSaved) {
     const cancel=()=>{ window.removeEventListener('pointerdown',pick,true); window.removeEventListener('keydown',escape,true); floor.removeEventListener('map-ready',cancel); };
     const escape=event=>{ if(event.key==='Escape') { cancel(); status.textContent='Throw cancelled.'; } };
     const pick=async event=>{
-      if(event.button!==0 || !event.target.closest('#map-view,#view-3d')) return;
+      if(event.button!==0 || !event.target.closest('#map-view')) return;
       event.preventDefault(); event.stopImmediatePropagation(); cancel();
       if(floor.sceneDocument!==scene || getToken()?.npcId!==token.npcId) { status.textContent='Scene or character changed.'; return; }
       const matrix=svg.getScreenCTM();
-      const point=svg.hidden?(await import('./map-view-toggle.js')).tabletopPoint(event):matrix && new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
+      const point=matrix && new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse());
       if(point) run(token,{type:'throw',key,x:Math.floor(point.x)+.5,y:Math.floor(point.y)+.5});
     };
     window.addEventListener('pointerdown',pick,true); window.addEventListener('keydown',escape,true); floor.addEventListener('map-ready',cancel,{once:true});

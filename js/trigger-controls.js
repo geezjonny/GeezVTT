@@ -1,7 +1,6 @@
 import { isGM, canControlPC } from './session-role.js';
 import { openPanel } from './menu-bar.js';
 import { showMapMenu, closeMapMenu } from './map-object-menu.js';
-import { tabletopPoint, tabletopHit } from './map-view-toggle.js';
 import { triggerRule, triggerObject, triggerName, objectRef, sameObject } from './trigger-model.js';
 
 const $ = id => document.getElementById(id);
@@ -53,7 +52,7 @@ export function mountTriggers(getMap, change, stopEditing) {
   floor.addEventListener('trigger-menu', event => {
     const source = event.detail;
     if (!isGM || !triggerObject(getMap(),source)) return;
-    const rect = svg.hidden ? $('view-3d').getBoundingClientRect() : svg.getBoundingClientRect();
+    const rect = svg.getBoundingClientRect();
     showMapMenu(rect.left + 24,rect.top + 24,[
       { label: 'Connect to...', action: () => edit(null,source) },
       ...(getMap().triggers || []).filter(rule => sameObject(rule.source,source)).map(rule => ({
@@ -62,17 +61,11 @@ export function mountTriggers(getMap, change, stopEditing) {
     ]);
   });
   function refAt(event) {
-    const data = svg.hidden ? tabletopHit(event) : null;
-    if (data) for (const [layer,key] of [['tokens','tokenId'],['props','propId'],['doors','doorIndex'],['lights','lightIndex'],['portals','portalId'],['walls','wallIndex'],['floors','floorIndex']]) {
-      if (data[key] === undefined) continue;
-      const object = key.endsWith('Index') ? getMap()[layer][data[key]] : getMap()[layer].find(object => object.id === data[key]);
-      if (object) return objectRef(layer,object);
-    }
     const target = event.target.closest('[data-trigger-id]');
     return target ? {layer:target.dataset.triggerLayer,id:target.dataset.triggerId} : null;
   }
   window.addEventListener('pointerdown', event => {
-    if (!picking || event.button !== 0 || !event.target.closest('#map-view, #view-3d')) return;
+    if (!picking || event.button !== 0 || !event.target.closest('#map-view')) return;
     event.preventDefault(); event.stopImmediatePropagation();
     if (!isGM || getMap() !== sceneMap || floor.getAttribute('aria-busy') === 'true') { reset(); return; }
     if (picking === 'target') {
@@ -80,7 +73,7 @@ export function mountTriggers(getMap, change, stopEditing) {
       if (!ref || !triggerObject(getMap(),ref)) { status('Choose an object.'); return; }
       draft.target = ref; labels();
     } else {
-      const point = svg.hidden ? tabletopPoint(event) : new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+      const point = new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
       if (!point) return;
       $('trigger-x').value = Math.floor(point.x) + .5; $('trigger-y').value = Math.floor(point.y) + .5;
     }

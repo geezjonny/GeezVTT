@@ -22,7 +22,6 @@ import { showMapMenu, closeMapMenu, objectDisplayItems } from './map-object-menu
 import { installMaterialPatterns, materialURL } from './material-textures.js';
 import { PROPS, PROP_CATEGORIES, hasCompartment, importedProps, propProperties, propDistance, propAppearance, propCorners } from './prop-model.js';
 import { propIcon, propMarker } from './prop-icons.js';
-import { tabletopPoint, tabletopHit, previewPlacement } from './map-view-toggle.js';
 import { importedTriggers, activateTriggers, collisionSources, objectRef, triggerObject } from './trigger-model.js';
 import { mountTriggers, triggerMenuItem, requestObjectInteraction, interactionMenuItems } from './trigger-controls.js';
 
@@ -30,7 +29,6 @@ const $ = id => document.getElementById(id);
 const floor=$('floor'), svg=$('map-view'), preview=$('edit-preview');
 const controls=$('editor-controls'), layerInput=$('edit-layer'), toolInput=$('edit-tool');
 const panel=$('editor-panel');
-const host=$('view-3d');
 const showHiddenPortals=()=>isGM || !panel.hidden && !$('portals-panel').hidden && layer()==='portals';
 const showHiddenProps=()=>isGM || !panel.hidden && !$('props-panel').hidden && layer()==='props';
 installMaterialPatterns(svg);
@@ -282,7 +280,7 @@ function hit(p) {
   return index;
 }
 function point(event,snap=false) {
-  const p=svg.hidden?tabletopPoint(event):new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
+  const p=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!p) return null;
   if(!snap) return {x:p.x,y:p.y};
   if(layer()==='floors') return {x:Math.floor(p.x)+.5,y:Math.floor(p.y)+.5};
@@ -302,26 +300,6 @@ function point(event,snap=false) {
 function contains(p) { return p.x>=-1e-7 && p.y>=-1e-7 && p.x<=model.width+1e-7 && p.y<=model.height+1e-7; }
 function drawPreview() {
   clearPreview();
-  if(svg.hidden) {
-    if(!floor.buildLayer || !hover) return;
-    const lines=[];
-    if(chain.length) lines.push([...chain,hover]);
-    if(layer()==='props' && !drawingWire()) attempt(()=>{
-      const corners=propCorners({...hover,...settings()});
-      lines.push([...corners,corners[0]]);
-    });
-    else if(layer()==='floors') lines.push([[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5],[-.5,-.5]].map(([x,y])=>({x:hover.x+x,y:hover.y+y})));
-    else {
-      const radius=layer()==='tokens'?settings().size/2:layer()==='portals'?.42:.12;
-      lines.push(Array.from({length:33},(_,i)=>({x:hover.x+Math.cos(i*Math.PI/16)*radius,y:hover.y+Math.sin(i*Math.PI/16)*radius})));
-      if(layer()==='portals') {
-        const first=pendingNode();
-        if(first?.index===floor.activeFloorIndex) lines.push([first.portal,hover]);
-      }
-    }
-    previewPlacement(lines);
-    return;
-  }
   if(layer()==='props' && !drawingWire() && tool()==='paint' && hover) {
     attempt(()=>{ const marker=propMarker({...hover,...settings()}); marker.setAttribute('opacity','.55'); preview.append(marker); });
   }
@@ -335,7 +313,6 @@ function drawPreview() {
 }
 function clearPreview() {
   preview.replaceChildren();
-  previewPlacement();
 }
 function apply(indices,action) {
   if(!indices.length) { message('No objects found in the active layer.'); return; }
@@ -423,7 +400,7 @@ function bucket(p,room=false) {
 }
 function startBrushStroke(event) {
   if(brushStroke) return;
-  const p=point(event,tool()!=='erase') || (svg.hidden && tool()==='erase'?{x:0,y:0}:null);
+  const p=point(event,tool()!=='erase');
   if(!p) return;
   brushStroke={pointerId:event.pointerId,target:event.currentTarget,point:p,layer:layer(),erase:tool()==='erase',material:settings().material,before:geometry(),changed:false};
   brushStroke.target.setPointerCapture(event.pointerId);
@@ -432,17 +409,12 @@ function startBrushStroke(event) {
 function continueBrushStroke(event) {
   if(!brushStroke || event.pointerId!==brushStroke.pointerId) return;
   const projected=point(event,!brushStroke.erase);
-  if(!projected && !(brushStroke.erase && svg.hidden)) return;
-  const p=projected || brushStroke.point;
+  if(!projected) return;
+  const p=projected;
   if(brushStroke.erase) {
     let indices=[];
-    if(svg.hidden && (brushStroke.layer!=='floors' || !projected)) {
-      const hit=tabletopHit(event), index=hit?.[{walls:'wallIndex',doors:'doorIndex',floors:'floorIndex'}[brushStroke.layer]];
-      if(Number.isInteger(index)) indices=[index];
-    } else {
-      const matrix=svg.getScreenCTM(), tolerance=svg.hidden?0:9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
-      indices=eraseStrokeIndices(model[brushStroke.layer],brushStroke.point,p,brushStroke.layer,tolerance);
-    }
+    const matrix=svg.getScreenCTM(), tolerance=9/Math.max(.001,Math.hypot(matrix.a,matrix.b));
+    indices=eraseStrokeIndices(model[brushStroke.layer],brushStroke.point,p,brushStroke.layer,tolerance);
     brushStroke.point=p;
     if(indices.length) {
       const removed=new Set(indices);
@@ -471,30 +443,9 @@ window.addEventListener('pointermove',event=>{
 window.addEventListener('pointerup',finishBrushStroke);
 window.addEventListener('lostpointercapture',event=>{if(event.target===brushStroke?.target) finishBrushStroke(event);});
 window.addEventListener('blur',cancelGesture);
-host.addEventListener('pointermove',event=>{
-  if(!isGM || !model || !floor.buildLayer || host.hidden) return;
-  const raw=point(event);
-  hover=raw && (['floors','portals','props'].includes(layer()) || contains(raw))?point(event,true):null;
-  drawPreview();
-});
-host.addEventListener('pointerleave',()=>{ hover=null; clearPreview(); });
-host.addEventListener('pointercancel',cancelGesture);
-host.addEventListener('pointerdown',event=>{
-  if(!isGM || !model || !floor.buildLayer || host.hidden || event.button!==0 || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
-  const raw=point(event);
-  if((!raw && tool()!=='erase') || (raw && tool()!=='erase' && !['floors','portals','props'].includes(layer()) && !contains(raw))) return;
-  event.preventDefault(); host.querySelector('canvas').focus({preventScroll:true});
-  attempt(()=>{
-    if(tool()==='erase' && ['walls','floors','doors'].includes(layer())) startBrushStroke(event);
-    else if(floor.buildLayer==='floors' && leftShift && event.shiftKey) bucket(raw,true);
-    else if(layer()==='floors') startBrushStroke(event);
-    else paint(point(event,true));
-  });
-  hover=point(event,true); drawPreview();
-});
 svg.addEventListener('pointerdown',event=>{
   if(!isGM) return;
-  if(!model || (panel.hidden && !floor.buildLayer) || event.button!==0 || svg.hidden) return;
+  if(!model || (panel.hidden && !floor.buildLayer) || event.button!==0) return;
   // Floors can extend the ground beyond the imported image.
   const raw=new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   if(!['floors','portals','props'].includes(layer()) && (tool()==='paint' || tool()==='bucket') && !contains(raw)) return;
@@ -962,7 +913,7 @@ function propMenu(id,x,y,origin) {
   ],origin);
 }
 onMapRightClick(svg,event=>{
-  if(!model || svg.hidden) return;
+  if(!model) return;
   const p=point(event);
   // Tokens are drawn above portals and retain their own right-click action.
   if(model.tokens.some(token=>visibleObject(floor.tabletopMap,token) && Math.hypot(p.x-token.x,p.y-token.y)<=token.size/2)) return;
@@ -1312,7 +1263,7 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
   icon.append(node('path',{d:toolIcons.erase})); eraser.append(icon);
   eraser.addEventListener('click',()=>{
     if(!isGM || !model) return;
-    if(svg.hidden || floor.buildLayer) floor.dispatchEvent(new CustomEvent('build-start',{detail:name}));
+    if(floor.buildLayer) floor.dispatchEvent(new CustomEvent('build-start',{detail:name}));
     else if(layer()!==name) { layerInput.value=name; layerInput.dispatchEvent(new Event('change')); }
     toolInput.value='erase'; toolInput.dispatchEvent(new Event('change')); eraser.focus();
   });
@@ -1337,7 +1288,7 @@ for(const palette of document.querySelectorAll('[data-material-layer]')) {
 for(const swatches of document.querySelectorAll('[data-swatch-layer]')) {
   const activate=event=>{
     if(event.target.closest('.editor-close') || swatches.querySelector('fieldset').disabled || layer()===swatches.dataset.swatchLayer) return;
-    if(floor.buildLayer || svg.hidden) {
+    if(floor.buildLayer) {
       floor.dispatchEvent(new CustomEvent('build-start',{detail:swatches.dataset.swatchLayer}));
       return;
     }
@@ -1404,7 +1355,7 @@ document.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey) && !event.altKey && ['z','y'].includes(event.key.toLowerCase())) {
     event.preventDefault(); history(event.key.toLowerCase()==='z' && !event.shiftKey); return;
   }
-  if(!model || (panel.hidden && !floor.buildLayer) || (svg.hidden && !floor.buildLayer) || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
+  if(!model || (panel.hidden && !floor.buildLayer) || event.target.closest('.editor-panel') || /INPUT|SELECT|TEXTAREA|BUTTON/.test(event.target.tagName)) return;
   if(event.key==='Escape') { cancelGesture(); selected.clear(); render(false); }
   else if(event.key==='Enter' && tool()==='paint' && (!pointLayer() || drawingWire())) { event.preventDefault(); attempt(placeChain); }
   else if(event.key==='Backspace' && chain.length) { event.preventDefault(); chain.pop(); drawPreview(); }
@@ -1435,21 +1386,12 @@ floor.addEventListener('map-ready',()=>{
     object.visualEffects=visualEffects(object.visualEffects ?? saved?.objectEffects?.[name]?.[index]);
     object.colors=objectColors(object.colors ?? saved?.objectColors?.[name]?.[index]);
   });
-  undo=[]; redo=[]; selected.clear(); controls.disabled=$('toggle-3d').getAttribute('aria-pressed')==='true';
+  undo=[]; redo=[]; selected.clear(); controls.disabled=false;
   document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=false; });
   imported.initiative=initiativeState(saved?.initiative,model.tokens);
   updateTools(); render();
   $('edit-export').disabled=false;
-  if(controls.disabled) message('Use Build controls to place objects in 3D.');
 });
-function viewState() {
-  stopBuild(); closeMapMenu();
-  const on=$('toggle-3d').getAttribute('aria-pressed')==='true';
-  cancelGesture(); controls.disabled=!model || on;
-  document.querySelectorAll('.swatch-panel fieldset').forEach(fieldset=>{ fieldset.disabled=!model; });
-  if(on) message('Use Build controls to place objects in 3D.'); else if(model) updateTools();
-}
-new MutationObserver(viewState).observe($('toggle-3d'),{attributes:true,attributeFilter:['aria-pressed']});
 export function serializeMap() {
   if(!model) throw new Error('Import a map first.');
   const raw=clone(floor.sourceMap), origin=raw.resolution?.map_origin || {x:0,y:0};

@@ -1,4 +1,4 @@
-// Roll results are independent of the optional 3D presentation.
+// Roll results are independent of how the dice are animated.
 export function randomDie(sides) {
   const limit = Math.floor(0x100000000 / sides) * sides;
   const value = new Uint32Array(1);

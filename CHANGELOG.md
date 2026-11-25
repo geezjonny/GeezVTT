@@ -2,6 +2,13 @@
 
 ## 2026-11-25
 
+### 3D removed, animated 2D dice
+- The table is 2D only now: the 3D view, first-person view, their View menu and toolbar buttons, and the first-person character window are gone. A map opens straight into 2D instead of switching to 3D on load.
+- The page no longer downloads three.js, so it loads lighter and has less to break.
+- Dice are now animated 2D: each die tumbles in, shows rolling numbers, and lands on its result with a small thud. Dropped dice from advantage fade, a natural 20 glows gold and a natural 1 goes dark red, with the total shown underneath. Reduced-motion devices skip the tumble.
+- Arrow keys no longer move a token (they only did in first person). WASD still does.
+- Not yet checked in a browser: the dice animation, token drag and door toggles in 2D, and the editor's paint and erase tools.
+
 ### Character sheet windows (index.html)
 - Stats, Inventory, Weapons, Feats, Spells and Effects windows are wider and open side by side without overlapping, so their content is no longer squeezed.
 - Stats: HP, Temp HP, AC, Exhaustion and speed pair up in rows, and the ability, save and skill grids fill the available width.

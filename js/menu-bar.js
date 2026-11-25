@@ -2,7 +2,7 @@ import { isGM } from './session-role.js';
 
 document.querySelectorAll('summary[data-gm-only]').forEach(summary => summary.closest('.menu').setAttribute('data-gm-only', ''));
 document.querySelectorAll('.editor-panel').forEach(panel => {
-  if (!['chance-panel', 'journal-panel', 'handout-panel', 'soundboard-panel', 'vtt-panel', 'dice-panel', 'chest-panel', 'initiative-panel', 'player-turn-panel', 'first-person-health', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
+  if (!['chance-panel', 'journal-panel', 'handout-panel', 'soundboard-panel', 'vtt-panel', 'dice-panel', 'chest-panel', 'initiative-panel', 'player-turn-panel', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)) panel.setAttribute('data-gm-only', '');
 });
 const menus = [...document.querySelectorAll('.menu')];
 const floor = document.querySelector('#floor');
@@ -132,15 +132,12 @@ document.querySelector('#open-tools').addEventListener('click', () => {
   document.querySelector('#tool-buttons button').focus();
 });
 function editState() {
-  const disabled = !floor.tabletopMap || document.querySelector('#toggle-3d').getAttribute('aria-pressed') === 'true';
+  const disabled = !floor.tabletopMap;
   document.querySelectorAll('[data-edit-layer]').forEach(button => { button.disabled = button.dataset.editLayer === 'tokens' ? !floor.tabletopMap : disabled; });
   document.querySelector('#open-tools').disabled = disabled;
-    if (disabled) panels.filter(panel => !['chance-panel', 'card-panel', 'dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel', 'initiative-panel', 'player-turn-panel', 'scene-panel', 'first-person-health', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
+    if (disabled) panels.filter(panel => !['chance-panel', 'card-panel', 'dice-panel', 'token-properties-panel', 'environment-panel', 'vtt-panel', 'library-panel', 'object-light-panel', 'chest-panel', 'build-panel', 'initiative-panel', 'player-turn-panel', 'scene-panel', 'spell-glossary-panel', 'sheet-effects-panel', 'sheet-stats-panel', 'sheet-weapons-panel', 'sheet-inventory-panel', 'sheet-feats-panel', 'sheet-spells-panel'].includes(panel.id)).forEach(panel => { panel.hidden = true; });
 }
 floor.addEventListener('map-ready', editState);
-new MutationObserver(editState).observe(document.querySelector('#toggle-3d'), {
-  attributes: true, attributeFilter: ['aria-pressed']
-});
 editState();
 document.querySelector('#toggle-grid').addEventListener('change', event => {
   document.querySelector('#grid').toggleAttribute('hidden', !event.target.checked);
