@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-25
+
+### Character sheet windows (index.html)
+- Stats, Inventory, Weapons, Feats, Spells and Effects windows are wider and open side by side without overlapping, so their content is no longer squeezed.
+- Stats: HP, Temp HP, AC, Exhaustion and speed pair up in rows, and the ability, save and skill grids fill the available width.
+- Inventory: equipment slots and coins sit in columns, and bag items are compact cards.
+- Cleaner section headings, tighter spacing, and empty status lines no longer leave gaps.
+
 ## 2026-11-24
 
 ### Life-drain effects and Character Workshop (creator.html)

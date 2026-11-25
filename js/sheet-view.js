@@ -70,7 +70,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
       html += `<label class="sheet-equipment">AC calculation<select data-ac-mode>${['stored', 'unarmored', 'armor'].map(mode => `<option value="${mode}"${(combat.ac_mode || 'stored') === mode ? ' selected' : ''}>${{ stored: 'Stored AC + effects', unarmored: '10 + DEX + effects', armor: 'Equipped armor + DEX + effects' }[mode]}</option>`).join('')}</select></label>`;
       html += edit('SPD base (ft)', 'speed', baseSpeed(pc), 1000);
     }
-    html += row('SPD (ft)', final.speed);
+    html = `<div class="sheet-vitals">${html}${row('SPD (ft)', final.speed)}</div>`;
     html += heading('Ability scores');
     html += `<div${editableCombat && gm ? '' : ' class="sheet-abilities"'}>`;
     for (const [key, label] of Object.entries({ str: 'STR', dex: 'DEX', con: 'CON', int: 'INT', wis: 'WIS', cha: 'CHA' })) {
@@ -103,7 +103,7 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
     const load = carryingLoad(pc, final.stats.str, reference);
     let html = row('Carried (lb)', `${load.weight}${load.unknown ? ' + unknown' : ''} / ${load.capacity ?? '—'}`)
       + row('Load', `${load.status}${load.unknown ? '; incomplete weights' : ''}`)
-      + heading('Equipment');
+      + heading('Equipment') + '<div class="sheet-equip-grid">';
     for (const [slot, label] of Object.entries(EQUIPMENT_SLOTS)) {
       const name = equippedName(pc, slot);
       const options = items.filter(([, item]) => Number(item.qty ?? 1) > 0 && fitsEquipment(slot, item, reference));
@@ -113,15 +113,15 @@ export function sheetHTML(pc, section, reference = {}, rollable = false, editabl
       const description = wornItem?.desc ?? lookup(name).desc;
       if (name && description) html += card(name, description, modifierText(wornItem?.modifiers));
     }
-    html += heading('Bag');
+    html += '</div>' + heading('Bag');
     html += `<div data-bag>${items.map(([key, item]) => `<div data-bag-key="${esc(key)}"${editableCombat ? ' tabindex="0"' : ''} aria-label="${esc(item.name)}${editableCombat ? ' bag actions' : ''}">${editableCombat ? `<button type="button" data-bag-menu aria-label="${esc(item.name)} actions">\u22ef</button>` : ''}${card(`${item.name} \u00d7${item.qty ?? 1}${itemEquipped(pc, item, reference) ? ' (equipped)' : ''}`, item.desc ?? lookup(item.name).desc,
       [item.category, itemWeight(item, reference) === null ? 'Weight unknown' : `${itemWeight(item, reference)} lb each`, modifierText(item.modifiers), item.notes].filter(Boolean).join(' \u00b7 '))}</div>`).join('') || '<p>Bag is empty.</p>'}</div>`;
-    html += heading('Coins');
+    html += heading('Coins') + '<div class="sheet-coins">';
     for (const [coin, label] of Object.entries(COIN_TYPES)) {
       const amount = pc.coin_purse?.[coin] ?? 0;
       html += editableCombat ? `<div class="sheet-coin"><span>${label} (${coin})</span><button type="button" data-coin="${coin}" data-coin-delta="-1" aria-label="Remove one ${label.toLowerCase()} coin"${Number(amount) <= 0 ? ' disabled' : ''}>−</button><strong>${esc(amount)}</strong><button type="button" data-coin="${coin}" data-coin-delta="1" aria-label="Add one ${label.toLowerCase()} coin">+</button></div>` : row(`${label} (${coin})`, amount);
     }
-    return html;
+    return html + '</div>';
   }
   if (section === 'Feats') {
     let html = featEntries(pc).map(feat => {
