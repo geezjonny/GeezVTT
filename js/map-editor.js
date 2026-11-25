@@ -7,7 +7,7 @@ import { LOOT_TIERS, generateLoot, lootItem } from './loot-model.js';
 import { COIN_TYPES } from './inventory-model.js';
 import { buildRoll, buildExpressionRoll } from './dice-roll.js';
 import { openPanel } from './menu-bar.js';
-import { MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType, floorBrushCells, paintFloorTiles, eraseStrokeIndices, adjoiningWallIndex } from './map-editor-model.js';
+import { TOKEN_FIT, MATERIALS, MATERIAL_LAYERS, clone, segments, cutDoorOpening, distance, inBox, bucketCells, portalType, floorBrushCells, paintFloorTiles, eraseStrokeIndices, adjoiningWallIndex } from './map-editor-model.js';
 import { isGM, canControlPC } from './session-role.js';
 import { importedTokens, tokenProperties, crossesWindow, pcTokenStatus, tokenIcon, TOKEN_SYMBOLS } from './token-model.js';
 import { environmentSettings } from './environment-model.js';
@@ -159,27 +159,28 @@ function render(notify=true) {
       } else if(name==='tokens') {
         el=node('g',{transform:`translate(${obj.x} ${obj.y})`,class:'map-token',tabindex:0,role:'button','aria-label':`${obj.name}, HP ${obj.hp}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`});
         el.dataset.tokenId=obj.id;
-        el.append(node('circle',{r:obj.size/2,fill:objectColors(obj.colors).base || '#344f70',stroke:objectColors(obj.colors).base || '#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
-        el.append(node('path',{d:`M ${-obj.size*.08} ${obj.size*.39} L 0 ${obj.size*.49} L ${obj.size*.08} ${obj.size*.39} Z`,fill:'#a2cbff',transform:`rotate(${obj.rotation || 0})`,'pointer-events':'none'}));
-        const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':obj.size*.3,fill:'#fff','pointer-events':'none'});
+        const size=obj.size*TOKEN_FIT;   // drawn a little smaller than its square so it fits through 5 ft doors
+        el.append(node('circle',{r:size/2,fill:objectColors(obj.colors).base || '#344f70',stroke:objectColors(obj.colors).base || '#a2cbff','stroke-width':2,'vector-effect':'non-scaling-stroke'}));
+        el.append(node('path',{d:`M ${-size*.08} ${size*.39} L 0 ${size*.49} L ${size*.08} ${size*.39} Z`,fill:'#a2cbff',transform:`rotate(${obj.rotation || 0})`,'pointer-events':'none'}));
+        const text=node('text',{'text-anchor':'middle','dominant-baseline':'central','font-size':size*.3,fill:'#fff','pointer-events':'none'});
         text.textContent=obj.name.split(/\s+/).slice(0,2).map(word=>Array.from(word)[0]).join('');
         const symbol=TOKEN_SYMBOLS[tokenIcon(obj.icon)];
         if(symbol) {
-          text.setAttribute('y',obj.size*.32); text.setAttribute('font-size',obj.size*.14);
-          const icon=node('text',{'text-anchor':'middle','dominant-baseline':'central',y:-obj.size*.06,'font-size':obj.size*.48,fill:'#fff','pointer-events':'none'});
+          text.setAttribute('y',size*.32); text.setAttribute('font-size',size*.14);
+          const icon=node('text',{'text-anchor':'middle','dominant-baseline':'central',y:-size*.06,'font-size':size*.48,fill:'#fff','pointer-events':'none'});
           icon.textContent=symbol; el.append(icon);
         }
         el.append(text);
-        const image=node('image',{href:tokenImage(obj),x:-obj.size/2,y:-obj.size/2,width:obj.size,height:obj.size,preserveAspectRatio:'xMidYMid slice','pointer-events':'none'});
+        const image=node('image',{href:tokenImage(obj),x:-size/2,y:-size/2,width:size,height:size,preserveAspectRatio:'xMidYMid slice','pointer-events':'none'});
         image.style.clipPath='circle(50%)';
         image.addEventListener('error',()=>image.remove(),{once:true});
         el.append(image);
         const status=pcTokenStatus(obj);
         if(status) {
-          const width=obj.size*.9, top=obj.size*.56;
-          el.append(node('rect',{x:-width/2,y:top,width,height:obj.size*.09,rx:obj.size*.025,fill:'#17212b','pointer-events':'none'}),
-            node('rect',{x:-width/2,y:top,width:width*status.fraction,height:obj.size*.09,rx:obj.size*.025,fill:status.color,'pointer-events':'none'}));
-          const label=node('text',{x:0,y:obj.size*.83,'text-anchor':'middle','font-size':obj.size*.14,'font-weight':'600',fill:'#fff',stroke:'#17212b','stroke-width':obj.size*.025,'paint-order':'stroke','pointer-events':'none'});
+          const width=size*.9, top=size*.56;
+          el.append(node('rect',{x:-width/2,y:top,width,height:size*.09,rx:size*.025,fill:'#17212b','pointer-events':'none'}),
+            node('rect',{x:-width/2,y:top,width:width*status.fraction,height:size*.09,rx:size*.025,fill:status.color,'pointer-events':'none'}));
+          const label=node('text',{x:0,y:size*.83,'text-anchor':'middle','font-size':size*.14,'font-weight':'600',fill:'#fff',stroke:'#17212b','stroke-width':size*.025,'paint-order':'stroke','pointer-events':'none'});
           label.textContent=status.label; el.append(label);
           el.setAttribute('aria-label',`${obj.name}, ${status.label}, size ${obj.size} squares. Enter to ${isGM?'edit':'select'}.`);
         }
@@ -1170,6 +1171,14 @@ floor.addEventListener('vtt-token-rotate',event=>{
   const token=model.tokens.find(item=>item.id===event.detail);
   if(!token) return;
   cancelGesture(); remember(); token.rotation=((token.rotation || 0)+90)%360; render();
+});
+floor.addEventListener('vtt-token-delete',event=>{
+  if(!isGM || !model || travelling || chestBusy || floor.equipmentBusy || floor.getAttribute('aria-busy')==='true') return;
+  const token=model.tokens.find(item=>item.id===event.detail);
+  if(!token) return;
+  cancelGesture(); remember();
+  model.tokens=model.tokens.filter(item=>item!==token); selected.clear(); render();
+  message(`Deleted ${token.name}. Ctrl+Z brings it back.`);
 });
 floor.addEventListener('vtt-token-move',event=>{
   if(!isGM) return;

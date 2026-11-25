@@ -2,6 +2,13 @@
 
 ## 2026-11-25
 
+### Token and light tweaks
+- Free roam is switched back on: the GM's Movement button is back in VTT Controls, and players hold WASD to move smoothly (initiative still forces turn-based).
+- Tokens are drawn and collide a bit smaller than their square (85%), so a 1-square token now fits through a 5 ft door.
+- Light range circles are no longer drawn for anyone; the lighting itself is what shows. The small light dot is still there to select.
+- New GM right-click option on a token: Delete token (Ctrl+Z brings it back).
+- Not yet checked in a browser: free roam, the smaller tokens and door passing, and Delete token.
+
 ### 3D removed, animated 2D dice
 - The table is 2D only now: the 3D view, first-person view, their View menu and toolbar buttons, and the first-person character window are gone. A map opens straight into 2D instead of switching to 3D on load.
 - The page no longer downloads three.js, so it loads lighter and has less to break.

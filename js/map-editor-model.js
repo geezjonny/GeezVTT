@@ -83,6 +83,8 @@ export function cutDoorOpening(walls, [a,b]) {
     return pieces;
   });
 }
+// Tokens are drawn and collide at this fraction of their square size, so a 1-square token fits a 1-square (5 ft) door with a little room.
+export const TOKEN_FIT = 0.85;
 export function distance(p, a, b) {
   const dx = b.x - a.x, dy = b.y - a.y;
   const t = Math.max(0, Math.min(1, ((p.x-a.x)*dx + (p.y-a.y)*dy) / (dx*dx+dy*dy || 1)));

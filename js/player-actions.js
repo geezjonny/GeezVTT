@@ -1,4 +1,4 @@
-import { crosses, distance, segments } from './map-editor-model.js';
+import { crosses, distance, segments, TOKEN_FIT } from './map-editor-model.js';
 import { remainingMovement } from './initiative-model.js';
 
 export function playerDestination(map, token, dx, dy, initiative) {
@@ -9,21 +9,23 @@ export function playerDestination(map, token, dx, dy, initiative) {
   }
   if (token?.speed === 0 || token?.kind !== 'pc' || ![[1,0],[-1,0],[0,1],[0,-1]].some(step => step[0] === dx && step[1] === dy)) return null;
   const next = { x: token.x + dx, y: token.y + dy };
-  if (next.x < token.size / 2 || next.y < token.size / 2 || next.x > map.width - token.size / 2 || next.y > map.height - token.size / 2) return null;
+  const r = token.size * TOKEN_FIT / 2;
+  if (next.x < r || next.y < r || next.x > map.width - r || next.y > map.height - r) return null;
   const barriers = [...map.walls, ...map.doors.filter(door => door.type === 'window' || !door.open).map(door => door.points)].flatMap(segments);
-  if (barriers.some(([a,b]) => crosses(token, next, a, b) || distance(next, a, b) < token.size / 2)) return null;
+  if (barriers.some(([a,b]) => crosses(token, next, a, b) || distance(next, a, b) < r)) return null;
   return next;
 }
 
 // Free-roam movement: can a token of this size stand at `to` after moving from `from`? Walls, windows and closed doors block.
 export function canStand(map, size, from, to) {
-  if (to.x < size / 2 || to.y < size / 2 || to.x > map.width - size / 2 || to.y > map.height - size / 2) return false;
+  const r = size * TOKEN_FIT / 2;
+  if (to.x < r || to.y < r || to.x > map.width - r || to.y > map.height - r) return false;
   const barriers = [...map.walls, ...map.doors.filter(door => door.type === 'window' || !door.open).map(door => door.points)].flatMap(segments);
-  return !barriers.some(([a, b]) => crosses(from, to, a, b) || distance(to, a, b) < size / 2);
+  return !barriers.some(([a, b]) => crosses(from, to, a, b) || distance(to, a, b) < r);
 }
 
 // Free roam is switched off for now (turn-based only). Set true to bring back the GM's Movement button and smooth player movement.
-export const FREE_ROAM_ENABLED = false;
+export const FREE_ROAM_ENABLED = true;
 
 // GM side of a free-roam move to an absolute point. Players send positions many times a second, so only short hops are accepted.
 export const FREE_ROAM_MAX_HOP = 3;
@@ -60,10 +62,11 @@ export function reachableCells(map, token) {
     for (const [dx, dy] of steps) {
       const next = { x: from.x + dx, y: from.y + dy, cost: from.cost + 5 };
       const key = `${next.x},${next.y}`;
-      if (visited.has(key) || next.x < token.size / 2 || next.y < token.size / 2 ||
-          next.x > map.width - token.size / 2 || next.y > map.height - token.size / 2) continue;
+      const r = token.size * TOKEN_FIT / 2;
+      if (visited.has(key) || next.x < r || next.y < r ||
+          next.x > map.width - r || next.y > map.height - r) continue;
       if (barriers.some(([a,b]) => crosses(from, next, a, b) ||
-          Math.min(distance(next,a,b), distance(a,from,next), distance(b,from,next)) < token.size / 2 - 1e-9)) continue;
+          Math.min(distance(next,a,b), distance(a,from,next), distance(b,from,next)) < r - 1e-9)) continue;
       next.path = [...(from.path || []), { x: next.x, y: next.y }];
       visited.add(key); cells.set(key, next); queue.push(next);
     }
