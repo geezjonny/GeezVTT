@@ -2,6 +2,13 @@
 
 Updated: 2026-11-24
 
+## Minigame removed - 2026-11-24
+
+- Deletes the Zombie Horde and walking/puzzle minigames: minigame/, minigame*.html/css, horde-design.md, js/horde-*.js, js/walk-*.js, js/minigames.js, their 8 test files, and the Minigame panel/buttons/script tag in index.html plus the minigame-panel ids in js/menu-bar.js.
+- Verification: node --check on js/menu-bar.js and every js/*.js passed; node --test passes 191/191 (the three earlier failures were in deleted tests). No browser checks were run.
+
+Outstanding: user verification that index.html loads and menus work without the minigame; update_indexes.py and tests/test_update_indexes.py still handle a minigame directory that no longer exists. Earlier verification backlogs remain applicable.
+
 ## Card Creator saved - 2026-11-24
 
 - Adds a GM-only Card Creator floating window (index.html, js/card-creator.js, js/card-model.js). A card is a 'Card' bag item (ability/skill bonuses, conditions) plus equipped-only effects (stat changes, named effects) and feats linked to it, given to a PC in one write and optionally equipped to the card slot.

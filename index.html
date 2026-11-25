@@ -88,14 +88,6 @@
     #journal-text { min-height: 12rem; resize: vertical; }
     #handout-recipients { display: grid; }
     #handout-content pre { margin: 0; }
-    #minigame-body, #minigame-setup, #minigame-session { display: grid; gap: .4rem; }
-    #minigame-recipients { display: grid; margin: 0; }
-    #minigame-body label { display: grid; gap: .2rem; }
-    #minigame-recipients label { display: flex; align-items: center; }
-    #minigame-results { display: grid; gap: .4rem; margin: 0; padding-left: 1rem; font-size: .7rem; overflow-wrap: anywhere; }
-    #minigame-results strong, #minigame-results span { display: block; }
-    #minigame-team, #minigame-status { font-size: .7rem; overflow-wrap: anywhere; }
-    #minigame-open { color: #a2cbff; }
     #chance-body, #chance-setup { display: grid; gap: .5rem; }
     #chance-body { font-size: .8rem; overflow-wrap: anywhere; }
     #chance-setup label { display: grid; gap: .25rem; }
@@ -333,7 +325,6 @@
             <button id="open-scene-controls" type="button" aria-controls="scene-panel" data-gm-only>Scene Controls</button>
             <button id="open-vtt" type="button" aria-controls="vtt-panel">VTT Controls</button>
             <button id="open-initiative" type="button" aria-controls="initiative-panel">Initiative</button>
-            <button id="open-minigame" type="button" aria-controls="minigame-panel">Minigame</button>
             <button id="open-chance" type="button" aria-controls="chance-panel">Deck of Chance</button>
             <button id="open-card-creator" type="button" aria-controls="card-panel" data-gm-only>Card Creator</button>
           </div>
@@ -425,30 +416,8 @@
         <button id="vtt-new-scene" type="button" title="New blank scene" aria-label="New blank scene" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 7v10M7 12h10"/></svg></button>
         <button id="scene-load" type="button" title="Load" aria-label="Load" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 8V4h7l2 3h9v3M3 8h18l-3 12H3Z"/></svg></button>
         <button id="scene-import" type="button" title="Import" aria-label="Import" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M3 15v6h18v-6"/></svg></button>
-        <button id="scene-minigame" type="button" title="Minigame" aria-label="Minigame" aria-controls="minigame-panel" data-gm-only><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="3"/><path d="M5 12h6M8 9v6m7-4h1m2 3h1"/></svg></button>
         <button type="button" data-scene-action="edit-export" title="Save Map" aria-label="Save Map" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h15l3 3v15H3ZM7 3v6h10V3M7 21v-8h10v8M10 15h4"/></svg></button>
         <button type="button" data-scene-action="save-scene" title="Save Scene" aria-label="Save Scene" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 3h15l3 3v15H3ZM7 3v6h10V3M7 21v-8h10v8M10 15l4 3m0-3-4 3"/></svg></button>
-      </div>
-    </section>
-    <section id="minigame-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="minigame-title" hidden>
-      <div class="editor-titlebar" tabindex="0" aria-label="Move minigame window. Drag or use arrow keys.">
-        <h2 id="minigame-title">Minigame · Zombie Horde</h2>
-        <button class="editor-close" type="button" aria-label="Close minigame">&times;</button>
-      </div>
-      <div id="minigame-body" class="editor-body">
-        <form id="minigame-setup" data-gm-only>
-          <label>Game<select disabled aria-label="Minigame type"><option>Zombie Horde</option></select></label>
-          <fieldset id="minigame-recipients"><legend>Who?</legend></fieldset>
-          <label>Zombie speed<select id="minigame-speed" aria-label="Zombie speed"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
-          <button id="minigame-push" type="submit">Push game</button>
-        </form>
-        <div id="minigame-session" hidden>
-          <a id="minigame-open" href="minigame.html" target="_blank" rel="noopener">Open minigame ↗</a>
-          <output id="minigame-team" role="status" aria-live="polite"></output>
-          <ol id="minigame-results" aria-label="PC results"></ol>
-          <button id="minigame-end" type="button" data-gm-only>End game</button>
-        </div>
-        <output id="minigame-status" role="status" aria-live="polite"></output>
       </div>
     </section>
     <section id="chance-panel" class="editor-panel" role="dialog" aria-modal="false" aria-labelledby="chance-title" hidden>
@@ -1087,7 +1056,6 @@
   <script type="module" src="js/initiative.js"></script>
   <script type="module" src="js/tabletop-session.js"></script>
   <script type="module" src="js/campaign-tools.js"></script>
-  <script type="module" src="js/minigames.js"></script>
   <script type="module" src="js/chance.js"></script>
   <script type="module" src="js/card-creator.js"></script>
 </body>

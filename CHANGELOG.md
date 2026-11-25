@@ -2,6 +2,9 @@
 
 ## 2026-11-24
 
+### Minigame removed
+- The Zombie Horde minigame and the walking/puzzle minigame are gone: their pages, scripts, tests, puzzle files and the Minigame menu and scene-bar buttons. Nothing else in the tabletop depended on them.
+
 ### Card Creator
 - New GM-only Card Creator window (menu: Card Creator): build a card with ability score bonuses, skill modifiers, stat changes, effects, feats and conditions, give it to any character, and optionally equip it to their card slot in one step.
 - Equipped cards count in the character's totals, so a +2 STR card helps every STR check, save and attack. Feats and card conditions show only while the card is equipped.
