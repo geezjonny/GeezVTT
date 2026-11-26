@@ -1,7 +1,7 @@
 // Guard navigation and AI (run by the host browser) and the GM rulings.
 import {
-  LIGHTB, MOVE, blocked, chaseSees, derive, doorOpen, guardNotices, guardSees, inEarshot, isLinked, lightKind, lightLevel, lightOn,
-  lineHitsRect, litValue, propRect, refreshGeo, segX
+  LIGHTB, MOVE, blocked, chaseSees, derive, doorOpen, guardNotices, guardSees, inEarshot, isLinked, isOut, lightKind, lightLevel, lightOn,
+  lineHitsRect, litValue, postOf, propRect, refitGuard, refreshGeo, segX
 } from './stealth2-model.js';
 import { Net } from './stealth2-net.js';
 import { respawn } from './stealth2-play.js';
@@ -19,7 +19,8 @@ export function buildNav() {
   const W = M.w, H = M.h, n = W * H;
   // bucket walls by cell to keep edge checks fast on big dd2vtt maps
   const buckets = Array.from({length:n}, () => []);
-  M.walls.forEach((w, i) => {
+  const lines = M.walls.concat(M.windows); // neither can be walked through
+  lines.forEach((w, i) => {
     const x1 = Math.floor(Math.min(w.a[0], w.b[0]) - .01), x2 = Math.floor(Math.max(w.a[0], w.b[0]) + .01);
     const y1 = Math.floor(Math.min(w.a[1], w.b[1]) - .01), y2 = Math.floor(Math.max(w.a[1], w.b[1]) + .01);
     for (let y = Math.max(0, y1); y <= Math.min(H - 1, y2); y++) for (let x = Math.max(0, x1); x <= Math.min(W - 1, x2); x++) buckets[y * W + x].push(i);
@@ -39,7 +40,7 @@ export function buildNav() {
       const ax = x + .5, ay = y + .5, bx = nx + .5, by = ny + .5;
       const cells = new Set([i, j, y * W + nx, ny * W + x]);
       let hit = false;
-      for (const c of cells) { for (const wi of buckets[c]) { const w = M.walls[wi]; if (segX(ax, ay, bx, by, w.a[0], w.a[1], w.b[0], w.b[1])) { hit = true; break; } } if (hit) break; }
+      for (const c of cells) { for (const wi of buckets[c]) { const w = lines[wi]; if (segX(ax, ay, bx, by, w.a[0], w.a[1], w.b[0], w.b[1])) { hit = true; break; } } if (hit) break; }
       if (hit) continue;
       if (solid.some(r => lineHitsRect(ax, ay, bx, by, r))) continue;
       const doors = M.doors.filter(d => segX(ax, ay, bx, by, d.a[0], d.a[1], d.b[0], d.b[1])).map(d => d.id);
@@ -82,14 +83,28 @@ export function closedDoorBetween(ax, ay, bx, by) {
 }
 
 export let HG = null; // host guard runtime objects
+function newGuard(def, s) {
+  const g = { id:def.id, def, post:postOf(def), x:s ? s.x : def.x, y:s ? s.y : def.y, a:s ? s.a : def.face * Math.PI / 180,
+              st:s && isOut(s.st) ? s.st : "home", wi:0, path:null, target:null, doorT:0, lookT:0, timer:0, info:"", cool:{}, hearT:0, blockN:0,
+              focus:null, prey:null, lastSeen:0, repath:0, lightId:null, fooled:{}, held:false, seenLights:rememberLights() };
+  if (def.mode === "patrol" && def.path.length) g.wi = nearestWay(g);
+  return g;
+}
+// Start every guard afresh, or (fromSync) pick up where the last host left them.
 export function buildGuards(fromSync) {
+  HG = M.guards.map(def => newGuard(def, fromSync && GUARDS_SYNC[def.id]));
+}
+// The map changed mid-game: add and drop guards to match, and leave the rest where they are.
+export function syncGuards() {
+  if (!HG) return; // the next tick builds them
+  const running = new Map(HG.map(g => [g.id, g]));
   HG = M.guards.map(def => {
-    const s = fromSync && GUARDS_SYNC[def.id];
-    return { id:def.id, def, x:s ? s.x : def.x, y:s ? s.y : def.y, a:s ? s.a : def.face * Math.PI / 180,
-             st:s && s.st === "down" ? "down" : "home", wi:0, path:null, target:null, doorT:0, lookT:0, timer:0, info:"", cool:{}, hearT:0, blockN:0,
-             focus:null, prey:null, lastSeen:0, repath:0, lightId:null, fooled:{}, seenLights:rememberLights() };
+    const g = running.get(def.id);
+    if (!g) return newGuard(def);
+    if (refitGuard(g, def) && def.path.length) g.wi = nearestWay(g);
+    return g;
   });
-  HG.forEach(g => { if (g.def.mode === "patrol" && g.def.path.length) { g.wi = nearestWay(g); } });
+  if (L.spotted && !M.guards.some(def => def.id === L.spotted.gid)) Net.live("spotted", null);
 }
 export function nearestWay(g) {
   let bi = 0, bd = 1e9;
@@ -128,7 +143,7 @@ export let simTime = 0;
 export function updateGuard(g, dt) {
   const def = g.def;
   g.info = ["invest", "look", "relight"].includes(g.st) ? "?" : ["alert", "chase"].includes(g.st) ? "!" : g.st === "distract" ? "♪" : "";
-  if (g.st === "down") { g.info = "z"; return; }
+  if (isOut(g.st)) { g.info = ""; return; }
   if (g.st === "distract") {
     const p = PLAYERS[g.focus];
     if (p) turnToward(g, Math.atan2(p.y - g.y, p.x - g.x), dt, 6);
@@ -234,11 +249,11 @@ function updateRelight(g, dt) {
 export function hashNum(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) | 0; return (h % 1000) / 100; }
 
 export const activePlayers = () => Object.values(PLAYERS).filter(p => p && !p.caught && M);
-const BUSY = ["alert", "down", "chase"]; // guards in these states don't look out for anyone else
+const busy = g => g.held || isOut(g.st) || g.st === "alert" || g.st === "chase"; // these don't look out for anyone else
 export function hostSpotAndHear() {
   const t = now();
   for (const g of HG) {
-    if (BUSY.includes(g.st)) continue;
+    if (busy(g)) continue;
     for (const p of activePlayers()) {
       // sight (a distracted guard is looking right at the performer and doesn't mind them)
       if ((g.cool[p.id] || 0) <= t && !(g.st === "distract" && g.focus === p.id)) {
@@ -265,18 +280,18 @@ export function raise(g, p, why, extra) {
 
 // A player's taunt, distraction or attack, carried out by whoever runs the guards.
 export function hostAct(a) {
-  if (!HG || L.paused || L.edit) return;
+  if (!HG || L.paused) return;
   const p = PLAYERS[a.pid]; if (!p || p.caught) return;
   const say = (g, text, color) => Net.fx(g.x, g.y - .7, text, color || "#e0a243");
   if (a.type === "taunt") {
     // The chosen guard, or else the nearest one that can hear.
-    const hearing = HG.filter(g => !["down", "alert"].includes(g.st) && (!a.gid || g.id === a.gid) && inEarshot(p, g, ACT.tauntRange))
+    const hearing = HG.filter(g => !isOut(g.st) && g.st !== "alert" && (!a.gid || g.id === a.gid) && inEarshot(p, g, ACT.tauntRange))
       .sort((x, y) => Math.hypot(x.x - p.x, x.y - p.y) - Math.hypot(y.x - p.x, y.y - p.y));
     if (!hearing.length) { Net.fx(p.x, p.y - .9, "No guard hears you", "#a89a87"); return; }
     startChase(hearing[0], p.id); say(hearing[0], "Hey! Get back here!", "#e24b4a");
     return;
   }
-  const g = HG.find(x => x.id === a.gid); if (!g || g.st === "down") return;
+  const g = HG.find(x => x.id === a.gid); if (!g || isOut(g.st)) return;
   if (a.type === "distract") {
     if (g.st === "chase" || g.st === "alert") { say(g, "Not now!"); return; }
     if (!inEarshot(p, g, ACT.distractRange)) { Net.fx(p.x, p.y - .9, g.def.name + " can't hear you", "#a89a87"); return; }
@@ -295,10 +310,10 @@ export function hostAct(a) {
   }
 }
 export function hostNoise(n) {
-  if (!HG || L.paused || L.edit) return;
+  if (!HG || L.paused) return;
   let best = null, bd = 1e9;
   for (const g of HG) {
-    if (BUSY.includes(g.st) || g.st === "distract") continue;
+    if (busy(g) || g.st === "distract") continue;
     let r = n.r; if (blocked(LIGHTB, g.x, g.y, n.x, n.y)) r *= 0.5;
     const d = Math.hypot(g.x - n.x, g.y - n.y);
     if (d < r && d < bd) { bd = d; best = g; }
@@ -310,11 +325,12 @@ export function hostTick(dt) {
   if (!M) return;
   if (!HG) buildGuards(true);
   refreshGeo();
-  if (!L.paused && !L.edit) {
+  if (!L.paused) { // the GM may be editing: the scene carries on unless it is paused
     simTime += dt;
     for (const g of HG) {
       if (L.paused) break; // a chasing guard just caught someone: one ruling at a time
       const { x, y } = g;
+      if (g.held) { g.mv = false; continue; } // the GM is dragging them
       if (["home", "look", "invest"].includes(g.st)) noticeLights(g);
       updateGuard(g, dt);
       g.mv = Math.hypot(g.x - x, g.y - y) > 1e-4; // walking guards can be heard
@@ -333,7 +349,7 @@ export function hostTick(dt) {
    GM: PAUSE, SPOTTED RULINGS, RESET, PLAY-MODE CLICKS
    =================================================================== */
 export function togglePause() {
-  if (!isGM || L.edit) return;
+  if (!isGM) return;
   if (L.paused && L.spotted) { if (L.spotted.why !== "attack") resolveSpot("notseen"); return; } // an attack needs a ruling
   Net.live("paused", !L.paused);
 }
@@ -355,11 +371,21 @@ export function resolveSpot(kind) {
   // Attack rulings
   if (kind === "miss" && g) { investigate(); g.cool[sp.pid] = now() + 1200; }
   if (kind === "wounded" && g && p) { startChase(g, sp.pid); g.cool[sp.pid] = now() + 1200; Net.fx(g.x, g.y - .7, "Argh!", "#e24b4a"); }
-  const downed = kind === "down" && g;
-  if (downed) { goHome(g); g.st = "down"; g.path = null; Net.fx(g.x, g.y - .7, g.def.name + " goes down", "#3fb899"); }
+  const downed = (kind === "down" || kind === "dead") && g;
+  if (downed) { goHome(g); g.st = kind; Net.fx(g.x, g.y - .7, g.def.name + (kind === "dead" ? " is killed" : " goes down"), "#3fb899"); }
   Net.live("spotted", null);
   Net.live("paused", kind === "hold");
   if (downed) hostNoise({x:g.x, y:g.y, r:4}); // the thud, once play has resumed
+}
+// The GM's say-so over a guard, paused or not: "down", "dead", "gone" (off the field) or "wake".
+// Nothing is announced, so players only learn of it by looking.
+export function gmGuard(gid, verdict) {
+  const g = isGM && HG?.find(x => x.id === gid); if (!g) return false;
+  if (L.spotted?.gid === gid) Net.live("spotted", null); // nothing left to rule on
+  goHome(g);
+  if (verdict !== "wake") g.st = verdict;
+  g.info = ""; g.mv = false; g.held = false;
+  return true;
 }
 export function resetScene() {
   if (!isGM) return;

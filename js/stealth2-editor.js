@@ -1,11 +1,13 @@
 // GM map editor, import and export.
+import { closeMenu, guardPose } from './stealth2-actions.js';
 import { openTray } from './stealth2-dice.js';
 import { addFloat, fitCamera, setFollow } from './stealth2-draw.js';
-import { buildGuards } from './stealth2-guards.js';
-import { blankMap, demoMap, derive, distToSeg, isLinked, lightKind, normalizeMap, propRect } from './stealth2-model.js';
+import { HG, buildGuards } from './stealth2-guards.js';
+import { blankMap, demoMap, derive, distToSeg, isLinked, lightKind, normalizeMap, propRect, tokenPos } from './stealth2-model.js';
 import { Net, loadBg, saveMap } from './stealth2-net.js';
-import { ptr, selGuard } from './stealth2-play.js';
-import { $, FLOOR_STYLES, L, LIGHT_KINDS, M, PROP_KINDS, bgImg, editing, esc, isGM, setBg, setM, snap, uid } from './stealth2-state.js';
+import { clearSelGuard, ptr, selGuard } from './stealth2-play.js';
+import { portalType } from './map-editor-model.js';
+import { $, FLOOR_STYLES, L, LIGHT_KINDS, M, PROP_KINDS, bgImg, editing, esc, isGM, isHost, setBg, setM, snap, uid } from './stealth2-state.js';
 
 export function updateGmHint() {
   const h = $("gmHint");
@@ -46,9 +48,9 @@ export function renderTools() {
     const s = prompt("Map size in squares (width x height)", "30x20"); if (!s) return;
     const [w, h] = s.toLowerCase().split("x").map(n => parseInt(n));
     if (!(w > 0 && h > 0 && w <= 200 && h <= 200)) return alert("Use something like 30x20 (max 200x200).");
-    setM(blankMap(w, h)); Net.img(null); setBg(null); sel = null; saveMap(true); fitCamera(); renderPanel();
+    setM(blankMap(w, h)); Net.img(null); setBg(null); sel = null; newScene();
   };
-  $("tDemo").onclick = () => { if (!confirm("Replace this map with the demo map?")) return; setM(demoMap()); Net.img(null); setBg(null); sel = null; saveMap(true); fitCamera(); renderPanel(); };
+  $("tDemo").onclick = () => { if (!confirm("Replace this map with the demo map?")) return; setM(demoMap()); Net.img(null); setBg(null); sel = null; newScene(); };
 }
 export function cancelTool() { wallChain = null; doorStart = null; linkLever = null; pathEdit = false; renderPanel(); updateGmHint(); }
 
@@ -68,6 +70,8 @@ export function bindFields(keysTypes) {
       if (type === "check") o[key] = el.checked;
       else if (type === "number") o[key] = parseFloat(el.value) || 0;
       else o[key] = el.value;
+      const live = {doors:{open:"doors"}, lights:{on:"lights"}, props:{locked:"unlock"}}[sel.k]?.[key];
+      if (live) Net.live(live + "/" + o.id, null);
       if (sel.k === "props" && key === "kind") { const k = PROP_KINDS[o.kind]; o.w = k.w; o.h = k.h; o.tall = k.tall; saveMap(); renderPanel(); return; }
       if (sel.k === "guards" && key === "mode") { saveMap(); renderPanel(); return; }
       saveMap();
@@ -88,7 +92,7 @@ export function renderPanel() {
     lever:"Click to place a lever, then use Link lever to connect doors, chests or lights to it.",
     link:"Click a lever, then click doors, chests or lights to link or unlink them. A linked thing flips when ALL its levers are on.",
     prop:"Click to place. Tall props (crates, shelves, pillars) block sight, so players can hide behind them. Chests hold loot; a match table lets players relight torches.",
-    guard:"Click to place a guard, then set patrol points, sight and Passive Perception in the panel.",
+    guard:"Click to place a guard, then set patrol points, sight and Passive Perception in the panel. A new guard joins the scene straight away.",
     token:"Click to place an NPC or marker token. You can drag it during play.",
     spawn:"Click to place a player spawn, or a cell where caught players get sent.",
     erase:"Click anything to delete it."
@@ -101,12 +105,12 @@ export function renderPanel() {
   h += `<hr><label>Map title</label><input id="mTitle" value="${esc(M.title)}">`;
   h += `<label>Darkness: <span id="mDarkV">${Math.round(M.dark * 100)}%</span></label><input id="mDark" type="range" min="0" max="1" step="0.05" value="${M.dark}">`;
   h += `<label class="chk"><input type="checkbox" id="mGrid" ${M.grid ? "checked" : ""}> Show grid</label>`;
-  h += `<div class="hint">Map ${M.w} × ${M.h} squares · ${M.walls.length} walls · ${M.doors.length} doors · ${M.guards.length} guards</div>`;
+  h += `<div class="hint">Map ${M.w} × ${M.h} squares · ${M.walls.length} walls · ${M.doors.length} doors · ${M.windows.length} windows · ${M.guards.length} guards</div>`;
 
   if (sel) {
     const o = sel.o, k = sel.k;
     h += `<hr>`;
-    const names = {walls:"Wall", doors:"Door", lights:"Light", levers:"Lever", props:"Prop", guards:"Guard", tokens:"Token", spawns:"Spawn"};
+    const names = {walls:"Wall", doors:"Door", windows:"Window", lights:"Light", levers:"Lever", props:"Prop", guards:"Guard", tokens:"Token", spawns:"Spawn"};
     h += `<h3>${names[k]}</h3>`;
     const binds = [];
     if (k === "doors") { h += field("Name", "name", "text") + field("Starts open", "open", "check"); binds.push(["name","text"],["open","check"]); derive(); if (isLinked(o.id)) h += `<div class="hint">Lever-controlled (iron gate).</div>`; }
@@ -161,19 +165,42 @@ export function deleteObj(s) {
   pathEdit = false;
   saveMap(); renderPanel(); updateGmHint();
 }
+// Where something is on screen: guards and tokens may have wandered from where the map placed them.
+export function shownAt(k, o) {
+  if (k === "tokens") return tokenPos(o);
+  if (k !== "guards") return o;
+  const pose = guardPose(o);
+  return pose.st === "gone" ? null : pose;
+}
+// A drag starts from where the thing is now, and that spot becomes its place on the map.
+function pickUp(k, o) {
+  const at = shownAt(k, o);
+  if (!at || at === o) return;
+  o.x = at.x; o.y = at.y;
+  if (k === "tokens") Net.live("tokens/" + o.id, null);
+}
+// Keep a dragged guard under the pointer instead of letting it walk off mid-drag.
+function holdGuard(o) {
+  const g = HG?.find(x => x.id === o.id);
+  if (g) Object.assign(g, { x:o.x, y:o.y, path:null, held:true });
+}
 export function hitEdit(x, y) {
   if (sel && sel.k === "guards") { const i = sel.o.path.findIndex(p => Math.hypot(p[0] - x, p[1] - y) < .3); if (i >= 0) return {k:"waypoint", o:sel.o, i}; }
   const pts = [["guards", .45], ["tokens", .45], ["levers", .4], ["lights", .35], ["spawns", .4]];
-  for (const [k, r] of pts) for (const o of M[k]) if (Math.hypot(o.x - x, o.y - y) < r) return {k, o};
+  for (const [k, r] of pts) for (const o of M[k]) {
+    const at = shownAt(k, o);
+    if (at && Math.hypot(at.x - x, at.y - y) < r) return {k, o};
+  }
   for (const o of M.props.slice().reverse()) { const rr = propRect(o); if (x >= rr[0] && x <= rr[2] && y >= rr[1] && y <= rr[3]) return {k:"props", o}; }
   for (const o of M.doors) if (distToSeg(x, y, o.a[0], o.a[1], o.b[0], o.b[1]) < .25) return {k:"doors", o};
+  for (const o of M.windows) if (distToSeg(x, y, o.a[0], o.a[1], o.b[0], o.b[1]) < .25) return {k:"windows", o};
   for (const o of M.walls) if (distToSeg(x, y, o.a[0], o.a[1], o.b[0], o.b[1]) < .2) return {k:"walls", o};
   return null;
 }
 export function snapPt(w, e, step) {
   if (e && e.altKey) return [+w.x.toFixed(2), +w.y.toFixed(2)];
   // snap to existing wall/door ends first
-  for (const o of M.walls.concat(M.doors)) for (const p of [o.a, o.b]) if (Math.hypot(p[0] - w.x, p[1] - w.y) < .25) return [p[0], p[1]];
+  for (const o of M.walls.concat(M.doors, M.windows)) for (const p of [o.a, o.b]) if (Math.hypot(p[0] - w.x, p[1] - w.y) < .25) return [p[0], p[1]];
   return [snap(w.x, step || .5), snap(w.y, step || .5)];
 }
 export function editDown(w, e) {
@@ -219,7 +246,7 @@ export function editDown(w, e) {
       M.props.push(o); sel = {k:"props", o}; saveMap(); renderPanel(); return;
     }
     case "guard": {
-      const o = {id:uid(), name:"Guard " + (M.guards.length + 1), pp:12, sight:6, speed:1.6, fov:70, mode:"patrol", x:c[0], y:c[1], face:0, sweep:90, path:[[c[0], c[1]]]};
+      const o = {id:uid(), name:"Guard " + (M.guards.length + 1), pp:12, sight:6, speed:1.6, fov:70, mode:"patrol", x:c[0], y:c[1], face:0, sweep:90, path:[[c[0], c[1]]], art:M.guards.length % 9 + 1};
       M.guards.push(o); sel = {k:"guards", o}; pathEdit = true; saveMap(); renderPanel(); updateGmHint(); return;
     }
     case "token": { const o = {id:uid(), name:"NPC", color:"#d9d5cc", x:c[0], y:c[1]}; M.tokens.push(o); sel = {k:"tokens", o}; saveMap(); renderPanel(); return; }
@@ -241,8 +268,9 @@ export function editMove(w, e) {
   if (dragInfo.type === "move" && ptr.moved) {
     const h = dragInfo.h, o = h.o;
     if (h.k === "waypoint") { o.path[h.i] = e.altKey ? [w.x, w.y] : [snap(w.x, .25), snap(w.y, .25)]; return; }
+    if (!dragInfo.lifted) { dragInfo.lifted = true; pickUp(h.k, o); }
     let dx = w.x - dragInfo.ox, dy = w.y - dragInfo.oy;
-    if (h.k === "walls" || h.k === "doors") {
+    if (o.a) { // walls, doors and windows move by both ends
       if (!e.altKey) { dx = snap(dx, .5); dy = snap(dy, .5); }
       if (!dx && !dy) return;
       o.a = [o.a[0] + dx, o.a[1] + dy]; o.b = [o.b[0] + dx, o.b[1] + dy];
@@ -250,7 +278,10 @@ export function editMove(w, e) {
       if (!e.altKey) { const nx = snap(o.x + dx, .25), ny = snap(o.y + dy, .25); dx = nx - o.x; dy = ny - o.y; }
       if (!dx && !dy) return;
       o.x += dx; o.y += dy;
-      if (h.k === "guards" && o.mode === "patrol" && o.path.length === 1) o.path[0] = [o.x, o.y];
+      if (h.k === "guards") {
+        if (o.mode === "patrol" && o.path.length === 1) o.path[0] = [o.x, o.y];
+        holdGuard(o);
+      }
     }
     dragInfo.ox += dx; dragInfo.oy += dy;
   }
@@ -261,6 +292,12 @@ export function editUp(w, p) {
 }
 
 /* ---------- import / export ---------- */
+// A whole different map: its guards start fresh.
+function newScene() {
+  saveMap(true);
+  if (isHost()) buildGuards(false);
+  fitCamera(); renderPanel();
+}
 export function pickFile(accept, cb) {
   const f = $("fileIn"); f.value = ""; f.accept = accept;
   f.onchange = () => { const file = f.files[0]; if (file) cb(file); };
@@ -291,7 +328,9 @@ export async function importDd2vtt(file) {
   }
   for (const p of j.portals || []) {
     if (!p.bounds || p.bounds.length < 2) continue;
-    m.doors.push({id:uid(), a:P(p.bounds[0]), b:P(p.bounds[1]), open:!p.closed, name:p.freestanding ? "Door" : "Door"});
+    const ends = {id:uid(), a:P(p.bounds[0]), b:P(p.bounds[1])};
+    if (portalType(p) === "window") m.windows.push(ends); // Dungeondraft and Dungeon Alchemist export windows as open portals
+    else m.doors.push({...ends, open:!p.closed, name:"Door"});
   }
   for (const l of j.lights || []) m.lights.push({id:uid(), x:P(l.position)[0], y:P(l.position)[1], r:Math.max(1, l.range || 4), color:argbToHex(l.color), on:true});
   m.dark = j.environment && j.environment.baked_lighting ? 0.35 : 0.55;
@@ -303,8 +342,8 @@ export async function importDd2vtt(file) {
       setBg(null); loadBg(out.data); Net.img(out.data);
     } catch (e) { alert("Walls imported, but the map image couldn't be read."); }
   } else { Net.img(null); setBg(null); }
-  saveMap(true); fitCamera(); renderPanel();
-  addFloat(M.w / 2, M.h / 2, `Imported ${m.walls.length} walls, ${m.doors.length} doors, ${m.lights.length} lights`, "#3fb899");
+  newScene();
+  addFloat(M.w / 2, M.h / 2, `Imported ${m.walls.length} walls, ${m.doors.length} doors, ${m.windows.length} windows, ${m.lights.length} lights`, "#3fb899");
 }
 export async function importBgImage(file) {
   const ppg = parseFloat(prompt("Pixels per grid square in this image?", "70")); if (!(ppg > 0)) return;
@@ -324,14 +363,16 @@ export async function importMapFile(file) {
   let j; try { j = JSON.parse(await file.text()); } catch (e) { return alert("Not a valid map file."); }
   if (j.resolution && (j.line_of_sight || j.image)) return importDd2vtt(file);
   if (!j.map) return alert("Not a stealth map file.");
-  setM(normalizeMap(j.map)); sel = null; loadBg(j.img); Net.img(j.img || null); saveMap(true); fitCamera(); renderPanel();
+  setM(normalizeMap(j.map)); sel = null; loadBg(j.img); Net.img(j.img || null); newScene();
 }
 
 /* ---------- edit mode toggle ---------- */
+// Editing doesn't stop or restart anything; Pause and Reset do that.
 export function toggleEdit() {
   if (!isGM) return;
   const on = !L.edit;
-  Net.live("edit", on); Net.live("paused", true); Net.live("spotted", null);
-  if (on) { fitCamera(); setFollow(false); openTray(false); }
-  else { cancelTool(); sel = null; buildGuards(false); setFollow(true); }
+  closeMenu(); clearSelGuard();
+  Net.live("edit", on);
+  if (on) { setFollow(false); openTray(false); }
+  else { cancelTool(); sel = null; setFollow(true); }
 }

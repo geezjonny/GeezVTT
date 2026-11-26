@@ -1,5 +1,5 @@
 // Live-state banners, floating buttons, and the on-screen eye and sneak indicator.
-import { closeMenu, taunt } from './stealth2-actions.js';
+import { closeCharacterMenu, taunt } from './stealth2-actions.js';
 import { openTray, toggleTray } from './stealth2-dice.js';
 import { playerView, threat, togglePlayerView } from './stealth2-draw.js';
 import { renderPanel, renderTools, toggleEdit } from './stealth2-editor.js';
@@ -15,8 +15,7 @@ export let wasPaused = null, wasEdit = false, lastSpotId = null;
 export function onLive() {
   const p = !!L.paused;
   $("pauseBanner").classList.toggle("hidden", !p || !!L.spotted);
-  $("pauseBanner").textContent = L.edit ? "GM is editing the map" : "Paused";
-  if (wasPaused !== null && p && !wasPaused && !L.edit) openTray(true);
+  if (wasPaused !== null && p && !wasPaused && !editing()) openTray(true);
   if (wasPaused && !p) openTray(false);
   wasPaused = p;
   if (L.edit !== wasEdit) {
@@ -24,7 +23,7 @@ export function onLive() {
     $("tools").classList.toggle("hidden", !editing());
     if (editing()) { renderTools(); renderPanel(); } else $("panel").classList.add("hidden");
   }
-  if (p) closeMenu();
+  if (p) closeCharacterMenu();
   const sb = $("spotBox");
   if (L.spotted) {
     const s = L.spotted;
@@ -45,7 +44,7 @@ function spotHTML(s) {
     seen: [`${guard} spotted ${who}!`, moving + pp, [["notseen", "Not seen"], ["invest", "Investigates"], ["chase", "Gives chase"], ["caught", "Caught → cell"], ["hold", "Stay paused"]]],
     fooled: [`${guard} isn't fooled by ${who}`, `${esc(s.skill)} ${Number(s.total)}${isGM ? ` against DC ${Number(s.pp) || 10}` : ""}`, [["notseen", "Lets it go"], ["invest", "Investigates"], ["chase", "Gives chase"], ["caught", "Caught → cell"]]],
     reached: [`${guard} caught up with ${who}!`, moving, [["notseen", "Breaks free"], ["caught", "Caught → cell"], ["hold", "Stay paused"]]],
-    attack: [`${who} attacks ${guard}`, `${esc(s.weapon)} · ${Number(s.total)} to hit${Number(s.face) === 20 ? " (natural 20)" : Number(s.face) === 1 ? " (natural 1)" : ""} · ${Number(s.damage)} damage${s.unseen ? " · unseen" : ""}`, [["miss", "Miss"], ["wounded", "Wounded (chases)"], ["down", "Knocked out"]]]
+    attack: [`${who} attacks ${guard}`, `${esc(s.weapon)} · ${Number(s.total)} to hit${Number(s.face) === 20 ? " (natural 20)" : Number(s.face) === 1 ? " (natural 1)" : ""} · ${Number(s.damage)} damage${s.unseen ? " · unseen" : ""}`, [["miss", "Miss"], ["wounded", "Wounded (chases)"], ["down", "Knocked out"], ["dead", "Killed"]]]
   };
   const [title, detail, choices] = cases[s.why] || cases.seen;
   return `<div class="t">${title}</div><div class="s">${detail}</div>` +
@@ -62,7 +61,8 @@ export function drawHUD(dt) {
   if (isGM) {
     if (me && !L.edit) h += `<button class="${playerView ? "on" : ""}" data-act="view">Player view</button>`;
     h += `<button class="${L.edit ? "on" : ""}" data-act="edit">${L.edit ? "Done editing" : "Edit map"}</button>`;
-    if (!L.edit) h += `<button data-act="pause">${L.paused ? "Resume" : "Pause"} <kbd>P</kbd></button><button data-act="reset">Reset</button>`;
+    h += `<button data-act="pause">${L.paused ? "Resume" : "Pause"} <kbd>P</kbd></button>`;
+    if (!L.edit) h += `<button data-act="reset">Reset</button>`;
   }
   h += `<button data-act="dice">Dice</button>`;
   if (h !== lastActions) $("actions").innerHTML = lastActions = h;
@@ -75,7 +75,7 @@ export function drawHUD(dt) {
 const EYE_TEXT = { hidden: "Hidden", near: "Careful", seen: "Seen", caught: "Caught" };
 let eyeOpen = 0, lastEye = "";
 export function drawStealth(dt) {
-  const show = !!(me && M && !L.edit);
+  const show = !!(me && M && !editing());
   $("stealth").classList.toggle("hidden", !show);
   if (!show) return;
   const spotted = !!L.spotted && L.spotted.pid === me.id;
@@ -85,7 +85,7 @@ export function drawStealth(dt) {
   const t = now(), score = perceptionScore(me, t), listening = !!me.listen && me.listen.until > t, wait = Math.ceil((me.listenReady - t) / 1000);
   const listenText = listening ? `Listening ${hearingRange(score) * 5} ft` : wait > 0 ? `Listen (${wait}s)` : "Listen";
   const busy = Math.ceil((me.actReady - t) / 1000), tauntText = busy > 0 ? `Taunt (${busy}s)` : "Taunt";
-  const tip = isGM && !playerView ? "Right-click a guard or torch to act" : "Click a guard or torch to act";
+  const tip = isGM && !playerView ? "Right-click a guard for GM options · Player view to act as your character" : "Click a guard or torch to act";
   const key = `${state}|${eyeOpen.toFixed(2)}|${me.md}|${listenText}|${me.passive}|${tauntText}|${me.match}|${tip}`;
   if (key === lastEye) return;
   lastEye = key;

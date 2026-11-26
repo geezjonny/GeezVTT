@@ -1,12 +1,12 @@
 // Player movement and use, keyboard, and play-mode pointer controls.
-import { closeMenu, openMenu, targetAt, taunt } from './stealth2-actions.js';
+import { closeMenu, guardAt, openGmMenu, openMenu, targetAt, taunt } from './stealth2-actions.js';
 import { rollListen } from './stealth2-dice.js';
 import { addFloat, cam, playerView, setFollow, toWorld } from './stealth2-draw.js';
 import { cancelTool, deleteObj, editDown, editMove, editUp, endWallChain, sel, updateGmHint } from './stealth2-editor.js';
-import { HG, goHome, togglePause } from './stealth2-guards.js';
+import { HG, gmGuard, goHome, togglePause } from './stealth2-guards.js';
 import {
-  canSnuff, chestLocked, derive, distToSeg, doorOpen, hearingRange, isLinked, lightKind, litValue, moveCircle, nearestUsable, perceptionScore,
-  propRect, refreshGeo, resolveCircle, snuffedValue, tokenPos
+  canSnuff, chestLocked, derive, distToSeg, doorOpen, hearingRange, isLinked, isOut, lightKind, litValue, moveCircle, nearestUsable,
+  perceptionScore, propRect, refreshGeo, resolveCircle, snuffedValue, tokenPos
 } from './stealth2-model.js';
 import { Net } from './stealth2-net.js';
 import { $, HEARING, L, LIGHT_KINDS, M, PLAYERS, P_RAD, SPEED, cv, editing, isGM, keys, me, now } from './stealth2-state.js';
@@ -31,12 +31,12 @@ export function applyCmd(c) {
    INPUT
    =================================================================== */
 export function toggleSneak() {
-  if (me && !editing()) me.md = me.md === "sneak" ? "normal" : "sneak";
+  if (me) me.md = me.md === "sneak" ? "normal" : "sneak";
 }
 const MOVE_KEYS = ["w","a","s","d","arrowup","arrowleft","arrowdown","arrowright"];
 // Stand still and roll Perception: for a few seconds a good roll hears farther than passive Perception.
 export function listen() {
-  if (!me || !M || L.paused || L.edit) return;
+  if (!me || !M || L.paused) return;
   const t = now(), say = text => addFloat(me.x, me.y - .7, text, "#ffa53d");
   if (MOVE_KEYS.some(k => keys[k])) return say("Stand still to listen");
   if (t < me.listenReady) return say(`Listen again in ${Math.ceil((me.listenReady - t) / 1000)}s`);
@@ -84,7 +84,7 @@ export function updatePlayer(dt) {
   if (me.caught && Math.hypot(me.x - me.cx, me.y - me.cy) > 2.5) { me.caught = false; Net.fx(me.x, me.y - .6, me.name + " is loose!", "#3fb899"); }
 }
 export function interact() {
-  if (!me || !M || L.paused || L.edit) return;
+  if (!me || !M || L.paused) return;
   const it = nearestUsable(me.x, me.y, 1.2, me.match); if (!it) return;
   const o = it.o;
   if (it.type === "lever") {
@@ -157,6 +157,10 @@ cv.addEventListener("pointerup", e => {
   if (!ptr) return;
   const r = cv.getBoundingClientRect(), w = toWorld(e.clientX - r.left, e.clientY - r.top);
   const p = ptr; ptr = null;
+  // A still right-click on a guard is the GM's say over them, unless the GM is acting as their character.
+  if (isGM && p.btn === 2 && !p.moved && (editing() || !playerView)) {
+    const target = guardAt(w); if (target) { openGmMenu(target, e.clientX, e.clientY); return; }
+  }
   // A still right-click always offers my character's actions; so does a left-click when I'm not using GM controls.
   const asCharacter = !editing() && !p.moved && me && (p.btn === 2 || (p.btn === 0 && p.pan && (!isGM || playerView)));
   if (asCharacter) { const target = targetAt(w); if (target) { openMenu(target, e.clientX, e.clientY); return; } }
@@ -173,7 +177,7 @@ export let mouseW = null;
 export function hitPlay(x, y) {
   // GM can grab players, guards, tokens; click levers, doors, chests, lights
   for (const [id, p] of Object.entries(PLAYERS)) if (p && Math.hypot(p.x - x, p.y - y) < .45) return {type:"player", id};
-  if (HG) for (const g of HG) if (Math.hypot(g.x - x, g.y - y) < .5) return {type:"guard", id:g.id};
+  if (HG) for (const g of HG) if (g.st !== "gone" && Math.hypot(g.x - x, g.y - y) < .5) return {type:"guard", id:g.id};
   for (const t of M.tokens) { const pos = tokenPos(t); if (Math.hypot(pos.x - x, pos.y - y) < .45) return {type:"token", id:t.id}; }
   for (const l of M.levers) if (Math.hypot(l.x - x, l.y - y) < .4) return {type:"lever", id:l.id};
   for (const l of M.lights) if (Math.hypot(l.x - x, l.y - y) < .35) return {type:"light", id:l.id};
@@ -183,18 +187,26 @@ export function hitPlay(x, y) {
 }
 export let dragGhost = null;
 export function dragPlay(hit, w) {
-  if (hit.type === "guard" && HG) { const g = HG.find(x => x.id === hit.id); if (g) { g.x = w.x; g.y = w.y; g.path = null; } }
+  if (hit.type === "guard" && HG) { const g = HG.find(x => x.id === hit.id); if (g) { g.x = w.x; g.y = w.y; g.path = null; g.held = true; } }
   else if (hit.type === "player" || hit.type === "token") dragGhost = {x:w.x, y:w.y, hit};
 }
 export function endDragPlay(hit, w) {
   dragGhost = null;
   if (hit.type === "player") Net.cmd(hit.id, {x:w.x, y:w.y});
   if (hit.type === "token") Net.live("tokens/" + hit.id, {x:+w.x.toFixed(2), y:+w.y.toFixed(2)});
-  if (hit.type === "guard" && HG) { const g = HG.find(x => x.id === hit.id); if (g && g.st !== "down") { goHome(g); g.st = "look"; g.lookT = 1.5; } } // a downed body just moves
+  if (hit.type === "guard" && HG) {
+    const g = HG.find(x => x.id === hit.id); if (!g) return;
+    g.held = false;
+    if (!isOut(g.st)) { goHome(g); g.st = "look"; g.lookT = 1.5; } // a body just moves
+  }
 }
 export function clickPlay(hit, w) {
   derive();
-  if (hit.type === "guard" && HG.find(g => g.id === hit.id)?.st === "down") { goHome(HG.find(g => g.id === hit.id)); return; } // click a downed guard to wake them
+  if (hit.type === "guard") {
+    const st = HG.find(g => g.id === hit.id)?.st;
+    if (st === "down") gmGuard(hit.id, "wake"); // click a knocked-out guard to wake them
+    if (isOut(st)) return;
+  }
   if (hit.type === "guard") { selGuard = selGuard === hit.id ? (goHome(HG.find(g => g.id === hit.id)), null) : hit.id; updateGmHint(); return; }
   if (selGuard) { sendGuard(w); return; }
   if (hit.type === "lever") Net.live("levers/" + hit.id, L.levers[hit.id] ? null : true);
@@ -203,8 +215,9 @@ export function clickPlay(hit, w) {
   if (hit.type === "light") { const l = M.lights.find(x => x.id === hit.id); Net.live("lights/" + l.id, !lightOnBase(l)); }
 }
 export function lightOnBase(l) { return L.lights[l.id] != null ? !!L.lights[l.id] : !!l.on; }
+export function clearSelGuard() { selGuard = null; updateGmHint(); }
 export function sendGuard(w) {
   const g = HG && HG.find(x => x.id === selGuard);
-  if (g) { goHome(g); g.st = "invest"; g.target = {x:w.x, y:w.y}; Net.fx(g.x, g.y - .7, "Going to check", "#e0a243"); }
+  if (g && !isOut(g.st)) { goHome(g); g.st = "invest"; g.target = {x:w.x, y:w.y}; Net.fx(g.x, g.y - .7, "Going to check", "#e0a243"); }
   selGuard = null; updateGmHint();
 }

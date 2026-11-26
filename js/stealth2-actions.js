@@ -1,8 +1,8 @@
 // What my character can do to guards and lights: taunt, distract, attack and shoot, with the menu that offers them.
 import { rollCheck, rollDamage } from './stealth2-dice.js';
 import { addFloat, iCanSee } from './stealth2-draw.js';
-import { HG } from './stealth2-guards.js';
-import { canSnuff, guardSees, inEarshot, lightKind, reachCheck, snuffedValue } from './stealth2-model.js';
+import { HG, gmGuard } from './stealth2-guards.js';
+import { canSnuff, guardSees, inEarshot, isOut, lightKind, reachCheck, snuffedValue } from './stealth2-model.js';
 import { Net } from './stealth2-net.js';
 import { SOCIAL_SKILLS, bestWeapon } from './stealth2-pcs.js';
 import { $, ACT, GUARDS_SYNC, L, M, clamp, esc, isHost, me, now } from './stealth2-state.js';
@@ -14,7 +14,7 @@ export function guardPose(def) {
 }
 const signed = n => `${n >= 0 ? "+" : ""}${n}`;
 const say = text => addFloat(me.x, me.y - .7, text, "#ffa53d");
-const canAct = () => !!(me && M && !L.paused && !L.edit && !me.caught);
+const canAct = () => !!(me && M && !L.paused && !me.caught);
 const waiting = () => Math.max(0, Math.ceil((me.actReady - now()) / 1000));
 // One action per "round".
 function spend() {
@@ -41,7 +41,7 @@ export function distract(gid, skill) {
 }
 export function attackGuard(def, kind) {
   const pose = guardPose(def), weapon = bestWeapon(me.weapons, kind);
-  if (!weapon || pose.st === "down") return;
+  if (!weapon || isOut(pose.st)) return;
   const reach = reachCheck(me, pose, weapon, kind);
   if (!reach.ok) return say(reach.reason);
   if (!spend()) return;
@@ -69,9 +69,17 @@ const capital = word => word.charAt(0).toUpperCase() + word.slice(1);
 /* ---------- the menu ---------- */
 let menuTarget = null;
 export function closeMenu() { menuTarget = null; $("actMenu").classList.add("hidden"); }
+// A pause ends my character's choices; the GM's menu works paused or not.
+export function closeCharacterMenu() { if (menuTarget && menuTarget.type !== "gm") closeMenu(); }
+// The guard under a point, in whatever state, unless taken off the field.
+export function guardAt(w) {
+  for (const def of M.guards) { const p = guardPose(def); if (p.st !== "gone" && Math.hypot(p.x - w.x, p.y - w.y) < .55) return def.id; }
+  return null;
+}
 // The guard or torch under a point, if my character can see it.
 export function targetAt(w) {
-  for (const def of M.guards) { const p = guardPose(def); if (Math.hypot(p.x - w.x, p.y - w.y) < .55 && iCanSee(p.x, p.y)) return { type: "guard", id: def.id }; }
+  const gid = guardAt(w);
+  if (gid) { const p = guardPose(M.guards.find(g => g.id === gid)); if (iCanSee(p.x, p.y)) return { type: "guard", id: gid }; }
   for (const l of M.lights) if (lightKind(l) === "torch" && Math.hypot(l.x - w.x, l.y - w.y) < .55 && iCanSee(l.x, l.y)) return { type: "light", id: l.id };
   return null;
 }
@@ -84,7 +92,7 @@ export function openMenu(target, clientX, clientY) {
   if (target.type === "guard") {
     const def = M.guards.find(g => g.id === target.id), pose = guardPose(def);
     title = def.name;
-    if (pose.st === "down") rows.push(`<p>Down for the count.</p>`);
+    if (isOut(pose.st)) rows.push(`<p>${pose.st === "dead" ? "Dead." : "Down for the count."}</p>`);
     else {
       row("taunt", "Taunt: make them chase you", inEarshot(me, pose, ACT.tauntRange) ? "" : "Can't hear you");
       const earshot = inEarshot(me, pose, ACT.distractRange) ? "" : "Can't hear you";
@@ -101,6 +109,18 @@ export function openMenu(target, clientX, clientY) {
     else if (!weapon) rows.push("<p>You have nothing to shoot or throw.</p>");
     else row("shoot", `${weapon.melee ? "Throw at it" : "Shoot it out"}: ${weapon.name} ${signed(weapon.bonus)}`, reachCheck(me, light, weapon, "ranged", "light").reason);
   }
+  showMenu(title, rows, clientX, clientY);
+}
+const GM_CHOICES = { down: [["wake", "Wake up"], ["dead", "Kill"]], dead: [["wake", "Revive"]] };
+export function openGmMenu(gid, clientX, clientY) {
+  const def = M.guards.find(g => g.id === gid); if (!def) return;
+  menuTarget = { type: "gm", id: gid };
+  const choices = [...GM_CHOICES[guardPose(def).st] || [["down", "Knock out"], ["dead", "Kill"]], ["gone", "Delete"]];
+  const rows = choices.map(([verdict, text]) => `<button data-do="${verdict}">${text}</button>`);
+  rows.push("<p>Reset brings deleted guards back.</p>");
+  showMenu(def.name, rows, clientX, clientY);
+}
+function showMenu(title, rows, clientX, clientY) {
   const menu = $("actMenu");
   menu.innerHTML = `<b>${esc(title)}</b>${rows.join("")}`;
   menu.classList.remove("hidden");
@@ -112,6 +132,7 @@ globalThis.document?.getElementById("actMenu").addEventListener("click", e => {
   const b = e.target.closest("[data-do]"); if (!b || !menuTarget) return;
   const [verb, detail] = b.dataset.do.split(":"), target = menuTarget;
   closeMenu();
+  if (target.type === "gm") { gmGuard(target.id, verb); return; }
   if (target.type === "light") { shootLight(M.lights.find(l => l.id === target.id)); return; }
   const def = M.guards.find(g => g.id === target.id);
   if (verb === "taunt") taunt(def.id);

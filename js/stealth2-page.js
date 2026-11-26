@@ -117,7 +117,7 @@ function loop(t) {
   const dt = clamp((t - last) / 1000, 0, 0.05); last = t;
   if (M) {
     refreshGeo();
-    if (me && !L.paused && !L.edit) updatePlayer(dt);
+    if (me && !L.paused) updatePlayer(dt);
     if (me) {
       const p = { id: me.id, name: me.name, color: me.color, x: +me.x.toFixed(2), y: +me.y.toFixed(2), a: +me.a.toFixed(2), md: me.md, mv: me.mv && !L.paused, caught: me.caught,
         stealth: me.stealth?.bonus ?? null, dis: !!me.stealth?.disadvantage };
@@ -139,6 +139,8 @@ function loop(t) {
 /* ===================================================================
    PAGE WIRING
    =================================================================== */
+// Right-click is a game control, so the browser's own menu stays away, except for pasting into text boxes.
+document.addEventListener('contextmenu', event => { if (!event.target.closest('input, textarea')) event.preventDefault(); });
 // A clicked button keeps keyboard focus, so Space (sneak) would press it again. Keyboard presses keep focus.
 document.addEventListener('click', event => { if (event.detail > 0) event.target.closest('button')?.blur(); });
 if (urlGM) $('tabletop').href = 'index.html?gm=jonny';

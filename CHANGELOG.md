@@ -2,6 +2,14 @@
 
 ## 2026-11-25
 
+### Stealth 2: GM control and imported maps
+- The GM can right-click a guard to knock them out, kill or delete them, wake or revive them, and can rule an attack as a kill. Reset brings deleted guards back.
+- Editing the map no longer pauses or resets the scene: change it while it runs or while paused, and guards, doors and lights stay as they were. A guard placed mid-game joins straight away.
+- Guards now have portraits.
+- Windows on imported Dungeondraft and Dungeon Alchemist maps are real windows: they stop movement and attacks but let sight and light through. Maps imported earlier convert when loaded.
+- The browser's right-click menu no longer pops up over the game, and the editor no longer draws light range circles.
+- Windows and the missing light circles are not yet checked in a browser.
+
 ### Stealth minigame (new)
 - A new stealth page: sneak past patrolling guards on a map with walls, doors, levers, chests, cover and light. The GM builds or imports the map, and the game pauses for a ruling when someone is spotted. It also has an offline sandbox.
 - Players pick their character from a list of all PCs, which brings its portrait, colour, darkvision, Stealth and passive Perception. The player and GM links are separate, with no role choice on screen.

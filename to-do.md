@@ -11,9 +11,9 @@ Built in `stealth2.html` (a copy; `stealth.html` is unchanged).
 - [x] Guards notice lighting changes.
 - [x] A way for a PC to make a guard chase them.
 - [ ] User verification in stealth2, including a real online room (player actions were only checked against a stand-in for Firebase).
-- [ ] A guard who sees a knocked-out guard raises the alarm and goes to fetch a replacement guard plus two more to drag the body out.
-- [ ] GM can click a guard during play to knock them out or remove them from the field, and spawn another one in.
-- [ ] GM can pause, edit the field and resume without the scene resetting (edit live while it runs).
+- [ ] Deferred by user: a guard who sees a knocked-out guard raises the alarm and goes to fetch a replacement guard plus two more to drag the body out.
+- [x] GM can right-click a guard to knock them out, kill or delete them; new guards are placed with live editing.
+- [x] GM can edit the field live, running or paused, without the scene resetting.
 - [ ] Possible later additions: automatic guard AC and HP, ammunition and thrown-weapon tracking.
 
 ## Object editing, obelisks and windows - 2026-11-23

@@ -1,9 +1,9 @@
 // Camera, effects, per-token vision and all canvas rendering.
-import { doorStart, linkLever, sel, snapPt, tool, wallChain } from './stealth2-editor.js';
+import { doorStart, linkLever, sel, shownAt, snapPt, tool, wallChain } from './stealth2-editor.js';
 import { HG } from './stealth2-guards.js';
 import {
-  LIGHTB, SIGHT, blocked, canHear, canSnuff, castPoly, chestLocked, derive, doorOpen, findById, isLinked, lightAlpha, lightKind, lightLevel,
-  lightOn, lightPoly, nearestUsable, perceptionScore, propRect, refreshGeo, sightThreat, tokenPos
+  LIGHTB, SIGHT, blocked, canHear, canSnuff, castPoly, chestLocked, derive, doorOpen, findById, isLinked, isOut, lightAlpha, lightKind,
+  lightLevel, lightOn, lightPoly, nearestUsable, perceptionScore, propRect, refreshGeo, sightThreat, tokenPos
 } from './stealth2-model.js';
 import { dragGhost, mouseW, selGuard } from './stealth2-play.js';
 import {
@@ -44,7 +44,6 @@ cv.addEventListener("wheel", e => {
   const after = toWorld(e.clientX - r.left, e.clientY - r.top);
   cam.x += before.x - after.x; cam.y += before.y - after.y;
 }, {passive:false});
-cv.addEventListener("contextmenu", e => e.preventDefault());
 
 /* ===================================================================
    FX
@@ -195,8 +194,10 @@ export function drawWorld(dt) {
       }
     }
   }
-  // walls (visible when there's no image, or to the GM)
+  // windows and walls (visible when there's no image, or to the GM)
   if (!bgImg || seesAll()) {
+    ctx.strokeStyle = "rgba(170,225,255,.9)"; ctx.lineWidth = Math.max(px(2), .06); ctx.lineCap = "butt"; ctx.setLineDash([px(7), px(3)]);
+    ctx.beginPath(); for (const w of M.windows) { ctx.moveTo(w.a[0], w.a[1]); ctx.lineTo(w.b[0], w.b[1]); } ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = bgImg ? "rgba(120,200,255,.55)" : "#8a7f72"; ctx.lineWidth = bgImg ? px(2) : Math.max(px(4), .12); ctx.lineCap = "round";
     ctx.beginPath(); for (const w of M.walls) { ctx.moveTo(w.a[0], w.a[1]); ctx.lineTo(w.b[0], w.b[1]); } ctx.stroke();
   }
@@ -218,10 +219,10 @@ export function drawWorld(dt) {
   // guard vision cones
   const everyGuard = guardViews(dt);
   // Guards I can't see still count: the eye is the warning.
-  const watching = g => g.st !== "alert" && g.st !== "down" && !(g.st === "distract" && me && g.focus === me.id);
+  const watching = g => g.st !== "alert" && !isOut(g.st) && !(g.st === "distract" && me && g.focus === me.id);
   threat = me ? Math.max(0, ...everyGuard.filter(watching).map(g => sightThreat(g, g.def, me))) : 0;
   const guards = everyGuard.filter(g => iCanSee(g.x, g.y));
-  for (const g of guards) if (g.st !== "down") drawCone(g);
+  for (const g of guards) if (!isOut(g.st)) drawCone(g);
   // footstep noise rings (everyone sees how loud everyone is)
   const t = performance.now();
   for (const [id, p] of Object.entries(PLAYERS)) {
@@ -230,7 +231,7 @@ export function drawWorld(dt) {
     if (!stepPulse[id] || t - stepPulse[id] > period) { stepPulse[id] = t; addRing(pp.x, pp.y, NOISE[pp.md] || NOISE.normal, loud ? "#e24b4a" : "#e0a243"); }
   }
   // Guard footsteps: only the ones my character can hear, seen or not. The GM's overview shows them all.
-  if (!L.paused && !editing()) for (const g of everyGuard) {
+  if (!L.paused) for (const g of everyGuard) {
     const rushing = g.st === "invest" || g.st === "chase";
     if (!g.mv || !(seesAll() || (me && canHear(me, perceptionScore(me, now()), g, rushing)))) continue;
     const key = "guard:" + g.def.id, period = rushing ? 380 : 560;
@@ -334,8 +335,7 @@ export function guardViews(dt) {
     let s;
     if (isHost() && HG) { const g = HG.find(x => x.id === def.id); if (!g) continue; s = {x:g.x, y:g.y, a:g.a, st:g.st, info:g.info, mv:g.mv, focus:g.focus}; }
     else { const raw = GUARDS_SYNC[def.id]; if (!raw) { s = {x:def.x, y:def.y, a:def.face * Math.PI / 180, st:"home", info:""}; } else { const sm = smoothed("g" + def.id, raw, dt); s = {...raw, x:sm.x, y:sm.y, a:sm.a}; } }
-    if (editing()) s = {x:def.x, y:def.y, a:def.face * Math.PI / 180, st:"home", info:""};
-    out.push({...s, def});
+    if (s.st !== "gone") out.push({...s, def});
   }
   return out;
 }
@@ -351,19 +351,37 @@ export function drawCone(g) {
   for (const p of poly) ctx.lineTo(p[0], p[1]);
   ctx.closePath(); ctx.fill();
 }
+// A round picture, centre-cropped.
+function portrait(art, x, y, R, grey) {
+  const side = Math.min(art.naturalWidth, art.naturalHeight);
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.clip(); if (grey) ctx.filter = "grayscale(1)";
+  ctx.drawImage(art, (art.naturalWidth - side) / 2, (art.naturalHeight - side) / 2, side, side, x - R, y - R, R * 2, R * 2);
+  ctx.restore();
+}
 export function drawGuard(g) {
-  if (g.st === "down") { // knocked out: grey and lying flat
-    ctx.fillStyle = "#6d5a5a"; ctx.beginPath(); ctx.ellipse(g.x, g.y, .46, .24, g.a, 0, 7); ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = px(1.5); ctx.stroke();
-    label(g.def.name + " (down)", g.x, g.y + .34, "#c9b8b8");
-    font(13, 700); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = "#b4c0ce"; ctx.fillText("z z", g.x, g.y - .3);
+  // The plain disc stands in until the picture loads.
+  const art = tokenPicture({kind:"token", image:`servant${g.def.art}.png`}), R = art ? P_RAD * 1.3 : .34;
+  const disc = radius => { ctx.beginPath(); ctx.arc(g.x, g.y, radius, 0, 7); };
+  if (isOut(g.st)) { // knocked out: greyed. Dead: greyed and faded.
+    const dead = g.st === "dead";
+    ctx.globalAlpha = dead ? .55 : .85;
+    ctx.fillStyle = dead ? "#4a2426" : "#6d5a5a"; disc(R); ctx.fill();
+    if (art) portrait(art, g.x, g.y, R, true);
+    ctx.strokeStyle = dead ? "#ff7b7b" : "#b4c0ce"; ctx.lineWidth = px(2); disc(R); ctx.stroke();
+    ctx.globalAlpha = 1;
+    label(g.def.name + (dead ? " (dead)" : " (down)"), g.x, g.y + R + .06, "#c9b8b8");
+    font(13, 700); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = dead ? "#ff7b7b" : "#b4c0ce"; ctx.fillText(dead ? "✕" : "z z", g.x, g.y - R);
     return;
   }
-  ctx.fillStyle = "#c23b3a"; ctx.beginPath(); ctx.arc(g.x, g.y, .34, 0, 7); ctx.fill();
-  ctx.strokeStyle = g.def.id === selGuard ? "#e0a243" : "rgba(0,0,0,.6)"; ctx.lineWidth = g.def.id === selGuard ? px(3) : px(1.5); ctx.stroke();
-  ctx.strokeStyle = "#ffd9d0"; ctx.lineWidth = px(2.5); ctx.beginPath(); ctx.moveTo(g.x, g.y); ctx.lineTo(g.x + Math.cos(g.a) * .4, g.y + Math.sin(g.a) * .4); ctx.stroke();
-  label(g.def.name, g.x, g.y + .4, "#f2c4bd");
-  if (g.info) { font(18, 800); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = g.info === "!" ? "#e24b4a" : "#e0a243"; ctx.fillText(g.info, g.x, g.y - .38); }
+  ctx.fillStyle = "#c23b3a"; disc(R); ctx.fill();
+  if (art) portrait(art, g.x, g.y, R);
+  // A red rim marks a guard; amber while the GM has them selected.
+  ctx.strokeStyle = g.def.id === selGuard ? "#e0a243" : "#c23b3a"; ctx.lineWidth = px(g.def.id === selGuard ? 3.5 : 2.5); disc(R); ctx.stroke();
+  // Facing: a short pointer on the rim, so it doesn't cross the face.
+  const dx = Math.cos(g.a), dy = Math.sin(g.a);
+  ctx.strokeStyle = "#ffd9d0"; ctx.lineWidth = px(3); ctx.beginPath(); ctx.moveTo(g.x + dx * R, g.y + dy * R); ctx.lineTo(g.x + dx * (R + .16), g.y + dy * (R + .16)); ctx.stroke();
+  label(g.def.name, g.x, g.y + R + .06, "#f2c4bd");
+  if (g.info) { font(18, 800); ctx.textAlign = "center"; ctx.textBaseline = "bottom"; ctx.fillStyle = g.info === "!" ? "#e24b4a" : "#e0a243"; ctx.fillText(g.info, g.x, g.y - R - .04); }
 }
 export function drawPlayer(p, pos, mine) {
   ctx.globalAlpha = lightAlpha(pos.x, pos.y);
@@ -372,11 +390,7 @@ export function drawPlayer(p, pos, mine) {
   const disc = radius => { ctx.beginPath(); ctx.arc(pos.x, pos.y, radius, 0, 7); };
   ctx.fillStyle = color; disc(R); ctx.fill();
   if (art) {
-    // Centre-crop the portrait into the disc; greyed while caught.
-    const side = Math.min(art.naturalWidth, art.naturalHeight);
-    ctx.save(); ctx.clip(); if (p.caught) ctx.filter = "grayscale(1)";
-    ctx.drawImage(art, (art.naturalWidth - side) / 2, (art.naturalHeight - side) / 2, side, side, pos.x - R, pos.y - R, R * 2, R * 2);
-    ctx.restore();
+    portrait(art, pos.x, pos.y, R, p.caught); // greyed while caught
     ctx.strokeStyle = color; ctx.lineWidth = px(2); disc(R); ctx.stroke();
   } else { ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = px(1.5); ctx.stroke(); }
   if (mine) { ctx.strokeStyle = "#fff"; ctx.lineWidth = px(1.2); disc(R + px(1.6)); ctx.stroke(); }
@@ -426,7 +440,6 @@ export function drawGmOverlays() {
       ctx.fillStyle = lightOn(l) ? l.color : "#444"; ctx.strokeStyle = "rgba(0,0,0,.7)"; ctx.lineWidth = px(1.5);
       ctx.beginPath(); ctx.arc(l.x, l.y, .13, 0, 7); ctx.fill(); ctx.stroke();
     }
-    if (editing()) { ctx.strokeStyle = hexA(l.color, .35); ctx.setLineDash([px(3), px(5)]); ctx.beginPath(); ctx.arc(l.x, l.y, l.r, 0, 7); ctx.stroke(); ctx.setLineDash([]); }
   }
   for (const s of M.spawns) {
     ctx.strokeStyle = s.kind === "cell" ? "#9fb3c8" : "#3fb899"; ctx.lineWidth = px(2);
@@ -435,11 +448,12 @@ export function drawGmOverlays() {
   }
   if (!editing()) return;
   // selection
-  if (sel) {
+  const at = sel && shownAt(sel.k, sel.o);
+  if (sel && at) {
     const o = sel.o; ctx.strokeStyle = "#e0a243"; ctx.lineWidth = px(2.5);
     if (o.a) { ctx.beginPath(); ctx.moveTo(o.a[0], o.a[1]); ctx.lineTo(o.b[0], o.b[1]); ctx.stroke(); [o.a, o.b].forEach(p => { ctx.beginPath(); ctx.arc(p[0], p[1], .1, 0, 7); ctx.stroke(); }); }
     else if (sel.k === "props") { const r = propRect(o, .06); ctx.strokeRect(r[0], r[1], r[2] - r[0], r[3] - r[1]); }
-    else { ctx.beginPath(); ctx.arc(o.x, o.y, .48, 0, 7); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.arc(at.x, at.y, .48, 0, 7); ctx.stroke(); }
   }
   // tool previews
   if (mouseW) {
@@ -451,7 +465,7 @@ export function drawGmOverlays() {
   }
 }
 export function drawPrompt() {
-  if (!me || L.paused || L.edit) return;
+  if (!me || L.paused || editing()) return;
   const it = nearestUsable(me.x, me.y, 1.2, me.match); if (!it) return;
   derive();
   let txt = "";

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { blankMap, demoMap, normalizeMap, doorOpen, chestLocked, refreshGeo, moveCircle, lightLevel, lightAlpha, guardSees, sightThreat,
   hearingRange, canHear, perceptionScore, nearestUsable, canSnuff, snuffedValue, canLight, litValue, lightOn,
-  reachCheck, inEarshot, guardNotices, chaseSees } from '../js/stealth2-model.js';
+  reachCheck, inEarshot, guardNotices, chaseSees, isOut, postOf, refitGuard } from '../js/stealth2-model.js';
 import { L, setM, setL, bumpMap, SPEED, NOISE, P_RAD, ACT } from '../js/stealth2-state.js';
 import { stealthPCs, weaponsOf, bestWeapon } from '../js/stealth2-pcs.js';
 
@@ -152,6 +152,42 @@ test('guards notice lights, hear shouts and track a quarry', () => {
   assert.equal(chaseSees(guard, def, { x: 1, y: 5 }), true);                       // any direction while chasing
   assert.equal(chaseSees(guard, def, { x: 15, y: 5 }), false);
   assert.ok(ACT.chaseSpeed < SPEED.normal && ACT.chaseSpeed > SPEED.sneak);
+});
+
+test('editing the map moves only what the GM changed on a running guard', () => {
+  const def = { x: 5, y: 5, face: 0, mode: 'patrol', path: [[5, 5], [9, 5]] };
+  const guard = { x: 7, y: 5, a: 1, st: 'down', def, post: postOf(def), path: [[9, 5]] };
+  assert.equal(refitGuard(guard, def), false);                       // a wall elsewhere changed
+  assert.deepEqual([guard.x, guard.a, guard.st, guard.path], [7, 1, 'down', null]);
+  def.path.push([9, 9]);
+  assert.equal(refitGuard(guard, def), true);                        // new patrol point: stays put
+  assert.equal(guard.x, 7);
+  def.x = 2; def.face = 180;
+  assert.equal(refitGuard(guard, def), true);                        // dragged and turned
+  assert.deepEqual([guard.x, guard.a, guard.st], [2, Math.PI, 'down']);
+  assert.deepEqual(['down', 'dead', 'gone', 'home', 'chase'].map(isOut), [true, true, true, false, false]);
+});
+
+test('windows stop bodies and shots but not sight or light', () => {
+  const map = blankMap(10, 10);
+  map.windows.push({ id: 'glass', a: [5, 0], b: [5, 10] });
+  map.lights.push({ id: 'lamp', x: 3, y: 5, r: 6, color: '#ffffff', on: true });
+  load(map);
+  const token = { x: 4, y: 5 };
+  moveCircle(token, 3, 0, P_RAD);
+  assert.ok(token.x <= 5 - P_RAD + 1e-6, `stopped at ${token.x}`);
+  assert.ok(lightLevel(6, 5) > 1 - map.dark);
+  assert.equal(guardSees({ x: 4, y: 5, a: 0 }, { sight: 6, fov: 70 }, { x: 6, y: 5 }), true);
+  assert.equal(reachCheck({ x: 4.5, y: 5 }, { x: 5.5, y: 5 }, {}, 'melee').ok, false);
+  assert.equal(reachCheck({ x: 2, y: 5 }, { x: 8, y: 5 }, { normal: 30, long: 120 }, 'ranged').ok, false);
+});
+
+test('an older import turns its open doors into windows, once', () => {
+  const door = (id, open) => ({ id, a: [0, 0], b: [1, 0], open, name: 'Door' });
+  const map = normalizeMap({ w: 5, h: 5, doors: [door('pane', true), door('shut', false)] });
+  assert.deepEqual([map.windows.map(w => w.id), map.doors.map(d => d.id)], [['pane'], ['shut']]);
+  map.doors[0].open = true; // a door the GM leaves open afterwards stays a door
+  assert.equal(normalizeMap(map).doors.length, 1);
 });
 
 test('weapons come from the sheet with their reach', () => {

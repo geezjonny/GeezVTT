@@ -53,13 +53,19 @@ export function demoMap() {
 }
 export function blankMap(w, h) {
   return { v:1, title:"Untitled", w, h, dark:0.55, grid:true,
-    walls:[], doors:[], lights:[], levers:[], props:[], guards:[], tokens:[], spawns:[], floors:{} };
+    walls:[], doors:[], windows:[], lights:[], levers:[], props:[], guards:[], tokens:[], spawns:[], floors:{} };
 }
 export function normalizeMap(m) {
   const b = blankMap(m.w || 20, m.h || 15);
+  // Maps imported before windows existed brought them in as open doors named "Door".
+  if (!m.windows && m.doors) {
+    const isWindow = d => d.open && d.name === "Door" && !(m.levers || []).some(l => l.targets?.includes(d.id));
+    m.windows = m.doors.filter(isWindow).map(({ id, a, b }) => ({ id, a, b }));
+    m.doors = m.doors.filter(d => !isWindow(d));
+  }
   for (const k in b) if (m[k] == null) m[k] = b[k];
   m.levers.forEach(l => l.targets = l.targets || []);
-  m.guards.forEach(g => { g.path = g.path || []; g.fov = g.fov || 70; g.sight = g.sight || 6; g.speed = g.speed || 1.6; });
+  m.guards.forEach((g, i) => { g.path = g.path || []; g.fov = g.fov || 70; g.sight = g.sight || 6; g.speed = g.speed || 1.6; g.art = g.art || i % 9 + 1; }); // art: token/servant1-9.png
   return m;
 }
 
@@ -97,7 +103,7 @@ export function nearestUsable(x, y, range, carrying) {
 }
 export function tokenPos(t) { return L.tokens[t.id] || {x:t.x, y:t.y}; }
 export function findById(id) {
-  for (const k of ["walls","doors","lights","levers","props","guards","tokens","spawns"]) { const o = M[k].find(x => x.id === id); if (o) return {o, k}; }
+  for (const k of ["walls","doors","windows","lights","levers","props","guards","tokens","spawns"]) { const o = M[k].find(x => x.id === id); if (o) return {o, k}; }
   return null;
 }
 
@@ -141,9 +147,9 @@ export function refreshGeo() {
   geoKey = k; lightPolys = {};
   const walls = M.walls.map(w => [w.a[0], w.a[1], w.b[0], w.b[1]]);
   const closed = M.doors.filter(d => !doorOpen(d)).map(d => [d.a[0], d.a[1], d.b[0], d.b[1]]);
-  MOVE = walls.concat(closed);
-  LIGHTB = MOVE;
-  SIGHT = MOVE.slice();
+  LIGHTB = walls.concat(closed);
+  MOVE = LIGHTB.concat(M.windows.map(w => [w.a[0], w.a[1], w.b[0], w.b[1]])); // a window stops bodies and shots, not eyes or light
+  SIGHT = LIGHTB.slice();
   for (const p of M.props) if (p.tall) SIGHT.push(...propEdges(p));
 }
 export function blocked(segs, ax, ay, bx, by) {
@@ -224,6 +230,23 @@ export function canHear(listener, score, source, rushing) {
 }
 
 /* ===================================================================
+   RUNNING GUARDS
+   =================================================================== */
+// Knocked out, dead, or taken off the field: a guard in any of these does nothing and notices nothing.
+export const isOut = st => st === "down" || st === "dead" || st === "gone";
+// What the editor can change about where a guard belongs.
+export const postOf = def => ({ at: `${def.x},${def.y}`, face: def.face, route: JSON.stringify([def.mode, def.path]) });
+// Fit a running guard to its edited map entry without restarting it: only what the GM changed moves.
+// Returns true when its patrol should be picked up again from the nearest point.
+export function refitGuard(g, def) {
+  const next = postOf(def), moved = next.at !== g.post.at, rerouted = next.route !== g.post.route;
+  if (moved) { g.x = def.x; g.y = def.y; }
+  if (next.face !== g.post.face) g.a = def.face * Math.PI / 180;
+  Object.assign(g, { def, post: next, path: null, held: false }); // walls may have changed, so any walk is planned again
+  return moved || rerouted;
+}
+
+/* ===================================================================
    ACTIONS: what can reach what
    =================================================================== */
 // A point just short of the target, so a torch mounted on a wall isn't hidden by that wall.
@@ -240,8 +263,8 @@ export function inEarshot(a, b, range) {
 // Can this weapon reach the target? kind is "melee" or "ranged"; thing is "guard" or "light".
 export function reachCheck(from, target, weapon, kind, thing = "guard") {
   const d = Math.hypot(target.x - from.x, target.y - from.y), end = thing === "light" ? short(from, target) : target;
-  const clear = clearLine(from, end, thing === "light" ? LIGHTB : SIGHT);
-  if (kind === "melee") return d > ACT.reach ? { ok: false, reason: "Too far" } : !clearLine(from, end, LIGHTB) ? { ok: false, reason: "Wall in the way" } : { ok: true, long: false };
+  const clear = clearLine(from, end, MOVE) && (thing === "light" || clearLine(from, end, SIGHT));
+  if (kind === "melee") return d > ACT.reach ? { ok: false, reason: "Too far" } : !clearLine(from, end, MOVE) ? { ok: false, reason: "Wall in the way" } : { ok: true, long: false };
   if (d * 5 > weapon.long) return { ok: false, reason: "Out of range" };
   if (!clear) return { ok: false, reason: "No clear shot" };
   return { ok: true, long: d * 5 > weapon.normal };

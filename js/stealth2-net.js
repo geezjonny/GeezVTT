@@ -2,7 +2,7 @@
 import { onDice } from './stealth2-dice.js';
 import { addFloat, addRing, camInit, fitCamera } from './stealth2-draw.js';
 import { renderPanel } from './stealth2-editor.js';
-import { buildGuards, hostAct, hostNoise, onHost } from './stealth2-guards.js';
+import { hostAct, hostNoise, onHost, syncGuards } from './stealth2-guards.js';
 import { onLive } from './stealth2-hud.js';
 import { demoMap, normalizeMap } from './stealth2-model.js';
 import { applyCmd, respawn } from './stealth2-play.js';
@@ -79,7 +79,7 @@ export let mapLoadedOnce = false;
 export function setMap(m) {
   const first = !M;
   setM(normalizeMap(m)); bumpMap();
-  if (isHost()) buildGuards(false);
+  if (isHost()) syncGuards();
   if (!camInit) fitCamera();
   if (first) respawn(); // a player who just joined starts on a spawn point
   if (editing()) renderPanel();
@@ -87,7 +87,7 @@ export function setMap(m) {
 export let saveTimer = null;
 export function saveMap(immediate) {
   bumpMap();
-  if (isHost()) buildGuards(false);
+  if (isHost()) syncGuards();
   clearTimeout(saveTimer);
   const go = () => Net.map(JSON.stringify(M));
   if (immediate) go(); else saveTimer = setTimeout(go, 350);
