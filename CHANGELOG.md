@@ -2,6 +2,22 @@
 
 ## 2026-11-25
 
+### Stealth minigame (new)
+- A new stealth page: sneak past patrolling guards on a map with walls, doors, levers, chests, cover and light. The GM builds or imports the map, and the game pauses for a ruling when someone is spotted. It also has an offline sandbox.
+- Players pick their character from a list of all PCs, which brings its portrait, colour, darkvision, Stealth and passive Perception. The player and GM links are separate, with no role choice on screen.
+- Move with WASD or the arrow keys; Space switches between normal (fast, loud) and sneaking (slow, quiet).
+- The top and bottom bars are gone. An eye opens as a guard gets close to seeing you, and your token fades in darkness.
+- Guards make footsteps: you hear them according to your Perception, and Q rolls to listen harder.
+- Torches and braziers are real objects that players can put out with E, and the GM can relight.
+
+### Stealth 2 (separate copy with more to do)
+- Click a guard to distract them with a Charisma check, taunt them into chasing you, or attack them with a weapon from your sheet. The GM rules on attacks, and a knocked-out guard stays down.
+- Shoot or throw something at a torch to put it out.
+- Guards notice when a light changes: they relight one that went out and investigate one that came on.
+- Relighting a torch yourself takes a match from a match table.
+- It keeps its own saved map and online rooms, separate from the first stealth page.
+- Tried in the offline sandbox; neither stealth page has been played in a real online room yet.
+
 ### Movement and Deck of Chance fixes
 - Players can move with WASD again right after signing in. Keyboard focus stays on the Sign in button after the login closes, and the key handler used to ignore WASD while a button had focus; in the old 3D view the canvas took focus, so nobody noticed. Free roam has the same fix.
 - Fixed a Deck of Chance error on every map load (the card buttons crashed when no draw was in progress).

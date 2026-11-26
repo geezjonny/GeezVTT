@@ -1,5 +1,21 @@
 # GeezVTT to-do
 
+## Stealth minigame - 2026-11-25
+
+Built in `stealth2.html` (a copy; `stealth.html` is unchanged).
+
+- [x] Distract a guard: optional Performance or other Charisma check that makes the guard turn to face that PC.
+- [x] Attack a guard.
+- [x] Relight torches and braziers: the PC has to fetch a match (or similar) from a table first.
+- [x] Shoot a light out with a projectile.
+- [x] Guards notice lighting changes.
+- [x] A way for a PC to make a guard chase them.
+- [ ] User verification in stealth2, including a real online room (player actions were only checked against a stand-in for Firebase).
+- [ ] A guard who sees a knocked-out guard raises the alarm and goes to fetch a replacement guard plus two more to drag the body out.
+- [ ] GM can click a guard during play to knock them out or remove them from the field, and spawn another one in.
+- [ ] GM can pause, edit the field and resume without the scene resetting (edit live while it runs).
+- [ ] Possible later additions: automatic guard AC and HP, ammunition and thrown-weapon tracking.
+
 ## Object editing, obelisks and windows - 2026-11-23
 
 - [x] Right-click Wall > Delete and Eraser swatches for walls, floors and doors, with stroke Undo/Redo and cancellation.

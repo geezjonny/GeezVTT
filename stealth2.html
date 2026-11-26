@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GeezVTT · Stealth 2</title>
+  <link rel="stylesheet" href="stealth2.css">
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <div id="actions"></div>
+  <div id="actMenu" class="hidden"></div>
+
+  <!-- Am I hidden? And which way am I moving? -->
+  <div id="stealth" class="hidden" data-state="hidden">
+    <svg id="eye" viewBox="0 0 64 40" aria-hidden="true">
+      <clipPath id="eyeClip"><path id="eyeShape"/></clipPath>
+      <g clip-path="url(#eyeClip)"><rect class="white" width="64" height="40"/><circle class="iris" cx="32" cy="20" r="10"/><circle class="pupil" cx="32" cy="20" r="4"/></g>
+      <path id="eyeLid"/>
+      <path id="eyeLashes" d="M15 27l-4 5M32 30v6M49 27l4 5"/>
+    </svg>
+    <span id="eyeText" role="status">Hidden</span>
+    <div class="pills">
+      <button id="sneakBtn" class="pill" type="button"><kbd>Space</kbd><span id="sneakText">Normal</span></button>
+      <button id="listenBtn" class="pill" type="button"><kbd>Q</kbd><span id="listenText">Listen</span></button>
+      <button id="tauntBtn" class="pill" type="button"><kbd>T</kbd><span id="tauntText">Taunt</span></button>
+      <span id="matchTag" class="pill tag hidden">Match in hand</span>
+    </div>
+    <span id="actTip"></span>
+  </div>
+
+  <div id="tools" class="hidden"></div>
+  <div id="panel" class="hidden"></div>
+  <div id="pauseBanner" class="banner hidden">Paused</div>
+  <div id="spotBox" class="banner hidden"></div>
+  <div id="gmHint" class="hidden"></div>
+  <div id="bigRoll" class="hidden"></div>
+  <input id="fileIn" type="file" class="hidden">
+
+  <!-- Lobby -->
+  <div id="lobby" class="overlay">
+    <div class="card">
+      <h1>Stealth 2</h1>
+      <p id="intro"></p>
+      <label id="lblPC" for="inPC">Choose character</label>
+      <select id="inPC" disabled><option value="">Choose character</option></select>
+      <div id="pcStatus" class="status" role="status"></div>
+      <button id="btnRetry" class="ghost hidden" type="button">Retry</button>
+      <div id="pcPreview" class="preview hidden">
+        <img id="pcArt" alt="">
+        <div><b id="pcName"></b><span id="pcFacts"></span></div>
+      </div>
+      <label for="inRoom">Room code</label>
+      <input id="inRoom" maxlength="20" placeholder="table1">
+      <div class="btns">
+        <button id="btnJoin" type="button" disabled>Join room</button>
+        <button id="btnSolo" class="ghost hidden" type="button">Sandbox (offline)</button>
+      </div>
+      <div id="err" role="alert"></div>
+      <p class="back"><a id="tabletop" href="index.html">Back to the tabletop</a></p>
+    </div>
+  </div>
+
+  <!-- Dice tray -->
+  <div id="tray" class="hidden">
+    <div class="tray-head"><b>Dice</b><button class="ghost small" id="trayClose" type="button" aria-label="Close dice">✕</button></div>
+    <div class="btns"><button id="dStealth" class="wide hidden" type="button">Stealth check</button></div>
+    <div class="dbtns" id="dbtns"></div>
+    <div class="row">
+      <div><label for="dCount">How many</label><input id="dCount" type="number" value="1" min="1" max="10"></div>
+      <div><label for="dMod">Modifier</label><input id="dMod" type="number" value="0"></div>
+    </div>
+    <label for="dNote">What for (optional)</label><input id="dNote" maxlength="40" placeholder="Stealth vs Brom">
+    <div class="mode"><button class="ghost" id="dAdv" type="button">Advantage</button><button class="ghost" id="dDis" type="button">Disadvantage</button></div>
+    <div class="btns"><button id="dRoll" class="wide" type="button">Roll</button></div>
+    <div id="log"></div>
+  </div>
+
+  <!-- Chest loot -->
+  <div id="lootBox" class="overlay hidden">
+    <div class="card centre">
+      <h2 id="lootTitle">Chest</h2>
+      <p id="lootText" class="loot"></p>
+      <div class="btns"><button id="lootClose" type="button">Close</button></div>
+    </div>
+  </div>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script type="module" src="js/stealth2-page.js"></script>
+</body>
+</html>
